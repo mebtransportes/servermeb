@@ -12,6 +12,11 @@ export type ManutencaoCard = {
   status: FrotaManutencaoStatus;
   motoristaNome?: string;
   veiculoPlaca?: string;
+  km?: number | null;
+  nota_fiscal_path?: string | null;
+  comprovante_path?: string | null;
+  nota_fiscal_nome?: string | null;
+  comprovante_nome?: string | null;
   viagemRecursoId?: string;
   frotaId?: string;
 };
@@ -27,6 +32,10 @@ export type AbastecimentoCard = {
   postoNome?: string;
   veiculoLabel?: string;
   motoristaNome?: string;
+  nota_fiscal_path?: string | null;
+  comprovante_path?: string | null;
+  nota_fiscal_nome?: string | null;
+  comprovante_nome?: string | null;
   viagemRecursoId?: string;
   frotaId?: string;
 };

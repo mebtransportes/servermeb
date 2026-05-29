@@ -17,6 +17,8 @@ import type { FrotaManutencaoStatus, ManutencaoCard } from "@/types/frota";
 import { formatarMoeda } from "@/lib/frota-filters";
 import { cn } from "@/lib/utils";
 import { Shield, Route } from "lucide-react";
+import { FrotaAnexosLinks } from "@/components/frota/frota-anexos-links";
+import { CardAcoes } from "@/components/frota/card-acoes";
 
 const COLUNAS: FrotaManutencaoStatus[] = ["AGENDADO", "EM ANDAMENTO", "FINALIZADO"];
 
@@ -26,7 +28,15 @@ const colunaStyle: Record<FrotaManutencaoStatus, string> = {
   FINALIZADO: "border-emerald-700/50 bg-emerald-950/20",
 };
 
-function DraggableCard({ item }: { item: ManutencaoCard }) {
+function DraggableCard({
+  item,
+  onEdit,
+  onDelete,
+}: {
+  item: ManutencaoCard;
+  onEdit: (item: ManutencaoCard) => void;
+  onDelete: (item: ManutencaoCard) => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: item.id });
 
@@ -45,12 +55,20 @@ function DraggableCard({ item }: { item: ManutencaoCard }) {
         isDragging && "opacity-40"
       )}
     >
-      <CardContent item={item} />
+      <CardContent item={item} onEdit={() => onEdit(item)} onDelete={() => onDelete(item)} />
     </div>
   );
 }
 
-function CardContent({ item }: { item: ManutencaoCard }) {
+function CardContent({
+  item,
+  onEdit,
+  onDelete,
+}: {
+  item: ManutencaoCard;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}) {
   return (
     <>
       <div className="mb-2 flex items-start justify-between gap-2">
@@ -75,8 +93,12 @@ function CardContent({ item }: { item: ManutencaoCard }) {
         <p className="mt-1 text-xs text-cyan-400/80">Motorista: {item.motoristaNome}</p>
       )}
       {item.veiculoPlaca && (
-        <p className="text-xs text-slate-500">Veículo: {item.veiculoPlaca}</p>
+        <p className="mt-1 text-xs font-medium text-slate-300">Veículo: {item.veiculoPlaca}</p>
       )}
+      {item.km != null && (
+        <p className="text-xs text-cyan-400/90">KM: {item.km.toLocaleString("pt-BR")}</p>
+      )}
+      <FrotaAnexosLinks anexos={item} />
       <div className="mt-2 flex items-center justify-between text-xs">
         <span className="text-slate-400">
           {item.dataRef}
@@ -84,6 +106,7 @@ function CardContent({ item }: { item: ManutencaoCard }) {
         </span>
         <span className="font-semibold text-emerald-400">{formatarMoeda(item.valor)}</span>
       </div>
+      {onEdit && onDelete && <CardAcoes onEdit={onEdit} onDelete={onDelete} />}
     </>
   );
 }
@@ -91,9 +114,13 @@ function CardContent({ item }: { item: ManutencaoCard }) {
 function DroppableColumn({
   status,
   items,
+  onEdit,
+  onDelete,
 }: {
   status: FrotaManutencaoStatus;
   items: ManutencaoCard[];
+  onEdit: (item: ManutencaoCard) => void;
+  onDelete: (item: ManutencaoCard) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
 
@@ -114,7 +141,7 @@ function DroppableColumn({
       </h3>
       <div className="flex flex-1 flex-col gap-2">
         {items.map((item) => (
-          <DraggableCard key={item.id} item={item} />
+          <DraggableCard key={item.id} item={item} onEdit={onEdit} onDelete={onDelete} />
         ))}
       </div>
     </div>
@@ -124,9 +151,13 @@ function DroppableColumn({
 export function ManutencaoKanban({
   items,
   onMoved,
+  onEdit,
+  onDelete,
 }: {
   items: ManutencaoCard[];
   onMoved: () => void;
+  onEdit: (item: ManutencaoCard) => void;
+  onDelete: (item: ManutencaoCard) => void;
 }) {
   const [active, setActive] = useState<ManutencaoCard | null>(null);
   const sensors = useSensors(
@@ -174,7 +205,13 @@ export function ManutencaoKanban({
     >
       <div className="grid gap-4 lg:grid-cols-3">
         {COLUNAS.map((col) => (
-          <DroppableColumn key={col} status={col} items={porColuna(col)} />
+          <DroppableColumn
+            key={col}
+            status={col}
+            items={porColuna(col)}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
         ))}
       </div>
       <DragOverlay>

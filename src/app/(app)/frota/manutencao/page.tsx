@@ -8,6 +8,7 @@ import { StatsCards, buildManutencaoStats } from "@/components/frota/stats-cards
 import { ManutencaoKanban } from "@/components/frota/manutencao-kanban";
 import { ManutencaoForm } from "@/components/frota/manutencao-form";
 import { fetchManutencoes } from "@/lib/frota-data";
+import { excluirManutencao } from "@/lib/frota-crud";
 import { dataNoPeriodo, PERIODOS, type PeriodoFiltro } from "@/lib/frota-filters";
 import type { FrotaManutencaoStatus, ManutencaoCard } from "@/types/frota";
 
@@ -16,6 +17,7 @@ export default function FrotaManutencaoPage() {
   const [periodo, setPeriodo] = useState<PeriodoFiltro>("mes");
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingItem, setEditingItem] = useState<ManutencaoCard | null>(null);
   const [statusForm, setStatusForm] = useState<FrotaManutencaoStatus>("AGENDADO");
 
   const load = useCallback(async () => {
@@ -44,6 +46,32 @@ export default function FrotaManutencaoPage() {
     periodoLabel
   );
 
+  function abrirNovo() {
+    setEditingItem(null);
+    setStatusForm("AGENDADO");
+    setShowForm(true);
+  }
+
+  function abrirEdicao(item: ManutencaoCard) {
+    setEditingItem(item);
+    setShowForm(true);
+  }
+
+  async function handleExcluir(item: ManutencaoCard) {
+    const label = item.source === "viagem" ? "registro da viagem" : "manutenção preventiva";
+    if (!confirm(`Excluir esta ${label}? Esta ação não pode ser desfeita.`)) return;
+    const err = await excluirManutencao(item);
+    if (err) {
+      alert(err);
+      return;
+    }
+    if (editingItem?.id === item.id) {
+      setShowForm(false);
+      setEditingItem(null);
+    }
+    load();
+  }
+
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -52,18 +80,12 @@ export default function FrotaManutencaoPage() {
           <div>
             <h1 className="text-2xl font-bold">Manutenção</h1>
             <p className="text-slate-400">
-              Arraste entre colunas · Preventivas e viagens integradas
+              Arraste entre colunas · Edite ou exclua nos cards
             </p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setStatusForm("AGENDADO");
-              setShowForm(true);
-            }}
-          >
+          <Button variant="secondary" onClick={abrirNovo}>
             <Plus className="h-4 w-4" />
             Nova manutenção
           </Button>
@@ -75,12 +97,17 @@ export default function FrotaManutencaoPage() {
 
       {showForm && (
         <ManutencaoForm
-          statusInicial={statusForm}
+          item={editingItem ?? undefined}
+          statusInicial={editingItem?.status ?? statusForm}
           onSaved={() => {
             setShowForm(false);
+            setEditingItem(null);
             load();
           }}
-          onCancel={() => setShowForm(false)}
+          onCancel={() => {
+            setShowForm(false);
+            setEditingItem(null);
+          }}
         />
       )}
 
@@ -91,7 +118,12 @@ export default function FrotaManutencaoPage() {
       {loading ? (
         <p className="text-slate-400">Carregando...</p>
       ) : (
-        <ManutencaoKanban items={filtrados} onMoved={load} />
+        <ManutencaoKanban
+          items={filtrados}
+          onMoved={load}
+          onEdit={abrirEdicao}
+          onDelete={handleExcluir}
+        />
       )}
     </div>
   );

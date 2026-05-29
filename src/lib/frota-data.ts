@@ -7,10 +7,11 @@ export async function fetchManutencoes(): Promise<ManutencaoCard[]> {
 
   const { data: preventivas } = await supabase
     .from("frota_manutencoes")
-    .select("*")
+    .select("*, veiculos(nome, placa)")
     .order("data_agendada", { ascending: false });
 
   for (const m of preventivas ?? []) {
+    const veic = m.veiculos as { nome: string; placa: string } | null;
     cards.push({
       id: `frota-${m.id}`,
       frotaId: m.id,
@@ -22,6 +23,12 @@ export async function fetchManutencoes(): Promise<ManutencaoCard[]> {
       horaRef: m.hora_agendada,
       valor: Number(m.valor_total),
       status: m.status as FrotaManutencaoStatus,
+      veiculoPlaca: veic ? `${veic.nome} — ${veic.placa}` : undefined,
+      km: m.km_veiculo ? Number(m.km_veiculo) : null,
+      nota_fiscal_path: m.nota_fiscal_path,
+      comprovante_path: m.comprovante_path,
+      nota_fiscal_nome: m.nota_fiscal_nome,
+      comprovante_nome: m.comprovante_nome,
     });
   }
 
@@ -29,7 +36,8 @@ export async function fetchManutencoes(): Promise<ManutencaoCard[]> {
     .from("viagem_recursos")
     .select(
       `
-      id, valor, descricao, realizado_em, status_frota, oficina_id,
+      id, valor, descricao, realizado_em, status_frota, oficina_id, km_veiculo,
+      nota_fiscal_path, comprovante_path, nota_fiscal_nome, comprovante_nome,
       viagens (
         motoristas ( nome_completo ),
         veiculos ( placa, nome )
@@ -62,6 +70,11 @@ export async function fetchManutencoes(): Promise<ManutencaoCard[]> {
       status: (r.status_frota as FrotaManutencaoStatus) ?? "FINALIZADO",
       motoristaNome: v?.motoristas?.nome_completo,
       veiculoPlaca: v?.veiculos ? `${v.veiculos.nome} (${v.veiculos.placa})` : undefined,
+      km: r.km_veiculo ? Number(r.km_veiculo) : null,
+      nota_fiscal_path: r.nota_fiscal_path,
+      comprovante_path: r.comprovante_path,
+      nota_fiscal_nome: r.nota_fiscal_nome,
+      comprovante_nome: r.comprovante_nome,
     });
   }
 
@@ -91,6 +104,10 @@ export async function fetchAbastecimentos(): Promise<AbastecimentoCard[]> {
       dataHora: a.data_hora,
       postoNome: posto?.nome,
       veiculoLabel: veic ? `${veic.nome} — ${veic.placa}` : undefined,
+      nota_fiscal_path: a.nota_fiscal_path,
+      comprovante_path: a.comprovante_path,
+      nota_fiscal_nome: a.nota_fiscal_nome,
+      comprovante_nome: a.comprovante_nome,
     });
   }
 
@@ -99,6 +116,7 @@ export async function fetchAbastecimentos(): Promise<AbastecimentoCard[]> {
     .select(
       `
       id, valor, descricao, realizado_em, km_abastecimento,
+      nota_fiscal_path, comprovante_path, nota_fiscal_nome, comprovante_nome,
       postos ( nome ),
       viagens (
         motoristas ( nome_completo ),
@@ -128,6 +146,10 @@ export async function fetchAbastecimentos(): Promise<AbastecimentoCard[]> {
       postoNome: posto?.nome,
       motoristaNome: v?.motoristas?.nome_completo,
       veiculoLabel: v?.veiculos ? `${v.veiculos.nome} — ${v.veiculos.placa}` : undefined,
+      nota_fiscal_path: r.nota_fiscal_path,
+      comprovante_path: r.comprovante_path,
+      nota_fiscal_nome: r.nota_fiscal_nome,
+      comprovante_nome: r.comprovante_nome,
     });
   }
 

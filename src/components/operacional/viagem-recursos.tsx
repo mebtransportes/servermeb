@@ -10,6 +10,8 @@ import { uploadFile, getFileUrl } from "@/lib/storage";
 import type { ViagemRecursoTipo } from "@/types";
 import { Plus, FileText } from "lucide-react";
 import { FileUploadMultiple } from "@/components/ui/file-upload";
+import { AnexosFrotaCampos } from "@/components/frota/anexos-campos";
+import { salvarAnexosFrota } from "@/lib/frota-anexos";
 
 type Recurso = {
   id: string;
@@ -42,7 +44,9 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
   const [postoId, setPostoId] = useState("");
   const [oficinaId, setOficinaId] = useState("");
   const [realizadoEm, setRealizadoEm] = useState("");
-  const [kmAbastecimento, setKmAbastecimento] = useState("");
+  const [kmVeiculo, setKmVeiculo] = useState("");
+  const [notaFiscal, setNotaFiscal] = useState<File | null>(null);
+  const [comprovante, setComprovante] = useState<File | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -80,12 +84,13 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
       descricao: descricao || null,
       posto_id: tipo === "abastecimento" && postoId ? postoId : null,
       oficina_id: tipo === "manutencao" && oficinaId ? oficinaId : null,
-      km_abastecimento:
-        tipo === "abastecimento" && kmAbastecimento
-          ? parseFloat(kmAbastecimento)
-          : null,
       realizado_em: new Date(realizadoEm).toISOString(),
     };
+    if (kmVeiculo) {
+      const km = parseFloat(kmVeiculo);
+      if (tipo === "abastecimento") payload.km_abastecimento = km;
+      else if (tipo === "manutencao") payload.km_veiculo = km;
+    }
     if (tipo === "manutencao") payload.status_frota = "FINALIZADO";
 
     const { data: recurso, error } = await supabase
@@ -97,6 +102,15 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
     if (error || !recurso) {
       setSaving(false);
       return;
+    }
+
+    if (notaFiscal || comprovante) {
+      const anexos = await salvarAnexosFrota(
+        `viagens/${viagemId}/recursos/${recurso.id}`,
+        notaFiscal,
+        comprovante
+      );
+      await supabase.from("viagem_recursos").update(anexos).eq("id", recurso.id);
     }
 
     for (const file of files) {
@@ -121,7 +135,9 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
     setPostoId("");
     setOficinaId("");
     setRealizadoEm("");
-    setKmAbastecimento("");
+    setKmVeiculo("");
+    setNotaFiscal(null);
+    setComprovante(null);
     setFiles([]);
     setSaving(false);
     load();
@@ -166,25 +182,26 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
               required
             />
           </div>
+          {(tipo === "abastecimento" || tipo === "manutencao") && (
+            <Input
+              label="Quilometragem do veículo (opcional)"
+              type="number"
+              step="0.1"
+              value={kmVeiculo}
+              onChange={(e) => setKmVeiculo(e.target.value)}
+              placeholder="Ex: 125430"
+            />
+          )}
           {tipo === "abastecimento" && (
-            <>
-              <Select
-                label="Posto"
-                value={postoId}
-                onChange={(e) => setPostoId(e.target.value)}
-                options={[
-                  { value: "", label: "Selecione ou deixe em branco" },
-                  ...postos.map((p) => ({ value: p.id, label: p.nome })),
-                ]}
-              />
-              <Input
-                label="KM no abastecimento"
-                type="number"
-                step="0.1"
-                value={kmAbastecimento}
-                onChange={(e) => setKmAbastecimento(e.target.value)}
-              />
-            </>
+            <Select
+              label="Posto"
+              value={postoId}
+              onChange={(e) => setPostoId(e.target.value)}
+              options={[
+                { value: "", label: "Selecione ou deixe em branco" },
+                ...postos.map((p) => ({ value: p.id, label: p.nome })),
+              ]}
+            />
           )}
           {tipo === "manutencao" && (
             <Select
@@ -207,8 +224,14 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
                 : ""
             }
           />
+          <AnexosFrotaCampos
+            notaFiscal={notaFiscal}
+            comprovante={comprovante}
+            onNotaFiscalChange={setNotaFiscal}
+            onComprovanteChange={setComprovante}
+          />
           <FileUploadMultiple
-            label="Comprovantes (PDF ou foto)"
+            label="Outros anexos (opcional)"
             files={files}
             onChange={setFiles}
           />
