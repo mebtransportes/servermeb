@@ -10,6 +10,7 @@ import { getFileUrl } from "@/lib/storage";
 import type { Viagem, ViagemStatus } from "@/types";
 import { FileText, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
 
 const statusColors: Record<string, string> = {
   "EM ANDAMENTO": "bg-blue-900/50 text-blue-300",
@@ -73,6 +74,10 @@ export function ViagemDetail({
     setSaving(true);
     const supabase = createClient();
     await supabase.from("viagens").update({ status }).eq("id", viagemId);
+    if (status === "FINALIZADO") {
+      const err = await syncFechamentoViagem(viagemId);
+      if (err) console.warn("Fechamento:", err);
+    }
     setSaving(false);
     onUpdated();
     load();
@@ -151,6 +156,20 @@ export function ViagemDetail({
               ? `R$ ${Number(viagem.valor_mercadoria).toLocaleString("pt-BR")}`
               : "—"}
           </dd>
+        </div>
+        <div>
+          <dt className="text-slate-500">Valor do frete</dt>
+          <dd className="font-medium text-emerald-400">
+            {viagem.valor_frete != null
+              ? `R$ ${Number(viagem.valor_frete).toLocaleString("pt-BR", {
+                  minimumFractionDigits: 2,
+                })}`
+              : "—"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-slate-500">Número do CTE</dt>
+          <dd className="font-mono text-cyan-300">{viagem.numero_cte ?? "—"}</dd>
         </div>
       </dl>
 

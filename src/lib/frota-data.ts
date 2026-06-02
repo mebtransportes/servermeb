@@ -115,7 +115,7 @@ export async function fetchAbastecimentos(): Promise<AbastecimentoCard[]> {
     .from("viagem_recursos")
     .select(
       `
-      id, valor, descricao, realizado_em, km_abastecimento,
+      id, valor, descricao, realizado_em, km_abastecimento, litros,
       nota_fiscal_path, comprovante_path, nota_fiscal_nome, comprovante_nome,
       postos ( nome ),
       viagens (
@@ -141,6 +141,7 @@ export async function fetchAbastecimentos(): Promise<AbastecimentoCard[]> {
       source: "viagem",
       valor: Number(r.valor),
       km: r.km_abastecimento ? Number(r.km_abastecimento) : null,
+      litros: r.litros ? Number(r.litros) : null,
       descricao: r.descricao,
       dataHora: r.realizado_em,
       postoNome: posto?.nome,

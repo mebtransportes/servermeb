@@ -1,0 +1,104 @@
+export type ViagemFechamento = {
+  id: string;
+  viagem_id: string;
+  motorista_id: string;
+  motorista_nome: string;
+  data_embarque: string;
+  local_embarque: string;
+  veiculo_label: string;
+  numero_cte?: string | null;
+  destino?: string | null;
+  km_total?: number | null;
+  abastecimento_litros: number;
+  abastecimento_valor: number;
+  arla_valor: number;
+  manutencao_total: number;
+  pedagio_valor: number;
+  reembolso_valor: number;
+  valor_frete: number;
+  frete_liquido: number;
+  comissao_final: number;
+  icms_percent?: number | null;
+  comissao_tipo?: "PERCENTUAL" | "LIQUIDO_TOTAL" | null;
+  comissao_percent?: number | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export const ICMS_FRETE_PERCENT = 12;
+export const COMISSAO_MOTORISTA_PERCENT = 12;
+
+/** Gastos operacionais da viagem (sem reembolso). */
+export function totalDespesasFechamento(f: ViagemFechamento) {
+  return (
+    f.abastecimento_valor +
+    f.arla_valor +
+    f.manutencao_total +
+    f.pedagio_valor
+  );
+}
+
+function clampPercent(v: number) {
+  if (!Number.isFinite(v)) return 0;
+  return Math.max(0, Math.min(100, v));
+}
+
+export function getIcmsPercent(f: Pick<ViagemFechamento, "icms_percent">) {
+  const v = Number(f.icms_percent);
+  return Number.isFinite(v) ? clampPercent(v) : ICMS_FRETE_PERCENT;
+}
+
+export function getComissaoPercent(
+  f: Pick<ViagemFechamento, "comissao_percent" | "comissao_tipo">
+) {
+  if (f.comissao_tipo === "LIQUIDO_TOTAL") return 100;
+  const v = Number(f.comissao_percent);
+  return Number.isFinite(v) ? clampPercent(v) : COMISSAO_MOTORISTA_PERCENT;
+}
+
+/** Frete líquido: frete bruto menos o ICMS configurado na viagem (padrão 12%). */
+export function calcularFreteLiquido(valorFrete: number, icmsPercent: number) {
+  return valorFrete * (1 - clampPercent(icmsPercent) / 100);
+}
+
+/** Comissão (sem reembolso): % configurado sobre o frete líquido. */
+export function calcularTotalComissao(
+  freteLiquido: number,
+  comissaoPercent: number,
+  comissaoTipo?: "PERCENTUAL" | "LIQUIDO_TOTAL" | null
+) {
+  if (comissaoTipo === "LIQUIDO_TOTAL") return freteLiquido;
+  return freteLiquido * (clampPercent(comissaoPercent) / 100);
+}
+
+/** Comissão final = total comissão + reembolso ao motorista. */
+export function calcularComissaoFinal(totalComissao: number, reembolso: number) {
+  return totalComissao + (Number(reembolso) || 0);
+}
+
+export function calcularComissionamento(opts: {
+  valorFrete: number;
+  icmsPercent: number;
+  comissaoPercent: number;
+  comissaoTipo?: "PERCENTUAL" | "LIQUIDO_TOTAL" | null;
+  reembolso: number;
+}) {
+  const frete_liquido = calcularFreteLiquido(opts.valorFrete, opts.icmsPercent);
+  const total_comissao = calcularTotalComissao(
+    frete_liquido,
+    opts.comissaoPercent,
+    opts.comissaoTipo
+  );
+  const comissao_final = calcularComissaoFinal(total_comissao, opts.reembolso);
+  return { frete_liquido, total_comissao, comissao_final };
+}
+
+export function totalComissaoFromFechamento(f: ViagemFechamento) {
+  const icms = getIcmsPercent(f);
+  const freteLiq = calcularFreteLiquido(Number(f.valor_frete) || 0, icms);
+  return calcularTotalComissao(
+    freteLiq,
+    getComissaoPercent(f),
+    (f.comissao_tipo ?? "PERCENTUAL") as "PERCENTUAL" | "LIQUIDO_TOTAL"
+  );
+}

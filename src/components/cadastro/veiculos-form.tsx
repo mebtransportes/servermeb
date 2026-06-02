@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
+import { BrNumberInput } from "@/components/ui/br-number-input";
+import { parseBrNumber, rawNumberStringToBrInput } from "@/lib/number-format";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { uploadPdf, getPdfUrl } from "@/lib/storage";
@@ -31,10 +33,10 @@ export function VeiculosForm({
   const [quitado, setQuitado] = useState(veiculo?.quitado ?? true);
   const [financiado, setFinanciado] = useState(veiculo?.financiado ?? false);
   const [parcelas, setParcelas] = useState(
-    veiculo?.parcelas_restantes?.toString() ?? ""
+    rawNumberStringToBrInput(veiculo?.parcelas_restantes, 0)
   );
   const [diaParcela, setDiaParcela] = useState(
-    veiculo?.dia_vencimento_parcela?.toString() ?? ""
+    rawNumberStringToBrInput(veiculo?.dia_vencimento_parcela, 0)
   );
   const [camposCustom, setCamposCustom] = useState<VeiculoCampoCustom[]>(
     veiculo?.campos ?? []
@@ -73,9 +75,9 @@ export function VeiculosForm({
       quitado,
       financiado: financiado && !quitado,
       parcelas_restantes:
-        financiado && parcelas ? parseInt(parcelas, 10) : null,
+        financiado && parcelas ? parseBrNumber(parcelas) : null,
       dia_vencimento_parcela:
-        financiado && diaParcela ? parseInt(diaParcela, 10) : null,
+        financiado && diaParcela ? parseBrNumber(diaParcela) : null,
       created_by: user?.id,
     };
 
@@ -174,20 +176,17 @@ export function VeiculosForm({
 
       {financiado && !quitado && (
         <div className="grid gap-4 sm:grid-cols-2">
-          <Input
+          <BrNumberInput
             label="Parcelas restantes"
-            type="number"
-            min={1}
+            decimalPlaces={0}
             value={parcelas}
-            onChange={(e) => setParcelas(e.target.value)}
+            onChange={setParcelas}
           />
-          <Input
+          <BrNumberInput
             label="Dia de vencimento da parcela"
-            type="number"
-            min={1}
-            max={31}
+            decimalPlaces={0}
             value={diaParcela}
-            onChange={(e) => setDiaParcela(e.target.value)}
+            onChange={setDiaParcela}
           />
         </div>
       )}

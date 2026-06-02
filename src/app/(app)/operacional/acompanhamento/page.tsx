@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { MapPinned } from "lucide-react";
 import { ViagemDetail } from "@/components/operacional/viagem-detail";
@@ -8,10 +9,26 @@ import { cn } from "@/lib/utils";
 import type { Viagem } from "@/types";
 
 export default function AcompanhamentoPage() {
+  return (
+    <Suspense fallback={<p className="text-slate-400">Carregando...</p>}>
+      <AcompanhamentoContent />
+    </Suspense>
+  );
+}
+
+function AcompanhamentoContent() {
+  const searchParams = useSearchParams();
+  const statusUrl = searchParams.get("status") ?? "";
+
   const [viagens, setViagens] = useState<Viagem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filtroStatus, setFiltroStatus] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState(statusUrl);
+
+  useEffect(() => {
+    setFiltroStatus(statusUrl);
+    setLoading(true);
+  }, [statusUrl]);
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -119,3 +136,4 @@ export default function AcompanhamentoPage() {
     </div>
   );
 }
+

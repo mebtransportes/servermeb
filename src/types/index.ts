@@ -54,7 +54,13 @@ export type ViagemStatus =
   | "FINALIZADO";
 
 export type ViagemTipoTrajeto = "ida" | "volta" | "ida_volta";
-export type ViagemRecursoTipo = "abastecimento" | "manutencao" | "outro";
+export type ViagemRecursoTipo =
+  | "abastecimento"
+  | "manutencao"
+  | "reembolso"
+  | "pedagio"
+  | "arla"
+  | "outro";
 
 export interface Viagem {
   id: string;
@@ -66,6 +72,8 @@ export interface Viagem {
   tipo_trajeto: ViagemTipoTrajeto;
   peso_kg?: number | null;
   valor_mercadoria?: number | null;
+  valor_frete?: number | null;
+  numero_cte?: string | null;
   descricao_mercadoria?: string | null;
   km_total?: number | null;
   status: ViagemStatus;

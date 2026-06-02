@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
+import { BrNumberInput } from "@/components/ui/br-number-input";
+import { parseBrNumber, rawNumberStringToBrInput } from "@/lib/number-format";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -65,9 +67,9 @@ export function AbastecimentoForm({
       setViagemRecursoId(d.viagemRecursoId);
       setVeiculoId(d.veiculoId);
       setPostoId(d.postoId);
-      setKm(d.km);
-      setLitros(d.litros);
-      setValor(d.valor);
+      setKm(rawNumberStringToBrInput(d.km, 0));
+      setLitros(rawNumberStringToBrInput(d.litros, 2));
+      setValor(rawNumberStringToBrInput(d.valor, 2));
       setDescricao(d.descricao);
       setDataHora(d.dataHora);
       setAnexosExistentes({
@@ -112,9 +114,9 @@ export function AbastecimentoForm({
         .update({
           veiculo_id: veiculoId || null,
           posto_id: postoId || null,
-          km_abastecimento: km ? parseFloat(km) : null,
-          litros: litros ? parseFloat(litros) : null,
-          valor: parseFloat(valor) || 0,
+          km_abastecimento: parseBrNumber(km),
+          litros: parseBrNumber(litros),
+          valor: parseBrNumber(valor) ?? 0,
           descricao: descricao || null,
           data_hora: new Date(dataHora).toISOString(),
           ...anexosPayload,
@@ -134,8 +136,9 @@ export function AbastecimentoForm({
         .from("viagem_recursos")
         .update({
           posto_id: postoId || null,
-          km_abastecimento: km ? parseFloat(km) : null,
-          valor: parseFloat(valor) || 0,
+          km_abastecimento: parseBrNumber(km),
+          litros: parseBrNumber(litros),
+          valor: parseBrNumber(valor) ?? 0,
           descricao: descricao || null,
           realizado_em: new Date(dataHora).toISOString(),
           ...anexosPayload,
@@ -159,9 +162,9 @@ export function AbastecimentoForm({
       .insert({
         veiculo_id: veiculoId || null,
         posto_id: postoId || null,
-        km_abastecimento: km ? parseFloat(km) : null,
-        litros: litros ? parseFloat(litros) : null,
-        valor: parseFloat(valor) || 0,
+        km_abastecimento: parseBrNumber(km),
+        litros: parseBrNumber(litros),
+        valor: parseBrNumber(valor) ?? 0,
         descricao: descricao || null,
         data_hora: new Date(dataHora).toISOString(),
         origem: "manual",
@@ -228,27 +231,24 @@ export function AbastecimentoForm({
             ...postos.map((p) => ({ value: p.id, label: p.nome })),
           ]}
         />
-        <Input
+        <BrNumberInput
           label="Quilometragem do veículo (opcional)"
-          type="number"
-          step="0.1"
+          decimalPlaces={0}
           value={km}
-          onChange={(e) => setKm(e.target.value)}
-          placeholder="Ex: 125430"
+          onChange={setKm}
+          placeholder="Ex: 125.430"
         />
-        <Input
+        <BrNumberInput
           label="Litros (opcional)"
-          type="number"
-          step="0.01"
+          decimalPlaces={2}
           value={litros}
-          onChange={(e) => setLitros(e.target.value)}
+          onChange={setLitros}
         />
-        <Input
+        <BrNumberInput
           label="Valor (R$)"
-          type="number"
-          step="0.01"
+          decimalPlaces={2}
           value={valor}
-          onChange={(e) => setValor(e.target.value)}
+          onChange={setValor}
           required
         />
         <Input

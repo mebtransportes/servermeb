@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Wrench, Plus } from "lucide-react";
+import { Wrench, Plus, FileBarChart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PeriodoFilter } from "@/components/frota/periodo-filter";
 import { StatsCards, buildManutencaoStats } from "@/components/frota/stats-cards";
 import { ManutencaoKanban } from "@/components/frota/manutencao-kanban";
 import { ManutencaoForm } from "@/components/frota/manutencao-form";
+import { FrotaRelatorioModal } from "@/components/frota/frota-relatorio-modal";
 import { fetchManutencoes } from "@/lib/frota-data";
 import { excluirManutencao } from "@/lib/frota-crud";
 import { dataNoPeriodo, PERIODOS, type PeriodoFiltro } from "@/lib/frota-filters";
@@ -19,6 +20,7 @@ export default function FrotaManutencaoPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<ManutencaoCard | null>(null);
   const [statusForm, setStatusForm] = useState<FrotaManutencaoStatus>("AGENDADO");
+  const [showRelatorio, setShowRelatorio] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -85,6 +87,10 @@ export default function FrotaManutencaoPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => setShowRelatorio(true)}>
+            <FileBarChart className="h-4 w-4" />
+            Relatórios
+          </Button>
           <Button variant="secondary" onClick={abrirNovo}>
             <Plus className="h-4 w-4" />
             Nova manutenção
@@ -114,6 +120,13 @@ export default function FrotaManutencaoPage() {
       <p className="text-xs text-slate-500">
         Arraste os cards entre Agendado, Em andamento e Finalizado para atualizar o status.
       </p>
+
+      <FrotaRelatorioModal
+        tipo="manutencao"
+        itens={items}
+        open={showRelatorio}
+        onClose={() => setShowRelatorio(false)}
+      />
 
       {loading ? (
         <p className="text-slate-400">Carregando...</p>

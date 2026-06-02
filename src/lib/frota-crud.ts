@@ -184,7 +184,7 @@ export async function carregarAbastecimentoEdicao(
       veiculoId: viagem?.veiculo_id ?? "",
       postoId: data.posto_id ?? "",
       km: data.km_abastecimento?.toString() ?? "",
-      litros: "",
+      litros: data.litros?.toString() ?? "",
       valor: String(data.valor),
       descricao: data.descricao ?? "",
       dataHora: local,

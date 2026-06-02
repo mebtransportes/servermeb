@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Fuel, Plus, Route, ClipboardList } from "lucide-react";
+import { Fuel, Plus, Route, ClipboardList, FileBarChart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PeriodoFilter } from "@/components/frota/periodo-filter";
 import { StatsCards, buildAbastecimentoStats } from "@/components/frota/stats-cards";
@@ -13,6 +13,7 @@ import { dataNoPeriodo, formatarMoeda, PERIODOS, type PeriodoFiltro } from "@/li
 import type { AbastecimentoCard } from "@/types/frota";
 import { cn } from "@/lib/utils";
 import { FrotaAnexosLinks } from "@/components/frota/frota-anexos-links";
+import { FrotaRelatorioModal } from "@/components/frota/frota-relatorio-modal";
 
 export default function FrotaAbastecimentosPage() {
   const [items, setItems] = useState<AbastecimentoCard[]>([]);
@@ -20,6 +21,7 @@ export default function FrotaAbastecimentosPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<AbastecimentoCard | null>(null);
+  const [showRelatorio, setShowRelatorio] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -77,10 +79,16 @@ export default function FrotaAbastecimentosPage() {
             <p className="text-slate-400">Manual e registros das viagens · Editar ou excluir nos cards</p>
           </div>
         </div>
-        <Button onClick={abrirNovo}>
-          <Plus className="h-4 w-4" />
-          Novo abastecimento
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => setShowRelatorio(true)}>
+            <FileBarChart className="h-4 w-4" />
+            Relatórios
+          </Button>
+          <Button onClick={abrirNovo}>
+            <Plus className="h-4 w-4" />
+            Novo abastecimento
+          </Button>
+        </div>
       </header>
 
       <PeriodoFilter value={periodo} onChange={setPeriodo} />
@@ -100,6 +108,13 @@ export default function FrotaAbastecimentosPage() {
           }}
         />
       )}
+
+      <FrotaRelatorioModal
+        tipo="abastecimento"
+        itens={items}
+        open={showRelatorio}
+        onClose={() => setShowRelatorio(false)}
+      />
 
       {loading ? (
         <p className="text-slate-400">Carregando...</p>

@@ -22,7 +22,7 @@ import {
   Route,
   MapPinned,
   FileText,
-  BarChart3,
+  Wallet,
   LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -57,7 +57,6 @@ const mainNav: NavItem[] = [
       { href: "/frota/manutencao", label: "Manutenção", icon: Wrench },
       { href: "/frota/documentacao", label: "Documentação", icon: FileText },
       { href: "/frota/abastecimentos", label: "Abastecimentos", icon: Fuel },
-      { href: "/frota/relatorios", label: "Relatórios", icon: BarChart3 },
     ],
   },
   {
@@ -73,7 +72,18 @@ const mainNav: NavItem[] = [
       { href: "/cadastro/fornecedores", label: "Fornecedores", icon: Package },
     ],
   },
-  { href: "/financeiro", label: "Financeiro", icon: DollarSign },
+  {
+    label: "Financeiro",
+    icon: DollarSign,
+    prefix: "/financeiro",
+    children: [
+      { href: "/financeiro", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/financeiro/custos-operacionais", label: "Custos Operacionais", icon: Fuel },
+      { href: "/financeiro/custos-empresariais", label: "Custos Empresariais", icon: Building2 },
+      { href: "/financeiro/fechamento-viagens", label: "Fechamento de Viagens", icon: Route },
+      { href: "/financeiro/controle-gastos", label: "Controle de Gastos", icon: Wallet },
+    ],
+  },
 ];
 
 function NavGroupItem({
@@ -136,6 +146,7 @@ export function Sidebar({ username }: { username: string }) {
     Operacional: pathname.startsWith("/operacional"),
     Frota: pathname.startsWith("/frota"),
     Cadastro: pathname.startsWith("/cadastro"),
+    Financeiro: pathname.startsWith("/financeiro"),
   }));
 
   function toggleGroup(label: string) {

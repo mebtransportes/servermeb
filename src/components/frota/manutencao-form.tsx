@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
+import { BrNumberInput } from "@/components/ui/br-number-input";
+import { parseBrNumber, rawNumberStringToBrInput } from "@/lib/number-format";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -73,10 +75,10 @@ export function ManutencaoForm({
       setOnde(d.onde);
       setOficinaId(d.oficinaId);
       setVeiculoId(d.veiculoId);
-      setKmVeiculo(d.kmVeiculo);
+      setKmVeiculo(rawNumberStringToBrInput(d.kmVeiculo, 0));
       setData(d.data);
       setHora(d.hora);
-      setValor(d.valor);
+      setValor(rawNumberStringToBrInput(d.valor, 2));
       setStatus(d.status);
       setAnexosExistentes({
         nota_fiscal_path: d.nota_fiscal_path,
@@ -130,10 +132,10 @@ export function ManutencaoForm({
           onde: onde || "Não informado",
           oficina_id: oficinaId || null,
           veiculo_id: veiculoId || null,
-          km_veiculo: kmVeiculo ? parseFloat(kmVeiculo) : null,
+          km_veiculo: parseBrNumber(kmVeiculo),
           data_agendada: data,
           hora_agendada: hora || null,
-          valor_total: parseFloat(valor) || 0,
+          valor_total: parseBrNumber(valor) ?? 0,
           status,
           ...anexosPayload,
         })
@@ -155,9 +157,9 @@ export function ManutencaoForm({
         .from("viagem_recursos")
         .update({
           descricao: nome,
-          valor: parseFloat(valor) || 0,
+          valor: parseBrNumber(valor) ?? 0,
           oficina_id: oficinaId || null,
-          km_veiculo: kmVeiculo ? parseFloat(kmVeiculo) : null,
+          km_veiculo: parseBrNumber(kmVeiculo),
           realizado_em: realizado.toISOString(),
           status_frota: status,
           ...anexosPayload,
@@ -184,10 +186,10 @@ export function ManutencaoForm({
         onde: onde || "Não informado",
         oficina_id: oficinaId || null,
         veiculo_id: veiculoId || null,
-        km_veiculo: kmVeiculo ? parseFloat(kmVeiculo) : null,
+        km_veiculo: parseBrNumber(kmVeiculo),
         data_agendada: data,
         hora_agendada: hora || null,
-        valor_total: parseFloat(valor) || 0,
+        valor_total: parseBrNumber(valor) ?? 0,
         status,
         origem: "preventiva",
         created_by: user?.id,
@@ -258,13 +260,12 @@ export function ManutencaoForm({
             ]}
           />
         )}
-        <Input
+        <BrNumberInput
           label="Quilometragem do veículo (opcional)"
-          type="number"
-          step="0.1"
+          decimalPlaces={0}
           value={kmVeiculo}
-          onChange={(e) => setKmVeiculo(e.target.value)}
-          placeholder="Ex: 125430"
+          onChange={setKmVeiculo}
+          placeholder="Ex: 125.430"
         />
         <Select
           label="Oficina (opcional)"
@@ -284,12 +285,11 @@ export function ManutencaoForm({
         />
         <Input label="Data" type="date" value={data} onChange={(e) => setData(e.target.value)} required />
         <Input label="Hora" type="time" value={hora} onChange={(e) => setHora(e.target.value)} />
-        <Input
+        <BrNumberInput
           label="Valor total (R$)"
-          type="number"
-          step="0.01"
+          decimalPlaces={2}
           value={valor}
-          onChange={(e) => setValor(e.target.value)}
+          onChange={setValor}
           required
         />
       </div>

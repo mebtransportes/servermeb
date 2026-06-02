@@ -60,3 +60,34 @@ export function dataNoPeriodo(
 export function formatarMoeda(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
+
+/** Filtra por intervalo inclusivo (campos type="date": yyyy-MM-dd). */
+export function dataNoIntervalo(
+  dateStr: string | Date,
+  de: string,
+  ate: string
+): boolean {
+  if (!de || !ate) return true;
+  const start = startOfDay(parseISO(de));
+  const end = endOfDay(parseISO(ate));
+  const d =
+    typeof dateStr === "string"
+      ? parseISO(dateStr.includes("T") ? dateStr : `${dateStr}T12:00:00`)
+      : dateStr;
+  if (!isValid(d) || !isValid(start) || !isValid(end)) return false;
+  return isWithinInterval(d, { start, end });
+}
+
+export function formatarDataBr(dateStr: string): string {
+  const d = parseISO(
+    dateStr.includes("T") ? dateStr : `${dateStr}T12:00:00`
+  );
+  if (!isValid(d)) return dateStr;
+  return d.toLocaleDateString("pt-BR");
+}
+
+export function formatarDataHoraBr(dateStr: string): string {
+  const d = new Date(dateStr);
+  if (!isValid(d)) return dateStr;
+  return d.toLocaleString("pt-BR");
+}

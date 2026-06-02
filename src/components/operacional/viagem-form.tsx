@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
+import { BrNumberInput } from "@/components/ui/br-number-input";
 import { EntregaAutocomplete } from "@/components/ui/entrega-autocomplete";
 import { FileUploadField } from "@/components/ui/file-upload";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,6 +19,9 @@ import {
 } from "@/lib/viagem-validation";
 import { uploadFile } from "@/lib/storage";
 import { calcularIdade } from "@/lib/utils";
+import { isoParaDatetimeLocal, type ViagemParaEdicao } from "@/lib/viagem-crud";
+import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
+import { parseBrNumber, rawNumberStringToBrInput } from "@/lib/number-format";
 import type { Motorista, Veiculo } from "@/types";
 import { Plus, Trash2, FileText, AlertTriangle } from "lucide-react";
 
@@ -43,7 +47,16 @@ function classificarAnexo(nome: string): "CNH" | "TOXICOLOGICO" | "CRLV" | null 
   return null;
 }
 
-export function ViagemForm({ onSaved }: { onSaved: () => void }) {
+export function ViagemForm({
+  viagem,
+  onSaved,
+  onCancel,
+}: {
+  viagem?: ViagemParaEdicao;
+  onSaved: () => void;
+  onCancel?: () => void;
+}) {
+  const isEdit = !!viagem?.id;
   const [motoristas, setMotoristas] = useState<Motorista[]>([]);
   const [veiculos, setVeiculos] = useState<Veiculo[]>([]);
   const [motoristaId, setMotoristaId] = useState("");
@@ -59,6 +72,8 @@ export function ViagemForm({ onSaved }: { onSaved: () => void }) {
   const [tipoTrajeto, setTipoTrajeto] = useState("ida");
   const [pesoKg, setPesoKg] = useState("");
   const [valorMercadoria, setValorMercadoria] = useState("");
+  const [valorFrete, setValorFrete] = useState("");
+  const [numeroCte, setNumeroCte] = useState("");
   const [descMercadoria, setDescMercadoria] = useState("");
   const [kmTotal, setKmTotal] = useState("");
   const [uploads, setUploads] = useState<UploadSlot[]>(
@@ -85,6 +100,30 @@ export function ViagemForm({ onSaved }: { onSaved: () => void }) {
     }
     load();
   }, []);
+
+  useEffect(() => {
+    if (!viagem) return;
+    setMotoristaId(viagem.motorista_id);
+    setVeiculoId(viagem.veiculo_id);
+    setSaidaEm(isoParaDatetimeLocal(viagem.saida_em));
+    setChegadaEm(isoParaDatetimeLocal(viagem.chegada_prevista_em));
+    setLocalSaida(viagem.local_saida);
+    setEntregas(
+      viagem.entregas.length
+        ? viagem.entregas
+            .sort((a, b) => a.ordem - b.ordem)
+            .map((e) => e.local_entrega)
+        : [""]
+    );
+    setTipoTrajeto(viagem.tipo_trajeto);
+    setPesoKg(rawNumberStringToBrInput(viagem.peso_kg, 2));
+    setValorMercadoria(rawNumberStringToBrInput(viagem.valor_mercadoria, 2));
+    setValorFrete(rawNumberStringToBrInput(viagem.valor_frete, 2));
+    setNumeroCte(viagem.numero_cte ?? "");
+    setDescMercadoria(viagem.descricao_mercadoria ?? "");
+    setKmTotal(rawNumberStringToBrInput(viagem.km_total, 0));
+    setUploads(ANEXOS_VIAGEM_CATEGORIAS.map((c) => ({ categoria: c, file: null })));
+  }, [viagem]);
 
   useEffect(() => {
     async function loadSelecoes() {
@@ -198,57 +237,101 @@ export function ViagemForm({ onSaved }: { onSaved: () => void }) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    const { data: viagem, error: viagemErr } = await supabase
-      .from("viagens")
-      .insert({
-        motorista_id: motoristaId,
-        veiculo_id: veiculoId,
-        saida_em: new Date(saidaEm).toISOString(),
-        chegada_prevista_em: new Date(chegadaEm).toISOString(),
-        local_saida: localSaida.trim(),
-        tipo_trajeto: tipoTrajeto,
-        peso_kg: pesoKg ? parseFloat(pesoKg) : null,
-        valor_mercadoria: valorMercadoria ? parseFloat(valorMercadoria) : null,
-        descricao_mercadoria: descMercadoria || null,
-        km_total: kmTotal ? parseFloat(kmTotal) : null,
-        status: "EM ANDAMENTO",
-        motorista_apto: true,
-        veiculo_apto: true,
-        created_by: user?.id,
-      })
-      .select("id")
-      .single();
+    const payloadViagem = {
+      motorista_id: motoristaId,
+      veiculo_id: veiculoId,
+      saida_em: new Date(saidaEm).toISOString(),
+      chegada_prevista_em: new Date(chegadaEm).toISOString(),
+      local_saida: localSaida.trim(),
+      tipo_trajeto: tipoTrajeto,
+      peso_kg: parseBrNumber(pesoKg),
+      valor_mercadoria: parseBrNumber(valorMercadoria),
+      valor_frete: parseBrNumber(valorFrete),
+      numero_cte: numeroCte.trim() || null,
+      descricao_mercadoria: descMercadoria || null,
+      km_total: parseBrNumber(kmTotal),
+      motorista_apto: true,
+      veiculo_apto: true,
+    };
 
-    if (viagemErr || !viagem) {
-      setError(viagemErr?.message ?? "Erro ao salvar viagem");
+    let viagemId = viagem?.id;
+
+    if (isEdit && viagemId) {
+      const { error: upErr } = await supabase
+        .from("viagens")
+        .update(payloadViagem)
+        .eq("id", viagemId);
+
+      if (upErr) {
+        setError(upErr.message);
+        setSaving(false);
+        return;
+      }
+
+      await supabase.from("viagem_entregas").delete().eq("viagem_id", viagemId);
+    } else {
+      const { data: nova, error: viagemErr } = await supabase
+        .from("viagens")
+        .insert({
+          ...payloadViagem,
+          status: "EM ANDAMENTO",
+          created_by: user?.id,
+        })
+        .select("id")
+        .single();
+
+      if (viagemErr || !nova) {
+        setError(viagemErr?.message ?? "Erro ao salvar viagem");
+        setSaving(false);
+        return;
+      }
+      viagemId = nova.id;
+    }
+
+    if (!viagemId) {
+      setError("Erro ao identificar viagem");
       setSaving(false);
       return;
     }
 
     await supabase.from("viagem_entregas").insert(
       locaisEntrega.map((local, i) => ({
-        viagem_id: viagem.id,
+        viagem_id: viagemId,
         ordem: i + 1,
         local_entrega: local,
       }))
     );
 
-    const anexosInsert = anexosAuto.map((a) => ({
-      viagem_id: viagem.id,
-      categoria: a.categoria,
-      nome: a.nome,
-      storage_path: a.storage_path,
-      file_name: a.file_name,
-      mime_type: "application/pdf",
-      origem: a.origem,
-    }));
+    const anexosInsert: {
+      viagem_id: string;
+      categoria: string;
+      nome: string;
+      storage_path: string;
+      file_name: string;
+      mime_type: string;
+      origem: string;
+    }[] = [];
+
+    if (!isEdit) {
+      for (const a of anexosAuto) {
+        anexosInsert.push({
+          viagem_id: viagemId,
+          categoria: a.categoria,
+          nome: a.nome,
+          storage_path: a.storage_path,
+          file_name: a.file_name,
+          mime_type: "application/pdf",
+          origem: a.origem,
+        });
+      }
+    }
 
     for (const slot of uploads) {
       if (!slot.file) continue;
-      const up = await uploadFile(slot.file, `viagens/${viagem.id}`);
+      const up = await uploadFile(slot.file, `viagens/${viagemId}`);
       if (up) {
         anexosInsert.push({
-          viagem_id: viagem.id,
+          viagem_id: viagemId,
           categoria: slot.categoria,
           nome: slot.categoria,
           storage_path: up.path,
@@ -261,6 +344,10 @@ export function ViagemForm({ onSaved }: { onSaved: () => void }) {
 
     if (anexosInsert.length) {
       await supabase.from("viagem_anexos").insert(anexosInsert);
+    }
+
+    if (isEdit && viagem?.status === "FINALIZADO") {
+      await syncFechamentoViagem(viagemId);
     }
 
     setSaving(false);
@@ -424,6 +511,12 @@ export function ViagemForm({ onSaved }: { onSaved: () => void }) {
               onChange={(e) => setTipoTrajeto(e.target.value)}
               options={TIPOS_TRAJETO.map((t) => ({ value: t.value, label: t.label }))}
             />
+            <Input
+              label="Número do CTE"
+              value={numeroCte}
+              onChange={(e) => setNumeroCte(e.target.value)}
+              placeholder="Ex: 123456789"
+            />
           </div>
 
           <div className="space-y-2">
@@ -465,26 +558,30 @@ export function ViagemForm({ onSaved }: { onSaved: () => void }) {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Input
+            <BrNumberInput
               label="Peso do caminhão (kg)"
-              type="number"
-              step="0.01"
+              decimalPlaces={2}
               value={pesoKg}
-              onChange={(e) => setPesoKg(e.target.value)}
+              onChange={setPesoKg}
             />
-            <Input
+            <BrNumberInput
               label="Valor da mercadoria (R$)"
-              type="number"
-              step="0.01"
+              decimalPlaces={2}
               value={valorMercadoria}
-              onChange={(e) => setValorMercadoria(e.target.value)}
+              onChange={setValorMercadoria}
             />
-            <Input
+            <BrNumberInput
+              label="Valor do frete (R$)"
+              decimalPlaces={2}
+              value={valorFrete}
+              onChange={setValorFrete}
+              placeholder="Valor a ser pago pelo frete"
+            />
+            <BrNumberInput
               label="KM total da viagem"
-              type="number"
-              step="0.1"
+              decimalPlaces={0}
               value={kmTotal}
-              onChange={(e) => setKmTotal(e.target.value)}
+              onChange={setKmTotal}
             />
           </div>
           <Textarea
@@ -517,9 +614,20 @@ export function ViagemForm({ onSaved }: { onSaved: () => void }) {
 
         {error && <p className="text-sm text-red-400">{error}</p>}
 
-        <Button type="submit" disabled={saving || !aptoGeral}>
-          {saving ? "Salvando viagem..." : "Cadastrar viagem"}
-        </Button>
+        <div className="flex flex-wrap gap-3">
+          {onCancel && (
+            <Button type="button" variant="secondary" onClick={onCancel} disabled={saving}>
+              Cancelar
+            </Button>
+          )}
+          <Button type="submit" disabled={saving || !aptoGeral}>
+            {saving
+              ? "Salvando..."
+              : isEdit
+                ? "Salvar alterações"
+                : "Cadastrar viagem"}
+          </Button>
+        </div>
       </fieldset>
     </form>
   );

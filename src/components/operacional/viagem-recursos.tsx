@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
+import { BrNumberInput } from "@/components/ui/br-number-input";
+import { parseBrNumber } from "@/lib/number-format";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -12,6 +14,7 @@ import { Plus, FileText } from "lucide-react";
 import { FileUploadMultiple } from "@/components/ui/file-upload";
 import { AnexosFrotaCampos } from "@/components/frota/anexos-campos";
 import { salvarAnexosFrota } from "@/lib/frota-anexos";
+import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
 
 type Recurso = {
   id: string;
@@ -21,6 +24,8 @@ type Recurso = {
   posto_id?: string | null;
   oficina_id?: string | null;
   realizado_em: string;
+  km_abastecimento?: number | null;
+  litros?: number | null;
   postos?: { nome: string } | null;
   oficinas?: { nome: string } | null;
 };
@@ -36,7 +41,8 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
   const [recursos, setRecursos] = useState<Recurso[]>([]);
   const [postos, setPostos] = useState<{ id: string; nome: string }[]>([]);
   const [oficinas, setOficinas] = useState<{ id: string; nome: string }[]>([]);
-  const [showForm, setShowForm] = useState(false);
+  const [showFormGasto, setShowFormGasto] = useState(false);
+  const [showFormReembolso, setShowFormReembolso] = useState(false);
 
   const [tipo, setTipo] = useState<ViagemRecursoTipo>("abastecimento");
   const [valor, setValor] = useState("");
@@ -45,6 +51,7 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
   const [oficinaId, setOficinaId] = useState("");
   const [realizadoEm, setRealizadoEm] = useState("");
   const [kmVeiculo, setKmVeiculo] = useState("");
+  const [litros, setLitros] = useState("");
   const [notaFiscal, setNotaFiscal] = useState<File | null>(null);
   const [comprovante, setComprovante] = useState<File | null>(null);
   const [files, setFiles] = useState<File[]>([]);
@@ -72,26 +79,33 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
     });
   }, [viagemId]);
 
-  async function handleAdd(e: React.FormEvent) {
+  const recursosGastos = recursos.filter((r) => r.tipo !== "reembolso");
+  const recursosReembolso = recursos.filter((r) => r.tipo === "reembolso");
+
+  async function handleAdd(e: React.FormEvent, tipoFixo?: "reembolso") {
     e.preventDefault();
     setSaving(true);
     const supabase = createClient();
+    const tipoLancamento = tipoFixo ?? tipo;
 
     const payload: Record<string, unknown> = {
       viagem_id: viagemId,
-      tipo,
-      valor: parseFloat(valor),
+      tipo: tipoLancamento,
+      valor: parseBrNumber(valor) ?? 0,
       descricao: descricao || null,
-      posto_id: tipo === "abastecimento" && postoId ? postoId : null,
-      oficina_id: tipo === "manutencao" && oficinaId ? oficinaId : null,
+      posto_id: tipoLancamento === "abastecimento" && postoId ? postoId : null,
+      oficina_id: tipoLancamento === "manutencao" && oficinaId ? oficinaId : null,
       realizado_em: new Date(realizadoEm).toISOString(),
     };
     if (kmVeiculo) {
-      const km = parseFloat(kmVeiculo);
-      if (tipo === "abastecimento") payload.km_abastecimento = km;
-      else if (tipo === "manutencao") payload.km_veiculo = km;
+      const km = parseBrNumber(kmVeiculo);
+      if (tipoLancamento === "abastecimento") payload.km_abastecimento = km;
+      else if (tipoLancamento === "manutencao") payload.km_veiculo = km;
     }
-    if (tipo === "manutencao") payload.status_frota = "FINALIZADO";
+    if (tipoLancamento === "abastecimento" && litros) {
+      payload.litros = parseBrNumber(litros);
+    }
+    if (tipoLancamento === "manutencao") payload.status_frota = "FINALIZADO";
 
     const { data: recurso, error } = await supabase
       .from("viagem_recursos")
@@ -129,49 +143,67 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
       }
     }
 
-    setShowForm(false);
+    setShowFormGasto(false);
+    setShowFormReembolso(false);
     setValor("");
     setDescricao("");
     setPostoId("");
     setOficinaId("");
     setRealizadoEm("");
     setKmVeiculo("");
+    setLitros("");
     setNotaFiscal(null);
     setComprovante(null);
     setFiles([]);
+    await syncFechamentoViagem(viagemId);
     setSaving(false);
     load();
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-white">Recursos / despesas</h3>
-        <Button type="button" variant="secondary" onClick={() => setShowForm(!showForm)}>
-          <Plus className="h-4 w-4" />
-          Adicionar recurso
-        </Button>
-      </div>
+    <div className="space-y-6">
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-white">Gastos da viagem</h3>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              setShowFormReembolso(false);
+              setShowFormGasto(!showFormGasto);
+            }}
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar gasto
+          </Button>
+        </div>
 
-      {showForm && (
-        <form onSubmit={handleAdd} className="space-y-3 rounded-lg border border-slate-700/50 p-4">
+      {showFormGasto && (
+        <form
+          onSubmit={(e) => handleAdd(e)}
+          className="space-y-3 rounded-lg border border-amber-900/30 bg-amber-950/10 p-4"
+        >
           <Select
-            label="Tipo"
+            label="Tipo de gasto"
             value={tipo}
-            onChange={(e) => setTipo(e.target.value as ViagemRecursoTipo)}
+            onChange={(e) => {
+              const t = e.target.value as ViagemRecursoTipo;
+              setTipo(t);
+              if (t !== "abastecimento") setLitros("");
+            }}
             options={[
               { value: "abastecimento", label: "Abastecimento" },
               { value: "manutencao", label: "Manutenção" },
-              { value: "outro", label: "Outro (imprevisto / reembolso)" },
+              { value: "pedagio", label: "Pedágio" },
+              { value: "arla", label: "Arla" },
             ]}
           />
           <div className="grid gap-3 sm:grid-cols-2">
-            <Input
+            <BrNumberInput
               label="Valor (R$)"
-              type="number"
-              step="0.01"
+              decimalPlaces={2}
               value={valor}
-              onChange={(e) => setValor(e.target.value)}
+              onChange={setValor}
               required
             />
             <Input
@@ -183,25 +215,33 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
             />
           </div>
           {(tipo === "abastecimento" || tipo === "manutencao") && (
-            <Input
+            <BrNumberInput
               label="Quilometragem do veículo (opcional)"
-              type="number"
-              step="0.1"
+              decimalPlaces={0}
               value={kmVeiculo}
-              onChange={(e) => setKmVeiculo(e.target.value)}
-              placeholder="Ex: 125430"
+              onChange={setKmVeiculo}
+              placeholder="Ex: 125.430"
             />
           )}
           {tipo === "abastecimento" && (
-            <Select
-              label="Posto"
-              value={postoId}
-              onChange={(e) => setPostoId(e.target.value)}
-              options={[
-                { value: "", label: "Selecione ou deixe em branco" },
-                ...postos.map((p) => ({ value: p.id, label: p.nome })),
-              ]}
-            />
+            <>
+              <Select
+                label="Posto"
+                value={postoId}
+                onChange={(e) => setPostoId(e.target.value)}
+                options={[
+                  { value: "", label: "Selecione ou deixe em branco" },
+                  ...postos.map((p) => ({ value: p.id, label: p.nome })),
+                ]}
+              />
+              <BrNumberInput
+                label="Litros abastecidos (opcional)"
+                decimalPlaces={2}
+                value={litros}
+                onChange={setLitros}
+                placeholder="Ex: 150,50"
+              />
+            </>
           )}
           {tipo === "manutencao" && (
             <Select
@@ -219,9 +259,11 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
             value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
             placeholder={
-              tipo === "outro"
-                ? "Ex: pedágio pago pelo motorista — aguardando reembolso"
-                : ""
+              tipo === "pedagio"
+                ? "Ex: praça de pedágio, rota, etc."
+                : tipo === "arla"
+                  ? "Ex: litros, posto, nota fiscal, etc."
+                  : ""
             }
           />
           <AnexosFrotaCampos
@@ -237,24 +279,106 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
           />
           <div className="flex gap-2">
             <Button type="submit" disabled={saving}>
-              Salvar recurso
+              Salvar gasto
             </Button>
-            <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>
+            <Button type="button" variant="ghost" onClick={() => setShowFormGasto(false)}>
               Cancelar
             </Button>
           </div>
         </form>
       )}
 
-      {recursos.length === 0 ? (
-        <p className="text-sm text-slate-500">Nenhum recurso registrado.</p>
+      {recursosGastos.length === 0 ? (
+        <p className="text-sm text-slate-500">Nenhum gasto registrado.</p>
       ) : (
         <ul className="space-y-2">
-          {recursos.map((r) => (
+          {recursosGastos.map((r) => (
             <RecursoItem key={r.id} recurso={r} />
           ))}
         </ul>
       )}
+      </section>
+
+      <section className="space-y-4 border-t border-slate-700/50 pt-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-violet-300">Reembolso ao motorista</h3>
+            <p className="text-xs text-slate-500">
+              Valores pagos pelo motorista — não entram no total de gastos
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              setShowFormGasto(false);
+              setShowFormReembolso(!showFormReembolso);
+            }}
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar reembolso
+          </Button>
+        </div>
+
+        {showFormReembolso && (
+          <form
+            onSubmit={(e) => handleAdd(e, "reembolso")}
+            className="space-y-3 rounded-lg border border-violet-900/30 bg-violet-950/10 p-4"
+          >
+            <div className="grid gap-3 sm:grid-cols-2">
+              <BrNumberInput
+                label="Valor a reembolsar (R$)"
+                decimalPlaces={2}
+                value={valor}
+                onChange={setValor}
+                required
+              />
+              <Input
+                label="Data e hora"
+                type="datetime-local"
+                value={realizadoEm}
+                onChange={(e) => setRealizadoEm(e.target.value)}
+                required
+              />
+            </div>
+            <Textarea
+              label="Descrição"
+              value={descricao}
+              onChange={(e) => setDescricao(e.target.value)}
+              placeholder="Ex: despesa paga pelo motorista — aguardando reembolso"
+            />
+            <AnexosFrotaCampos
+              notaFiscal={notaFiscal}
+              comprovante={comprovante}
+              onNotaFiscalChange={setNotaFiscal}
+              onComprovanteChange={setComprovante}
+            />
+            <FileUploadMultiple
+              label="Outros anexos (opcional)"
+              files={files}
+              onChange={setFiles}
+            />
+            <div className="flex gap-2">
+              <Button type="submit" disabled={saving}>
+                Salvar reembolso
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => setShowFormReembolso(false)}>
+                Cancelar
+              </Button>
+            </div>
+          </form>
+        )}
+
+        {recursosReembolso.length === 0 ? (
+          <p className="text-sm text-slate-500">Nenhum reembolso registrado.</p>
+        ) : (
+          <ul className="space-y-2">
+            {recursosReembolso.map((r) => (
+              <RecursoItem key={r.id} recurso={r} />
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }
@@ -276,7 +400,13 @@ function RecursoItem({ recurso }: { recurso: Recurso }) {
       ? "Abastecimento"
       : recurso.tipo === "manutencao"
         ? "Manutenção"
-        : "Outro";
+        : recurso.tipo === "reembolso"
+          ? "Reembolso"
+          : recurso.tipo === "pedagio"
+            ? "Pedágio"
+            : recurso.tipo === "arla"
+              ? "Arla"
+              : "Outro";
 
   const local =
     recurso.postos?.nome ?? recurso.oficinas?.nome ?? null;
@@ -292,6 +422,12 @@ function RecursoItem({ recurso }: { recurso: Recurso }) {
       <p className="text-slate-400">
         {new Date(recurso.realizado_em).toLocaleString("pt-BR")}
         {local && ` · ${local}`}
+        {recurso.tipo === "abastecimento" && recurso.litros != null && (
+          <> · {Number(recurso.litros).toLocaleString("pt-BR")} L</>
+        )}
+        {recurso.tipo === "abastecimento" && recurso.km_abastecimento != null && (
+          <> · KM {Number(recurso.km_abastecimento).toLocaleString("pt-BR")}</>
+        )}
       </p>
       {recurso.descricao && <p className="mt-1 text-slate-300">{recurso.descricao}</p>}
       {anexos.length > 0 && (
