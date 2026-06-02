@@ -4,7 +4,12 @@ import { useCallback, useEffect, useState, type ComponentType } from "react";
 import { Truck, Fuel, Wrench, Route, Receipt, Droplets } from "lucide-react";
 import { PeriodoFilter } from "@/components/frota/periodo-filter";
 import { fetchCustosOperacionais, type CustosOperacionaisResumo } from "@/lib/custos-operacionais";
-import { formatarMoeda, PERIODOS, type PeriodoFiltro } from "@/lib/frota-filters";
+import {
+  formatarMoeda,
+  labelPeriodoConfig,
+  PERIODO_FILTRO_INICIAL,
+  type PeriodoFiltroState,
+} from "@/lib/frota-filters";
 
 function CardCusto({
   label,
@@ -30,7 +35,7 @@ function CardCusto({
 }
 
 export default function CustosOperacionaisPage() {
-  const [periodo, setPeriodo] = useState<PeriodoFiltro>("mes");
+  const [periodo, setPeriodo] = useState<PeriodoFiltroState>(PERIODO_FILTRO_INICIAL);
   const [resumo, setResumo] = useState<CustosOperacionaisResumo | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -44,7 +49,7 @@ export default function CustosOperacionaisPage() {
     load();
   }, [load]);
 
-  const periodoLabel = PERIODOS.find((p) => p.value === periodo)?.label ?? "";
+  const periodoLabel = labelPeriodoConfig(periodo);
 
   return (
     <div className="space-y-6">

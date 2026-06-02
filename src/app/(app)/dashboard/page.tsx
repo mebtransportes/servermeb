@@ -11,12 +11,13 @@ import {
   type AgrupamentoGrafico,
   type ViagemResumo,
 } from "@/lib/dashboard-viagens";
-import type { PeriodoFiltro } from "@/lib/frota-filters";
+import { PERIODO_FILTRO_INICIAL, type PeriodoFiltroState } from "@/lib/frota-filters";
 
 export default function DashboardPage() {
   const [viagens, setViagens] = useState<ViagemResumo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [periodoGrafico, setPeriodoGrafico] = useState<PeriodoFiltro>("ano");
+  const [periodoGrafico, setPeriodoGrafico] =
+    useState<PeriodoFiltroState>(PERIODO_FILTRO_INICIAL);
   const [agrupamento, setAgrupamento] = useState<AgrupamentoGrafico>("mes");
 
   const load = useCallback(async () => {

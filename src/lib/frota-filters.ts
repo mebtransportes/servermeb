@@ -13,6 +13,20 @@ import {
 } from "date-fns";
 
 export type PeriodoFiltro = "hoje" | "semana" | "mes" | "ano" | "todos";
+export type PeriodoPreset = PeriodoFiltro | "custom";
+
+export type PeriodoFiltroState = {
+  preset: PeriodoPreset;
+  dataDe: string;
+  dataAte: string;
+};
+
+/** Padrão: este mês */
+export const PERIODO_FILTRO_INICIAL: PeriodoFiltroState = {
+  preset: "mes",
+  dataDe: "",
+  dataAte: "",
+};
 
 export const PERIODOS: { value: PeriodoFiltro; label: string }[] = [
   { value: "hoje", label: "Hoje" },
@@ -21,6 +35,28 @@ export const PERIODOS: { value: PeriodoFiltro; label: string }[] = [
   { value: "ano", label: "Este ano" },
   { value: "todos", label: "Todos" },
 ];
+
+export function labelPeriodoConfig(config: PeriodoFiltroState): string {
+  if (config.preset === "custom") {
+    if (config.dataDe && config.dataAte) {
+      return `${formatarDataBr(config.dataDe)} a ${formatarDataBr(config.dataAte)}`;
+    }
+    return "Período personalizado";
+  }
+  return PERIODOS.find((p) => p.value === config.preset)?.label ?? "";
+}
+
+export function dataNoPeriodoConfig(
+  dateStr: string | Date,
+  config: PeriodoFiltroState
+): boolean {
+  if (config.preset === "todos") return true;
+  if (config.preset === "custom") {
+    if (!config.dataDe || !config.dataAte) return false;
+    return dataNoIntervalo(dateStr, config.dataDe, config.dataAte);
+  }
+  return dataNoPeriodo(dateStr, config.preset);
+}
 
 export function getIntervalo(periodo: PeriodoFiltro): { start: Date; end: Date } | null {
   const now = new Date();

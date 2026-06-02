@@ -10,12 +10,17 @@ import { ManutencaoForm } from "@/components/frota/manutencao-form";
 import { FrotaRelatorioModal } from "@/components/frota/frota-relatorio-modal";
 import { fetchManutencoes } from "@/lib/frota-data";
 import { excluirManutencao } from "@/lib/frota-crud";
-import { dataNoPeriodo, PERIODOS, type PeriodoFiltro } from "@/lib/frota-filters";
+import {
+  dataNoPeriodoConfig,
+  labelPeriodoConfig,
+  PERIODO_FILTRO_INICIAL,
+  type PeriodoFiltroState,
+} from "@/lib/frota-filters";
 import type { FrotaManutencaoStatus, ManutencaoCard } from "@/types/frota";
 
 export default function FrotaManutencaoPage() {
   const [items, setItems] = useState<ManutencaoCard[]>([]);
-  const [periodo, setPeriodo] = useState<PeriodoFiltro>("mes");
+  const [periodo, setPeriodo] = useState<PeriodoFiltroState>(PERIODO_FILTRO_INICIAL);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<ManutencaoCard | null>(null);
@@ -37,12 +42,12 @@ export default function FrotaManutencaoPage() {
     () =>
       items.filter((i) => {
         const ref = i.dataRef.includes("T") ? i.dataRef : `${i.dataRef}T12:00:00`;
-        return dataNoPeriodo(ref, periodo);
+        return dataNoPeriodoConfig(ref, periodo);
       }),
     [items, periodo]
   );
 
-  const periodoLabel = PERIODOS.find((p) => p.value === periodo)?.label ?? "";
+  const periodoLabel = labelPeriodoConfig(periodo);
   const stats = buildManutencaoStats(
     filtrados.map((i) => ({ valor: i.valor, source: i.source, status: i.status })),
     periodoLabel

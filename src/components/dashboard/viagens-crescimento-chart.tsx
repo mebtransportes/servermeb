@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { PeriodoFilter } from "@/components/frota/periodo-filter";
 import { cn } from "@/lib/utils";
 import type { PontoGrafico, AgrupamentoGrafico } from "@/lib/dashboard-viagens";
-import type { PeriodoFiltro } from "@/lib/frota-filters";
+import type { PeriodoFiltroState } from "@/lib/frota-filters";
 import { TrendingDown, TrendingUp, Minus } from "lucide-react";
 
 const AGRUPAMENTOS: { value: AgrupamentoGrafico; label: string }[] = [
@@ -25,8 +25,8 @@ export function ViagensCrescimentoChart({
   onAgrupamentoChange,
 }: {
   dados: PontoGrafico[];
-  periodo: PeriodoFiltro;
-  onPeriodoChange: (p: PeriodoFiltro) => void;
+  periodo: PeriodoFiltroState;
+  onPeriodoChange: (p: PeriodoFiltroState) => void;
   agrupamento: AgrupamentoGrafico;
   onAgrupamentoChange: (a: AgrupamentoGrafico) => void;
 }) {

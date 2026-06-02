@@ -9,7 +9,13 @@ import { AbastecimentoForm } from "@/components/frota/abastecimento-form";
 import { CardAcoes } from "@/components/frota/card-acoes";
 import { fetchAbastecimentos } from "@/lib/frota-data";
 import { excluirAbastecimento } from "@/lib/frota-crud";
-import { dataNoPeriodo, formatarMoeda, PERIODOS, type PeriodoFiltro } from "@/lib/frota-filters";
+import {
+  dataNoPeriodoConfig,
+  formatarMoeda,
+  labelPeriodoConfig,
+  PERIODO_FILTRO_INICIAL,
+  type PeriodoFiltroState,
+} from "@/lib/frota-filters";
 import type { AbastecimentoCard } from "@/types/frota";
 import { cn } from "@/lib/utils";
 import { FrotaAnexosLinks } from "@/components/frota/frota-anexos-links";
@@ -17,7 +23,7 @@ import { FrotaRelatorioModal } from "@/components/frota/frota-relatorio-modal";
 
 export default function FrotaAbastecimentosPage() {
   const [items, setItems] = useState<AbastecimentoCard[]>([]);
-  const [periodo, setPeriodo] = useState<PeriodoFiltro>("mes");
+  const [periodo, setPeriodo] = useState<PeriodoFiltroState>(PERIODO_FILTRO_INICIAL);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<AbastecimentoCard | null>(null);
@@ -34,11 +40,11 @@ export default function FrotaAbastecimentosPage() {
   }, [load]);
 
   const filtrados = useMemo(
-    () => items.filter((i) => dataNoPeriodo(i.dataHora, periodo)),
+    () => items.filter((i) => dataNoPeriodoConfig(i.dataHora, periodo)),
     [items, periodo]
   );
 
-  const periodoLabel = PERIODOS.find((p) => p.value === periodo)?.label ?? "";
+  const periodoLabel = labelPeriodoConfig(periodo);
   const stats = buildAbastecimentoStats(
     filtrados.map((i) => ({ valor: i.valor, source: i.source, km: i.km })),
     periodoLabel

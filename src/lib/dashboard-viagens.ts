@@ -6,7 +6,7 @@ import {
   compareAsc,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { dataNoPeriodo, type PeriodoFiltro } from "@/lib/frota-filters";
+import { dataNoPeriodoConfig, type PeriodoFiltroState } from "@/lib/frota-filters";
 import type { ViagemStatus } from "@/types";
 
 export type AgrupamentoGrafico = "mes" | "semana" | "ano";
@@ -68,13 +68,13 @@ function labelAgrupamento(chave: string, agrupamento: AgrupamentoGrafico): strin
 
 export function agruparViagensGrafico(
   viagens: ViagemResumo[],
-  periodo: PeriodoFiltro,
+  periodo: PeriodoFiltroState,
   agrupamento: AgrupamentoGrafico
 ): PontoGrafico[] {
   const mapa = new Map<string, number>();
 
   for (const v of viagens) {
-    if (!dataNoPeriodo(v.created_at, periodo)) continue;
+    if (!dataNoPeriodoConfig(v.created_at, periodo)) continue;
     const d = parseISO(v.created_at);
     if (!isValid(d)) continue;
     const chave = chaveAgrupamento(d, agrupamento);

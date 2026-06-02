@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { gerarPdfComissaoMotorista } from "@/lib/comissao-pdf";
-import { filtrarFechamentosIntervalo } from "@/lib/custos-operacionais";
+import { filtrarPorPeriodoConfig } from "@/lib/custos-operacionais";
+import type { PeriodoFiltroState } from "@/lib/frota-filters";
 import type { ViagemFechamento } from "@/types/fechamento";
 import { FileText, X } from "lucide-react";
 
@@ -26,7 +27,8 @@ export function GerarComissaoModal({
       alert("Informe a data inicial e final do período.");
       return;
     }
-    const lista = filtrarFechamentosIntervalo(fechamentos, de, ate);
+    const config: PeriodoFiltroState = { preset: "custom", dataDe: de, dataAte: ate };
+    const lista = filtrarPorPeriodoConfig(fechamentos, config);
     if (!lista.length) {
       alert("Nenhuma viagem finalizada neste período para este motorista.");
       return;

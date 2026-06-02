@@ -3,7 +3,7 @@
 import type { ViagemFechamento } from "@/types/fechamento";
 import {
   totalDespesasFechamento,
-  totalComissaoFromFechamento,
+  calcularComissionamento,
   getComissaoPercent,
   getIcmsPercent,
 } from "@/types/fechamento";
@@ -11,9 +11,10 @@ import { formatarMoeda } from "@/lib/frota-filters";
 import { Select } from "@/components/ui/select";
 import { BrNumberInput } from "@/components/ui/br-number-input";
 import { Button } from "@/components/ui/button";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { parseBrNumber } from "@/lib/number-format";
 import { atualizarFechamentoConfig } from "@/lib/fechamento-data";
+import { cn } from "@/lib/utils";
 
 function Linha({ label, value }: { label: string; value: string }) {
   return (
@@ -24,28 +25,64 @@ function Linha({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function FechamentoViagemCard({ f }: { f: ViagemFechamento }) {
+export function FechamentoViagemCard({
+  f,
+  onUpdated,
+}: {
+  f: ViagemFechamento;
+  onUpdated: (atualizado: ViagemFechamento) => void;
+}) {
   const despesas = totalDespesasFechamento(f);
-  const icmsInicial = useMemo(() => getIcmsPercent(f), [f]);
-  const comissaoTipoInicial = (f.comissao_tipo ?? "PERCENTUAL") as
-    | "PERCENTUAL"
-    | "LIQUIDO_TOTAL";
-  const comissaoPercentInicial = useMemo(() => getComissaoPercent(f), [f]);
 
-  const [icmsPercent, setIcmsPercent] = useState(String(icmsInicial));
+  const [icmsPercent, setIcmsPercent] = useState(String(getIcmsPercent(f)));
   const [comissaoTipo, setComissaoTipo] = useState<"PERCENTUAL" | "LIQUIDO_TOTAL">(
-    comissaoTipoInicial
+    (f.comissao_tipo ?? "PERCENTUAL") as "PERCENTUAL" | "LIQUIDO_TOTAL"
   );
-  const [comissaoPercent, setComissaoPercent] = useState(String(comissaoPercentInicial));
+  const [comissaoPercent, setComissaoPercent] = useState(String(getComissaoPercent(f)));
   const [saving, setSaving] = useState(false);
+  const [salvoMsg, setSalvoMsg] = useState(false);
 
-  const totalComissao = totalComissaoFromFechamento({
-    ...f,
-    icms_percent: parseBrNumber(icmsPercent) ?? icmsInicial,
-    comissao_tipo: comissaoTipo,
-    comissao_percent: parseBrNumber(comissaoPercent) ?? comissaoPercentInicial,
-  });
-  const comissaoFinalPreview = totalComissao + (Number(f.reembolso_valor) || 0);
+  useEffect(() => {
+    setIcmsPercent(String(getIcmsPercent(f)));
+    setComissaoTipo((f.comissao_tipo ?? "PERCENTUAL") as "PERCENTUAL" | "LIQUIDO_TOTAL");
+    setComissaoPercent(String(getComissaoPercent(f)));
+  }, [f]);
+
+  const valores = useMemo(() => {
+    const icms = parseBrNumber(icmsPercent) ?? getIcmsPercent(f);
+    const comPerc = parseBrNumber(comissaoPercent) ?? getComissaoPercent(f);
+    const { frete_liquido, total_comissao, comissao_final } = calcularComissionamento({
+      valorFrete: Number(f.valor_frete) || 0,
+      icmsPercent: icms,
+      comissaoPercent: comPerc,
+      comissaoTipo,
+      reembolso: Number(f.reembolso_valor) || 0,
+    });
+    return { icms, frete_liquido, total_comissao, comissao_final };
+  }, [f, icmsPercent, comissaoPercent, comissaoTipo]);
+
+  async function handleSalvar() {
+    setSaving(true);
+    setSalvoMsg(false);
+    const result = await atualizarFechamentoConfig({
+      id: f.id,
+      valorFrete: Number(f.valor_frete) || 0,
+      reembolso: Number(f.reembolso_valor) || 0,
+      icmsPercent: valores.icms,
+      comissaoTipo,
+      comissaoPercent: parseBrNumber(comissaoPercent) ?? getComissaoPercent(f),
+    });
+    setSaving(false);
+    if (result.error) {
+      alert(result.error);
+      return;
+    }
+    if (result.data) {
+      onUpdated(result.data);
+      setSalvoMsg(true);
+      setTimeout(() => setSalvoMsg(false), 2500);
+    }
+  }
 
   return (
     <article className="rounded-xl border border-slate-700/50 bg-slate-800/30 p-4">
@@ -91,8 +128,16 @@ export function FechamentoViagemCard({ f }: { f: ViagemFechamento }) {
       </p>
       <Linha label="Valor do frete" value={formatarMoeda(f.valor_frete)} />
       <Linha
-        label={`Frete líquido (frete − ICMS ${parseBrNumber(icmsPercent) ?? icmsInicial}%)`}
-        value={formatarMoeda(f.frete_liquido)}
+        label={`Frete líquido (frete − ICMS ${valores.icms}%)`}
+        value={formatarMoeda(valores.frete_liquido)}
+      />
+      <Linha
+        label={
+          comissaoTipo === "LIQUIDO_TOTAL"
+            ? "Comissão (frete líquido total)"
+            : `Comissão (${comissaoPercent}% do líquido)`
+        }
+        value={formatarMoeda(valores.total_comissao)}
       />
 
       <div className="mt-3 rounded-lg border border-slate-700/50 bg-slate-900/30 p-3">
@@ -124,37 +169,24 @@ export function FechamentoViagemCard({ f }: { f: ViagemFechamento }) {
           />
         </div>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="text-sm text-slate-300">
-            <span className="text-slate-500">Comissão (sem reembolso): </span>
-            <span className="font-semibold">{formatarMoeda(totalComissao)}</span>
+          <p className="text-xs text-slate-500">
+            Os valores acima atualizam ao editar. Salve para gravar no banco.
+          </p>
+          <div className="flex items-center gap-2">
+            {salvoMsg && (
+              <span className="text-xs font-medium text-emerald-400">Salvo!</span>
+            )}
+            <Button type="button" disabled={saving} onClick={handleSalvar}>
+              {saving ? "Salvando..." : "Salvar configuração"}
+            </Button>
           </div>
-          <Button
-            type="button"
-            disabled={saving}
-            onClick={async () => {
-              setSaving(true);
-              const err = await atualizarFechamentoConfig({
-                id: f.id,
-                valorFrete: Number(f.valor_frete) || 0,
-                reembolso: Number(f.reembolso_valor) || 0,
-                icmsPercent: parseBrNumber(icmsPercent) ?? icmsInicial,
-                comissaoTipo,
-                comissaoPercent: parseBrNumber(comissaoPercent) ?? comissaoPercentInicial,
-              });
-              setSaving(false);
-              if (err) alert(err);
-              else alert("Configuração salva. Atualize a página para refletir os valores.");
-            }}
-          >
-            {saving ? "Salvando..." : "Salvar configuração"}
-          </Button>
         </div>
       </div>
 
       <div className="mt-2 rounded-lg bg-emerald-950/40 px-3 py-2 text-center">
         <p className="text-xs text-emerald-400/80">Comissão final (comissão + reembolso)</p>
-        <p className="text-xl font-bold text-emerald-400">
-          {formatarMoeda(comissaoFinalPreview)}
+        <p className={cn("text-xl font-bold text-emerald-400")}>
+          {formatarMoeda(valores.comissao_final)}
         </p>
       </div>
     </article>

@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import type { ViagemFechamento } from "@/types/fechamento";
-import { calcularComissionamento, getComissaoPercent, getIcmsPercent } from "@/types/fechamento";
+import { calcularComissionamento } from "@/types/fechamento";
 
 export async function fetchViagemFechamentos(): Promise<ViagemFechamento[]> {
   const supabase = createClient();
@@ -42,7 +42,7 @@ export async function atualizarFechamentoConfig(opts: {
     reembolso: opts.reembolso,
   });
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("viagem_fechamentos")
     .update({
       icms_percent: opts.icmsPercent,
@@ -51,7 +51,10 @@ export async function atualizarFechamentoConfig(opts: {
       frete_liquido,
       comissao_final,
     })
-    .eq("id", opts.id);
+    .eq("id", opts.id)
+    .select("*")
+    .single();
 
-  return error?.message ?? null;
+  if (error) return { error: error.message, data: null };
+  return { error: null, data: data as ViagemFechamento };
 }

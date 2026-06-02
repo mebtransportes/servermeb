@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/supabase/client";
-import { dataNoIntervalo, dataNoPeriodo, type PeriodoFiltro } from "@/lib/frota-filters";
+import {
+  dataNoPeriodoConfig,
+  type PeriodoFiltroState,
+} from "@/lib/frota-filters";
 import { parseISO, isValid } from "date-fns";
 
 export type CustosOperacionaisResumo = {
@@ -15,12 +18,8 @@ export type CustosOperacionaisResumo = {
   arla: number;
 };
 
-function noPeriodo(dataStr: string, periodo: PeriodoFiltro) {
-  return dataNoPeriodo(dataStr, periodo);
-}
-
 export async function fetchCustosOperacionais(
-  periodo: PeriodoFiltro
+  periodo: PeriodoFiltroState
 ): Promise<CustosOperacionaisResumo> {
   const supabase = createClient();
 
@@ -42,7 +41,7 @@ export async function fetchCustosOperacionais(
     .select("valor, data_hora");
 
   for (const a of abastFrota ?? []) {
-    if (!noPeriodo(a.data_hora, periodo)) continue;
+    if (!dataNoPeriodoConfig(a.data_hora, periodo)) continue;
     const v = Number(a.valor) || 0;
     resumo.abastecimentosFrota += v;
     resumo.abastecimentos += v;
@@ -53,7 +52,7 @@ export async function fetchCustosOperacionais(
     .select("valor_total, data_agendada");
 
   for (const m of manutFrota ?? []) {
-    if (!noPeriodo(m.data_agendada, periodo)) continue;
+    if (!dataNoPeriodoConfig(m.data_agendada, periodo)) continue;
     const v = Number(m.valor_total) || 0;
     resumo.manutencoesPreventivas += v;
     resumo.manutencoes += v;
@@ -64,7 +63,7 @@ export async function fetchCustosOperacionais(
     .select("tipo, valor, realizado_em");
 
   for (const r of recursos ?? []) {
-    if (!noPeriodo(r.realizado_em, periodo)) continue;
+    if (!dataNoPeriodoConfig(r.realizado_em, periodo)) continue;
     const v = Number(r.valor) || 0;
     switch (r.tipo) {
       case "abastecimento":
@@ -145,16 +144,9 @@ export function calcularDesempenhoMensalDespesas(
   };
 }
 
-export function filtrarFechamentosPorPeriodo<
-  T extends { data_embarque: string },
->(items: T[], periodo: PeriodoFiltro): T[] {
-  if (periodo === "todos") return items;
-  return items.filter((f) => dataNoPeriodo(f.data_embarque, periodo));
-}
-
-export function filtrarFechamentosIntervalo<
-  T extends { data_embarque: string },
->(items: T[], de: string, ate: string): T[] {
-  if (!de || !ate) return items;
-  return items.filter((f) => dataNoIntervalo(f.data_embarque, de, ate));
+export function filtrarPorPeriodoConfig<T extends { data_embarque: string }>(
+  items: T[],
+  periodo: PeriodoFiltroState
+): T[] {
+  return items.filter((f) => dataNoPeriodoConfig(f.data_embarque, periodo));
 }

@@ -11,9 +11,13 @@ import { GerarComissaoModal } from "@/components/financeiro/gerar-comissao-modal
 import { fetchMotoristasOptions, fetchViagemFechamentos } from "@/lib/fechamento-data";
 import {
   calcularDesempenhoMensalDespesas,
-  filtrarFechamentosPorPeriodo,
+  filtrarPorPeriodoConfig,
 } from "@/lib/custos-operacionais";
-import { formatarMoeda, type PeriodoFiltro } from "@/lib/frota-filters";
+import {
+  formatarMoeda,
+  PERIODO_FILTRO_INICIAL,
+  type PeriodoFiltroState,
+} from "@/lib/frota-filters";
 import { totalDespesasFechamento } from "@/types/fechamento";
 import type { ViagemFechamento } from "@/types/fechamento";
 
@@ -21,7 +25,7 @@ export default function FechamentoViagensPage() {
   const [fechamentos, setFechamentos] = useState<ViagemFechamento[]>([]);
   const [motoristas, setMotoristas] = useState<{ id: string; nome_completo: string }[]>([]);
   const [motoristaId, setMotoristaId] = useState("");
-  const [periodo, setPeriodo] = useState<PeriodoFiltro>("mes");
+  const [periodo, setPeriodo] = useState<PeriodoFiltroState>(PERIODO_FILTRO_INICIAL);
   const [loading, setLoading] = useState(true);
   const [showComissao, setShowComissao] = useState(false);
 
@@ -47,7 +51,7 @@ export default function FechamentoViagensPage() {
   );
 
   const filtrados = useMemo(
-    () => filtrarFechamentosPorPeriodo(doMotorista, periodo),
+    () => filtrarPorPeriodoConfig(doMotorista, periodo),
     [doMotorista, periodo]
   );
 
@@ -140,7 +144,15 @@ export default function FechamentoViagensPage() {
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
               {filtrados.map((f) => (
-                <FechamentoViagemCard key={f.id} f={f} />
+                <FechamentoViagemCard
+                  key={f.id}
+                  f={f}
+                  onUpdated={(atualizado) =>
+                    setFechamentos((prev) =>
+                      prev.map((item) => (item.id === atualizado.id ? atualizado : item))
+                    )
+                  }
+                />
               ))}
             </div>
           )}
