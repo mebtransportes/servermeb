@@ -1,15 +1,19 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   DollarSign,
   Truck,
   Building2,
   Route,
-  Wallet,
   LayoutDashboard,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { EvolucaoMensalChart } from "@/components/financeiro/evolucao-mensal-chart";
+import { fetchGraficoMensalFinanceiroGeral } from "@/lib/financeiro-dashboard";
+import type { PontoGraficoMensal } from "@/lib/grafico-mensal";
 
 const modulos = [
   {
@@ -22,10 +26,9 @@ const modulos = [
   {
     href: "/financeiro/custos-empresariais",
     label: "Custos Empresariais",
-    desc: "Despesas administrativas e corporativas (em breve)",
+    desc: "Comissões, manutenções, abastecimentos e despesas administrativas",
     icon: Building2,
     cor: "text-purple-400",
-    emBreve: true,
   },
   {
     href: "/financeiro/fechamento-viagens",
@@ -34,17 +37,27 @@ const modulos = [
     icon: Route,
     cor: "text-emerald-400",
   },
-  {
-    href: "/financeiro/controle-gastos",
-    label: "Controle de Gastos",
-    desc: "Acompanhamento detalhado de gastos (em breve)",
-    icon: Wallet,
-    cor: "text-amber-400",
-    emBreve: true,
-  },
 ];
 
 export default function FinanceiroDashboardPage() {
+  const [grafico, setGrafico] = useState<PontoGraficoMensal[]>([]);
+  const [carregandoGrafico, setCarregandoGrafico] = useState(true);
+
+  useEffect(() => {
+    let ativo = true;
+    (async () => {
+      setCarregandoGrafico(true);
+      const dados = await fetchGraficoMensalFinanceiroGeral();
+      if (ativo) {
+        setGrafico(dados);
+        setCarregandoGrafico(false);
+      }
+    })();
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
   return (
     <div className="space-y-8">
       <header className="flex items-center gap-3">
@@ -55,37 +68,44 @@ export default function FinanceiroDashboardPage() {
         </div>
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        {modulos.map((m) => {
-          const Icon = m.icon;
-          const content = (
-            <article
-              className={cn(
-                "rounded-xl border border-slate-700/50 bg-slate-800/30 p-5 transition",
-                !m.emBreve && "hover:border-cyan-600/50 hover:bg-slate-800/60"
-              )}
-            >
-              <Icon className={cn("mb-3 h-8 w-8", m.cor)} />
-              <h2 className="font-semibold text-white">{m.label}</h2>
-              <p className="mt-1 text-sm text-slate-400">{m.desc}</p>
-              {m.emBreve && (
-                <span className="mt-3 inline-block rounded bg-slate-700 px-2 py-0.5 text-xs text-slate-300">
-                  Em breve
-                </span>
-              )}
-            </article>
-          );
+      {carregandoGrafico ? (
+        <div className="flex items-center justify-center gap-2 rounded-xl border border-slate-700/50 bg-slate-800/30 py-16 text-slate-400">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          Carregando evolução dos gastos…
+        </div>
+      ) : (
+        <EvolucaoMensalChart
+          dados={grafico}
+          titulo="Evolução geral dos gastos"
+          subtitulo="Últimos 6 meses · custos operacionais, comissões de motoristas e despesas administrativas"
+          tema="cyan"
+        />
+      )}
 
-          if (m.emBreve) {
-            return <div key={m.href}>{content}</div>;
-          }
-          return (
-            <Link key={m.href} href={m.href} className="block">
-              {content}
-            </Link>
-          );
-        })}
-      </div>
+      <section>
+        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-slate-500">
+          Acesso rápido
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {modulos.map((m) => {
+            const Icon = m.icon;
+            return (
+              <Link key={m.href} href={m.href} className="block">
+                <article
+                  className={cn(
+                    "rounded-xl border border-slate-700/50 bg-slate-800/30 p-5 transition",
+                    "hover:border-cyan-600/50 hover:bg-slate-800/60"
+                  )}
+                >
+                  <Icon className={cn("mb-3 h-8 w-8", m.cor)} />
+                  <h2 className="font-semibold text-white">{m.label}</h2>
+                  <p className="mt-1 text-sm text-slate-400">{m.desc}</p>
+                </article>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
 
       <p className="flex items-center gap-2 text-xs text-slate-500">
         <DollarSign className="h-4 w-4" />

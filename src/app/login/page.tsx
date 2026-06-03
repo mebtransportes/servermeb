@@ -6,6 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { Logo } from "@/components/brand/logo";
+import {
+  getDefaultHome,
+  isActiveProfileRole,
+  normalizeProfileRole,
+  normalizeRole,
+} from "@/lib/roles";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -22,14 +28,34 @@ export default function LoginPage() {
     const supabase = createClient();
     const input = username.trim().toLowerCase();
     let authEmail: string | null = null;
+    let profileRole: string | null = null;
 
-    // Aceita e-mail (admin@meb.local) ou nome de usuário (admin)
+    // Aceita e-mail ou nome de usuário
     if (input.includes("@")) {
-      authEmail = input;
+      const { data: profileByEmail, error: emailLookupError } = await supabase
+        .from("profiles")
+        .select("auth_email, role")
+        .eq("auth_email", input)
+        .maybeSingle();
+
+      if (emailLookupError) {
+        setError("Erro ao buscar usuário. Tente novamente.");
+        setLoading(false);
+        return;
+      }
+
+      if (!profileByEmail) {
+        setError("Usuário não encontrado para este e-mail.");
+        setLoading(false);
+        return;
+      }
+
+      authEmail = profileByEmail.auth_email;
+      profileRole = profileByEmail.role;
     } else {
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("auth_email")
+        .select("auth_email, role")
         .eq("username", input)
         .maybeSingle();
 
@@ -46,6 +72,7 @@ export default function LoginPage() {
 
       if (profile) {
         authEmail = profile.auth_email;
+        profileRole = profile.role;
       }
     }
 
@@ -53,6 +80,13 @@ export default function LoginPage() {
       setError(
         'Usuário não encontrado. Digite "admin" ou "admin@meb.local" e confira se rodou o SQL de profiles no Supabase.'
       );
+      setLoading(false);
+      return;
+    }
+
+    const role = normalizeProfileRole(profileRole);
+    if (!isActiveProfileRole(role)) {
+      setError("Esta conta está inativa. Entre em contato com o administrador.");
       setLoading(false);
       return;
     }
@@ -75,22 +109,40 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/dashboard");
+    const {
+      data: { user: sessionUser },
+    } = await supabase.auth.getUser();
+
+    const { data: profileAfter } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", sessionUser?.id ?? "")
+      .maybeSingle();
+
+    const roleAfter = normalizeProfileRole(profileAfter?.role);
+    if (!isActiveProfileRole(roleAfter)) {
+      await supabase.auth.signOut();
+      setError("Esta conta está inativa. Entre em contato com o administrador.");
+      return;
+    }
+
+    router.push(getDefaultHome(normalizeRole(roleAfter)));
     router.refresh();
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-slate-700/50 bg-slate-900/80 p-8 shadow-2xl backdrop-blur">
+    <div className="flex min-h-screen items-center justify-center bg-[#121212] p-4">
+      <div className="w-full max-w-md rounded-2xl border border-slate-300/80 bg-[#e8edf2] p-8 shadow-xl">
         <div className="mb-8 flex flex-col items-center gap-4">
           <Logo variant="login" />
-          <p className="text-center text-sm text-slate-400">
+          <p className="text-center text-sm text-slate-600">
             Gestão de transporte — acesse com seu usuário
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="login-form-light space-y-4">
           <Input
+            tone="light"
             label="Usuário ou e-mail"
             name="username"
             value={username}
@@ -100,6 +152,7 @@ export default function LoginPage() {
             placeholder="admin ou admin@meb.local"
           />
           <Input
+            tone="light"
             label="Senha"
             name="password"
             type="password"
@@ -110,7 +163,7 @@ export default function LoginPage() {
             placeholder="••••••"
           />
           {error && (
-            <p className="rounded-lg bg-red-950/50 px-3 py-2 text-sm text-red-300">
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
               {error}
             </p>
           )}

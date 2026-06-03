@@ -6,13 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { PeriodoFilter } from "@/components/frota/periodo-filter";
 import { FechamentoViagemCard } from "@/components/financeiro/fechamento-viagem-card";
-import { DesempenhoDespesasChart } from "@/components/financeiro/desempenho-despesas-chart";
+import { EvolucaoMensalChart } from "@/components/financeiro/evolucao-mensal-chart";
+import { buildGraficoMensalDespesas } from "@/lib/grafico-mensal";
 import { GerarComissaoModal } from "@/components/financeiro/gerar-comissao-modal";
 import { fetchMotoristasOptions, fetchViagemFechamentos } from "@/lib/fechamento-data";
-import {
-  calcularDesempenhoMensalDespesas,
-  filtrarPorPeriodoConfig,
-} from "@/lib/custos-operacionais";
+import { filtrarPorPeriodoConfig } from "@/lib/custos-operacionais";
 import {
   formatarMoeda,
   PERIODO_FILTRO_INICIAL,
@@ -61,12 +59,12 @@ export default function FechamentoViagensPage() {
   const totalDespesas = filtrados.reduce((s, f) => s + totalDespesasFechamento(f), 0);
   const totalComissao = filtrados.reduce((s, f) => s + (Number(f.comissao_final) || 0), 0);
 
-  const desempenho = useMemo(
+  const graficoDespesas = useMemo(
     () =>
-      calcularDesempenhoMensalDespesas(
+      buildGraficoMensalDespesas(
         doMotorista.map((f) => ({
-          data_embarque: f.data_embarque,
-          despesas: totalDespesasFechamento(f),
+          dataRef: f.data_embarque,
+          valor: totalDespesasFechamento(f),
         }))
       ),
     [doMotorista]
@@ -135,7 +133,12 @@ export default function FechamentoViagensPage() {
             </article>
           </div>
 
-          <DesempenhoDespesasChart dados={desempenho} />
+          <EvolucaoMensalChart
+            dados={graficoDespesas}
+            titulo="Evolução das despesas do motorista"
+            subtitulo="Últimos 6 meses · despesas das viagens finalizadas (abastecimento, manutenção, pedágio, Arla)"
+            tema="amber"
+          />
 
           {filtrados.length === 0 ? (
             <p className="text-slate-500">

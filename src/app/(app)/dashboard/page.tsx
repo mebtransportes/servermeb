@@ -47,8 +47,8 @@ export default function DashboardPage() {
       <header className="flex items-center gap-3">
         <LayoutDashboard className="h-8 w-8 text-cyan-400" />
         <div>
-          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-          <p className="text-slate-400">Visão geral operacional</p>
+          <h1 className="text-3xl font-bold text-white">Dashboard</h1>
+          <p className="text-base text-slate-400">Visão geral operacional</p>
         </div>
       </header>
 
@@ -57,7 +57,7 @@ export default function DashboardPage() {
       ) : (
         <>
           <section>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+            <h2 className="mb-3 text-base font-semibold uppercase tracking-wide text-slate-400">
               Viagens ativas
             </h2>
             <ViagemStatusCards counts={counts} />

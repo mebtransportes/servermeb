@@ -272,6 +272,14 @@ export function AbastecimentoForm({
         onNotaFiscalChange={setNotaFiscal}
         onComprovanteChange={setComprovante}
         existentes={anexosExistentes}
+        registro={
+          viagemRecursoId
+            ? { tabela: "viagem_recursos", id: viagemRecursoId }
+            : frotaId
+              ? { tabela: "frota_abastecimentos", id: frotaId }
+              : undefined
+        }
+        onAnexoExcluido={setAnexosExistentes}
       />
 
       {error && <p className="text-sm text-red-400">{error}</p>}

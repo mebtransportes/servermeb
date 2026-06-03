@@ -6,9 +6,10 @@ import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { ViagemRecursos } from "@/components/operacional/viagem-recursos";
 import { VIAGEM_STATUS } from "@/lib/viagem-validation";
-import { getFileUrl } from "@/lib/storage";
+import { excluirAnexoTabela } from "@/lib/anexos-crud";
+import { AnexoArquivoRow } from "@/components/shared/anexo-arquivo-row";
 import type { Viagem, ViagemStatus } from "@/types";
-import { FileText, MapPin } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
 
@@ -198,7 +199,11 @@ export function ViagemDetail({
           <h3 className="mb-2 text-sm font-semibold text-slate-300">Anexos</h3>
           <ul className="space-y-1">
             {anexos.map((a) => (
-              <AnexoRow key={a.id} anexo={a} />
+              <AnexoRow
+                key={a.id}
+                anexo={a}
+                onExcluido={() => setAnexos((prev) => prev.filter((x) => x.id !== a.id))}
+              />
             ))}
           </ul>
         </div>
@@ -211,25 +216,33 @@ export function ViagemDetail({
 
 function AnexoRow({
   anexo,
+  onExcluido,
 }: {
-  anexo: { categoria: string; file_name: string; storage_path: string };
+  anexo: { id: string; categoria: string; file_name: string; storage_path: string };
+  onExcluido: () => void;
 }) {
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => {
-    getFileUrl(anexo.storage_path).then(setUrl);
-  }, [anexo.storage_path]);
+  const [excluindo, setExcluindo] = useState(false);
+
+  async function handleExcluir() {
+    if (!confirm(`Excluir o anexo "${anexo.file_name}"?`)) return;
+    setExcluindo(true);
+    const err = await excluirAnexoTabela("viagem_anexos", anexo.id, anexo.storage_path);
+    setExcluindo(false);
+    if (err) {
+      alert(err);
+      return;
+    }
+    onExcluido();
+  }
 
   return (
-    <li className="flex items-center gap-2 text-sm">
-      <FileText className="h-4 w-4 text-cyan-500" />
-      <span className="text-slate-400">{anexo.categoria}:</span>
-      {url ? (
-        <a href={url} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">
-          {anexo.file_name}
-        </a>
-      ) : (
-        <span>{anexo.file_name}</span>
-      )}
+    <li>
+      <AnexoArquivoRow
+        label={`${anexo.categoria}: ${anexo.file_name}`}
+        storagePath={anexo.storage_path}
+        onExcluir={handleExcluir}
+        excluindo={excluindo}
+      />
     </li>
   );
 }

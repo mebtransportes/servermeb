@@ -34,7 +34,7 @@ export function PeriodoFilter({
             type="button"
             onClick={() => setPreset(p.value)}
             className={cn(
-              "rounded-lg px-3 py-1.5 text-xs font-medium transition",
+              "rounded-lg px-3.5 py-2 text-sm font-medium transition",
               value.preset === p.value
                 ? "bg-cyan-600 text-white"
                 : "bg-slate-800 text-slate-400 hover:bg-slate-700"
@@ -47,7 +47,7 @@ export function PeriodoFilter({
           type="button"
           onClick={() => setPreset("custom")}
           className={cn(
-            "rounded-lg px-3 py-1.5 text-xs font-medium transition",
+            "rounded-lg px-3.5 py-2 text-sm font-medium transition",
             isCustom
               ? "bg-cyan-600 text-white"
               : "bg-slate-800 text-slate-400 hover:bg-slate-700"

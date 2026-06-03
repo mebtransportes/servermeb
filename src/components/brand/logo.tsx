@@ -2,27 +2,33 @@ import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-const LOGO_SRC = "/meblogo.png";
+export const LOGO_SRC = "/mebtransportes.png";
 
 type LogoProps = {
   variant?: "login" | "sidebar";
   linked?: boolean;
+  homeHref?: string;
   className?: string;
 };
 
-export function Logo({ variant = "sidebar", linked = false, className }: LogoProps) {
+export function Logo({
+  variant = "sidebar",
+  linked = false,
+  homeHref = "/dashboard",
+  className,
+}: LogoProps) {
   const isLogin = variant === "login";
 
   const image = (
     <Image
       src={LOGO_SRC}
       alt="MEB Transporte"
-      width={isLogin ? 280 : 256}
-      height={isLogin ? 100 : 96}
+      width={isLogin ? 360 : 320}
+      height={isLogin ? 130 : 120}
       priority={isLogin}
       className={cn(
-        "object-contain",
-        isLogin ? "h-24 w-auto max-w-[280px]" : "h-20 w-full max-w-full",
+        "object-contain object-center",
+        isLogin ? "h-32 w-auto max-w-[min(360px,100%)]" : "h-[7.5rem] w-full",
         className
       )}
     />
@@ -31,7 +37,7 @@ export function Logo({ variant = "sidebar", linked = false, className }: LogoPro
   if (linked) {
     return (
       <Link
-        href="/dashboard"
+        href={homeHref}
         className="flex w-full items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded-lg"
       >
         {image}

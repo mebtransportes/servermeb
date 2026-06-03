@@ -1,9 +1,13 @@
 export type TipoPessoa = "PF" | "PJ";
 
+export type ProfileRole = "admin" | "mecanico" | "inativo";
+export type UserRole = "admin" | "mecanico";
+
 export interface Profile {
   id: string;
   username: string;
   auth_email: string;
+  role?: ProfileRole;
 }
 
 export interface Veiculo {

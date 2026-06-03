@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getAppProfile } from "@/lib/auth-profile";
 import { Sidebar } from "@/components/layout/sidebar";
+import { RoleGuard } from "@/components/layout/role-guard";
 
 export default async function AppLayout({
   children,
@@ -14,17 +16,14 @@ export default async function AppLayout({
 
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("username")
-    .eq("id", user.id)
-    .single();
+  const profile = await getAppProfile(user.id);
+  if (!profile) redirect("/login");
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar username={profile?.username ?? "usuário"} />
-      <main className="flex-1 overflow-auto bg-slate-900/50 p-6 lg:p-8">
-        {children}
+    <div className="flex min-h-screen bg-[#121212]">
+      <Sidebar username={profile.username} role={profile.role} />
+      <main className="flex-1 overflow-auto bg-[#121212] p-6 text-base lg:p-8">
+        <RoleGuard role={profile.role}>{children}</RoleGuard>
       </main>
     </div>
   );

@@ -38,13 +38,13 @@ export function ViagensCrescimentoChart({
   const active = hovered != null ? dados[hovered] : null;
 
   return (
-    <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-5">
+    <div className="rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] p-5">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-white">
+          <h2 className="text-xl font-semibold text-white">
             Crescimento de viagens
           </h2>
-          <p className="text-sm text-slate-400">
+          <p className="text-base text-slate-400">
             Quantidade cadastrada por período · {totalGeral} viagem(ns) no filtro
           </p>
         </div>
@@ -55,10 +55,10 @@ export function ViagensCrescimentoChart({
               type="button"
               onClick={() => onAgrupamentoChange(a.value)}
               className={cn(
-                "rounded-lg px-3 py-1.5 text-xs font-medium transition",
+                "rounded-lg px-3.5 py-2 text-sm font-medium transition",
                 agrupamento === a.value
                   ? "bg-cyan-600 text-white"
-                  : "bg-slate-800 text-slate-400 hover:bg-slate-700"
+                  : "bg-[#262626] text-slate-400 hover:bg-[#333333]"
               )}
             >
               {a.label}
@@ -68,12 +68,12 @@ export function ViagensCrescimentoChart({
       </div>
 
       <div className="mb-4">
-        <p className="mb-2 text-xs text-slate-500">Filtrar período dos dados</p>
+        <p className="mb-2 text-sm font-medium text-slate-400">Filtrar período dos dados</p>
         <PeriodoFilter value={periodo} onChange={onPeriodoChange} />
       </div>
 
       {dados.length === 0 ? (
-        <p className="py-12 text-center text-slate-500">
+        <p className="py-12 text-center text-base text-slate-400">
           Nenhuma viagem no período selecionado.
         </p>
       ) : (
@@ -104,7 +104,7 @@ export function ViagensCrescimentoChart({
                     y1={g.y}
                     x2={W - PAD.right}
                     y2={g.y}
-                    stroke="rgb(51, 65, 85)"
+                  stroke="rgb(55, 55, 55)"
                     strokeWidth="1"
                     strokeDasharray="4 4"
                   />
@@ -112,7 +112,7 @@ export function ViagensCrescimentoChart({
                     x={PAD.left - 8}
                     y={g.y + 4}
                     textAnchor="end"
-                    className="fill-slate-500 text-[11px]"
+                    className="fill-slate-500 text-xs"
                   >
                     {g.label}
                   </text>
@@ -169,7 +169,7 @@ export function ViagensCrescimentoChart({
                   x={p.x}
                   y={H - 16}
                   textAnchor="middle"
-                  className="fill-slate-400 text-[10px]"
+                  className="fill-slate-400 text-xs"
                 >
                   {p.label}
                 </text>
@@ -203,10 +203,10 @@ export function ViagensCrescimentoChart({
                 onMouseEnter={() => setHovered(i)}
                 onMouseLeave={() => setHovered(null)}
                 className={cn(
-                  "rounded-lg border px-3 py-2 text-left text-xs transition",
+                  "rounded-lg border px-3 py-2.5 text-left text-sm transition",
                   hovered === i
-                    ? "border-cyan-500/60 bg-cyan-950/40"
-                    : "border-slate-700/50 bg-slate-900/40 hover:border-slate-600"
+                    ? "border-cyan-500/60 bg-[#262626]"
+                    : "border-[#2a2a2a] bg-[#141414] hover:border-[#404040]"
                 )}
               >
                 <span className="text-slate-400">{p.label}</span>

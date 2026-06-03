@@ -1,51 +1,50 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getFileUrl } from "@/lib/storage";
-import { FileText } from "lucide-react";
+import { AnexoArquivoRow } from "@/components/shared/anexo-arquivo-row";
+import type { CampoAnexoFrota } from "@/lib/anexos-crud";
 
-type AnexosInfo = {
+export type AnexosInfo = {
   nota_fiscal_path?: string | null;
   nota_fiscal_nome?: string | null;
   comprovante_path?: string | null;
   comprovante_nome?: string | null;
 };
 
-function LinkAnexo({ path, label }: { path: string; label: string }) {
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => {
-    getFileUrl(path).then(setUrl);
-  }, [path]);
-
-  if (!url) return null;
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 text-xs text-cyan-400 hover:underline"
-    >
-      <FileText className="h-3 w-3" />
-      {label}
-    </a>
-  );
-}
-
-export function FrotaAnexosLinks({ anexos }: { anexos: AnexosInfo }) {
+export function FrotaAnexosLinks({
+  anexos,
+  onExcluir,
+  excluindoCampo,
+}: {
+  anexos: AnexosInfo;
+  onExcluir?: (campo: CampoAnexoFrota, path: string) => void | Promise<void>;
+  excluindoCampo?: CampoAnexoFrota | null;
+}) {
   if (!anexos.nota_fiscal_path && !anexos.comprovante_path) return null;
 
   return (
-    <div className="mt-2 flex flex-wrap gap-3">
+    <div className="space-y-2">
       {anexos.nota_fiscal_path && (
-        <LinkAnexo
-          path={anexos.nota_fiscal_path}
+        <AnexoArquivoRow
           label={anexos.nota_fiscal_nome ?? "Nota fiscal"}
+          storagePath={anexos.nota_fiscal_path}
+          onExcluir={
+            onExcluir
+              ? () => onExcluir("nota_fiscal", anexos.nota_fiscal_path!)
+              : undefined
+          }
+          excluindo={excluindoCampo === "nota_fiscal"}
         />
       )}
       {anexos.comprovante_path && (
-        <LinkAnexo
-          path={anexos.comprovante_path}
+        <AnexoArquivoRow
           label={anexos.comprovante_nome ?? "Comprovante"}
+          storagePath={anexos.comprovante_path}
+          onExcluir={
+            onExcluir
+              ? () => onExcluir("comprovante", anexos.comprovante_path!)
+              : undefined
+          }
+          excluindo={excluindoCampo === "comprovante"}
         />
       )}
     </div>

@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
+import Link from "next/link";
+import { ROLE_LABELS, normalizeProfileRole } from "@/lib/roles";
 
 export default function PerfilPage() {
   const [username, setUsername] = useState("");
@@ -14,6 +16,8 @@ export default function PerfilPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [role, setRole] = useState<string>("");
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -25,12 +29,15 @@ export default function PerfilPage() {
       if (!user) return;
       const { data } = await supabase
         .from("profiles")
-        .select("username")
+        .select("username, role")
         .eq("id", user.id)
         .single();
       if (data) {
         setUsername(data.username);
         setNewUsername(data.username);
+        const r = normalizeProfileRole(data.role);
+        setRole(ROLE_LABELS[r]);
+        setIsAdmin(r === "admin");
       }
     }
     load();
@@ -123,7 +130,10 @@ export default function PerfilPage() {
         <Settings className="h-8 w-8 text-cyan-400" />
         <div>
           <h1 className="text-2xl font-bold">Minha conta</h1>
-          <p className="text-slate-400">Altere usuário e senha</p>
+          <p className="text-slate-400">
+            {role ? `Perfil: ${role} · ` : ""}
+            Altere usuário e senha
+          </p>
         </div>
       </header>
 
@@ -136,6 +146,15 @@ export default function PerfilPage() {
         <p className="mb-4 rounded-lg bg-red-950/50 px-3 py-2 text-sm text-red-300">
           {error}
         </p>
+      )}
+
+      {isAdmin && (
+        <Link
+          href="/configuracoes/usuarios"
+          className="mb-6 block rounded-xl border border-cyan-700/40 bg-cyan-950/20 px-4 py-3 text-sm text-cyan-300 hover:border-cyan-500/50"
+        >
+          Gerenciar usuários do sistema →
+        </Link>
       )}
 
       <form onSubmit={updateUsername} className="mb-8 space-y-4 rounded-xl border border-slate-700/50 p-6">

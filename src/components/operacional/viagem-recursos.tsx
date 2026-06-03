@@ -10,7 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { uploadFile, getFileUrl } from "@/lib/storage";
 import type { ViagemRecursoTipo } from "@/types";
-import { Plus, FileText } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
+import { AnexoArquivoRow } from "@/components/shared/anexo-arquivo-row";
+import { FrotaAnexosLinks } from "@/components/frota/frota-anexos-links";
+import { excluirAnexoFrotaInline, excluirAnexoTabela } from "@/lib/anexos-crud";
+import type { CampoAnexoFrota } from "@/lib/anexos-crud";
 import { FileUploadMultiple } from "@/components/ui/file-upload";
 import { AnexosFrotaCampos } from "@/components/frota/anexos-campos";
 import { salvarAnexosFrota } from "@/lib/frota-anexos";
@@ -26,6 +30,10 @@ type Recurso = {
   realizado_em: string;
   km_abastecimento?: number | null;
   litros?: number | null;
+  nota_fiscal_path?: string | null;
+  nota_fiscal_nome?: string | null;
+  comprovante_path?: string | null;
+  comprovante_nome?: string | null;
   postos?: { nome: string } | null;
   oficinas?: { nome: string } | null;
 };
@@ -56,6 +64,7 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
   const [comprovante, setComprovante] = useState<File | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
+  const [excluindoId, setExcluindoId] = useState<string | null>(null);
 
   const load = async () => {
     const supabase = createClient();
@@ -157,6 +166,32 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
     setFiles([]);
     await syncFechamentoViagem(viagemId);
     setSaving(false);
+    load();
+  }
+
+  async function handleExcluir(recursoId: string) {
+    if (
+      !confirm(
+        "Excluir este lançamento? Os anexos vinculados também serão removidos."
+      )
+    ) {
+      return;
+    }
+    setExcluindoId(recursoId);
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("viagem_recursos")
+      .delete()
+      .eq("id", recursoId);
+
+    if (error) {
+      alert(error.message);
+      setExcluindoId(null);
+      return;
+    }
+
+    await syncFechamentoViagem(viagemId);
+    setExcluindoId(null);
     load();
   }
 
@@ -293,7 +328,14 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
       ) : (
         <ul className="space-y-2">
           {recursosGastos.map((r) => (
-            <RecursoItem key={r.id} recurso={r} />
+            <RecursoItem
+              key={r.id}
+              recurso={r}
+              viagemId={viagemId}
+              onExcluir={() => handleExcluir(r.id)}
+              excluindo={excluindoId === r.id}
+              onAnexoAlterado={load}
+            />
           ))}
         </ul>
       )}
@@ -374,7 +416,14 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
         ) : (
           <ul className="space-y-2">
             {recursosReembolso.map((r) => (
-              <RecursoItem key={r.id} recurso={r} />
+              <RecursoItem
+                key={r.id}
+                recurso={r}
+                viagemId={viagemId}
+                onExcluir={() => handleExcluir(r.id)}
+                excluindo={excluindoId === r.id}
+                onAnexoAlterado={load}
+              />
             ))}
           </ul>
         )}
@@ -383,8 +432,36 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
   );
 }
 
-function RecursoItem({ recurso }: { recurso: Recurso }) {
+function RecursoItem({
+  recurso,
+  viagemId,
+  onExcluir,
+  excluindo,
+  onAnexoAlterado,
+}: {
+  recurso: Recurso;
+  viagemId: string;
+  onExcluir: () => void;
+  excluindo: boolean;
+  onAnexoAlterado: () => void;
+}) {
   const [anexos, setAnexos] = useState<Anexo[]>([]);
+  const [anexosInline, setAnexosInline] = useState({
+    nota_fiscal_path: recurso.nota_fiscal_path,
+    nota_fiscal_nome: recurso.nota_fiscal_nome,
+    comprovante_path: recurso.comprovante_path,
+    comprovante_nome: recurso.comprovante_nome,
+  });
+  const [excluindoCampo, setExcluindoCampo] = useState<CampoAnexoFrota | null>(null);
+
+  useEffect(() => {
+    setAnexosInline({
+      nota_fiscal_path: recurso.nota_fiscal_path,
+      nota_fiscal_nome: recurso.nota_fiscal_nome,
+      comprovante_path: recurso.comprovante_path,
+      comprovante_nome: recurso.comprovante_nome,
+    });
+  }, [recurso]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -394,6 +471,25 @@ function RecursoItem({ recurso }: { recurso: Recurso }) {
       .eq("recurso_id", recurso.id)
       .then(({ data }) => setAnexos(data ?? []));
   }, [recurso.id]);
+
+  async function excluirAnexoInline(campo: CampoAnexoFrota, path: string) {
+    if (!confirm("Excluir este documento?")) return;
+    setExcluindoCampo(campo);
+    const err = await excluirAnexoFrotaInline(
+      "viagem_recursos",
+      recurso.id,
+      campo,
+      path
+    );
+    if (err) {
+      alert(err);
+      setExcluindoCampo(null);
+      return;
+    }
+    await syncFechamentoViagem(viagemId);
+    setExcluindoCampo(null);
+    onAnexoAlterado();
+  }
 
   const tipoLabel =
     recurso.tipo === "abastecimento"
@@ -415,9 +511,20 @@ function RecursoItem({ recurso }: { recurso: Recurso }) {
     <li className="rounded-lg border border-slate-700/40 bg-slate-800/30 p-3 text-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-medium text-cyan-300">{tipoLabel}</span>
-        <span className="text-emerald-400">
-          R$ {Number(recurso.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-emerald-400">
+            R$ {Number(recurso.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+          </span>
+          <button
+            type="button"
+            onClick={onExcluir}
+            disabled={excluindo}
+            title="Excluir"
+            className="rounded-md p-1.5 text-red-400 transition hover:bg-red-950/50 disabled:opacity-50"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
       </div>
       <p className="text-slate-400">
         {new Date(recurso.realizado_em).toLocaleString("pt-BR")}
@@ -430,10 +537,26 @@ function RecursoItem({ recurso }: { recurso: Recurso }) {
         )}
       </p>
       {recurso.descricao && <p className="mt-1 text-slate-300">{recurso.descricao}</p>}
+      {(anexosInline.nota_fiscal_path || anexosInline.comprovante_path) && (
+        <div className="mt-2">
+          <FrotaAnexosLinks
+            anexos={anexosInline}
+            onExcluir={excluirAnexoInline}
+            excluindoCampo={excluindoCampo}
+          />
+        </div>
+      )}
       {anexos.length > 0 && (
         <ul className="mt-2 space-y-1">
           {anexos.map((a) => (
-            <AnexoLink key={a.id} anexo={a} />
+            <AnexoLink
+              key={a.id}
+              anexo={a}
+              onExcluido={() => {
+                setAnexos((prev) => prev.filter((x) => x.id !== a.id));
+                onAnexoAlterado();
+              }}
+            />
           ))}
         </ul>
       )}
@@ -441,25 +564,35 @@ function RecursoItem({ recurso }: { recurso: Recurso }) {
   );
 }
 
-function AnexoLink({ anexo }: { anexo: Anexo }) {
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => {
-    getFileUrl(anexo.storage_path).then(setUrl);
-  }, [anexo.storage_path]);
+function AnexoLink({
+  anexo,
+  onExcluido,
+}: {
+  anexo: Anexo;
+  onExcluido: () => void;
+}) {
+  const [excluindo, setExcluindo] = useState(false);
+
+  async function handleExcluir() {
+    if (!confirm(`Excluir o anexo "${anexo.file_name}"?`)) return;
+    setExcluindo(true);
+    const err = await excluirAnexoTabela("viagem_anexos", anexo.id, anexo.storage_path);
+    setExcluindo(false);
+    if (err) {
+      alert(err);
+      return;
+    }
+    onExcluido();
+  }
 
   return (
     <li>
-      {url ? (
-        <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-cyan-400 hover:underline">
-          <FileText className="h-3 w-3" />
-          {anexo.file_name}
-        </a>
-      ) : (
-        <span className="flex items-center gap-1 text-slate-500">
-          <FileText className="h-3 w-3" />
-          {anexo.file_name}
-        </span>
-      )}
+      <AnexoArquivoRow
+        label={anexo.file_name}
+        storagePath={anexo.storage_path}
+        onExcluir={handleExcluir}
+        excluindo={excluindo}
+      />
     </li>
   );
 }

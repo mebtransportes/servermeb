@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { uploadPdf, getPdfUrl } from "@/lib/storage";
+import { uploadPdf } from "@/lib/storage";
+import { excluirAnexoTabela } from "@/lib/anexos-crud";
+import { AnexoArquivoRow } from "@/components/shared/anexo-arquivo-row";
 import { calcularIdade } from "@/lib/utils";
 import type { Motorista } from "@/types";
-import { FileText } from "lucide-react";
 import { FileUploadField } from "@/components/ui/file-upload";
 
 type Anexo = { id?: string; nome: string; storage_path: string; file_name: string };
@@ -125,7 +126,11 @@ export function MotoristasForm({
       <div className="space-y-3 rounded-xl border border-slate-700/60 p-4">
         <h3 className="text-sm font-semibold text-cyan-400">Anexos PDF</h3>
         {anexos.map((a) => (
-          <AnexoItem key={a.id ?? a.storage_path} anexo={a} />
+          <AnexoItem
+            key={a.id ?? a.storage_path}
+            anexo={a}
+            onExcluido={() => setAnexos((prev) => prev.filter((x) => x.id !== a.id))}
+          />
         ))}
         <div className="grid gap-4 sm:grid-cols-2">
           <Input label="Nome do documento" value={pdfNome} onChange={(e) => setPdfNome(e.target.value)} />
@@ -148,15 +153,37 @@ export function MotoristasForm({
   );
 }
 
-function AnexoItem({ anexo }: { anexo: Anexo }) {
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => {
-    getPdfUrl(anexo.storage_path).then(setUrl);
-  }, [anexo.storage_path]);
+function AnexoItem({
+  anexo,
+  onExcluido,
+}: {
+  anexo: Anexo;
+  onExcluido: () => void;
+}) {
+  const [excluindo, setExcluindo] = useState(false);
+
+  async function handleExcluir() {
+    if (!anexo.id) {
+      onExcluido();
+      return;
+    }
+    if (!confirm(`Excluir o documento "${anexo.nome}"?`)) return;
+    setExcluindo(true);
+    const err = await excluirAnexoTabela("motorista_anexos", anexo.id, anexo.storage_path);
+    setExcluindo(false);
+    if (err) {
+      alert(err);
+      return;
+    }
+    onExcluido();
+  }
+
   return (
-    <div className="flex items-center justify-between rounded-lg bg-slate-800/50 px-3 py-2 text-sm">
-      <span className="flex items-center gap-2"><FileText className="h-4 w-4 text-cyan-400" />{anexo.nome}</span>
-      {url && <a href={url} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">Abrir</a>}
-    </div>
+    <AnexoArquivoRow
+      label={anexo.nome}
+      storagePath={anexo.storage_path}
+      onExcluir={handleExcluir}
+      excluindo={excluindo}
+    />
   );
 }
