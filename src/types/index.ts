@@ -10,10 +10,13 @@ export interface Profile {
   role?: ProfileRole;
 }
 
+export type VeiculoTipo = "caminhao" | "carreta" | "cavalo";
+
 export interface Veiculo {
   id: string;
   nome: string;
   placa: string;
+  tipo: VeiculoTipo;
   chassi?: string | null;
   ano_modelo?: string | null;
   renavam?: string | null;

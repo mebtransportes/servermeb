@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { BrNumberInput } from "@/components/ui/br-number-input";
 import { EntregaAutocomplete } from "@/components/ui/entrega-autocomplete";
-import { FileUploadField } from "@/components/ui/file-upload";
+import { FileUploadField, FileUploadMultiple } from "@/components/ui/file-upload";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -14,7 +14,9 @@ import { AptoBadge } from "@/components/operacional/apto-badge";
 import {
   validarMotorista,
   validarVeiculo,
-  ANEXOS_VIAGEM_CATEGORIAS,
+  ANEXOS_VIAGEM_CATEGORIAS_UNICAS,
+  ANEXOS_VIAGEM_CATEGORIAS_MULTIPLAS,
+  VEICULO_TIPO_OPCOES,
   TIPOS_TRAJETO,
 } from "@/lib/viagem-validation";
 import { uploadFile } from "@/lib/storage";
@@ -39,6 +41,11 @@ type UploadSlot = {
   file: File | null;
 };
 
+type VeiculoSelecionado = {
+  veiculo: Veiculo;
+  validacao: ReturnType<typeof validarVeiculo>;
+};
+
 function classificarAnexo(nome: string): "CNH" | "TOXICOLOGICO" | "CRLV" | null {
   const n = nome.toUpperCase();
   if (n.includes("CNH")) return "CNH";
@@ -60,9 +67,9 @@ export function ViagemForm({
   const [motoristas, setMotoristas] = useState<Motorista[]>([]);
   const [veiculos, setVeiculos] = useState<Veiculo[]>([]);
   const [motoristaId, setMotoristaId] = useState("");
-  const [veiculoId, setVeiculoId] = useState("");
+  const [veiculoIds, setVeiculoIds] = useState<string[]>([]);
   const [motorista, setMotorista] = useState<Motorista | null>(null);
-  const [veiculo, setVeiculo] = useState<Veiculo | null>(null);
+  const [veiculosSelecionados, setVeiculosSelecionados] = useState<VeiculoSelecionado[]>([]);
   const [anexosAuto, setAnexosAuto] = useState<AnexoRef[]>([]);
 
   const [saidaEm, setSaidaEm] = useState("");
@@ -77,16 +84,22 @@ export function ViagemForm({
   const [descMercadoria, setDescMercadoria] = useState("");
   const [kmTotal, setKmTotal] = useState("");
   const [uploads, setUploads] = useState<UploadSlot[]>(
-    ANEXOS_VIAGEM_CATEGORIAS.map((c) => ({ categoria: c, file: null }))
+    ANEXOS_VIAGEM_CATEGORIAS_UNICAS.map((c) => ({ categoria: c, file: null }))
   );
+  const [uploadsMultiplos, setUploadsMultiplos] = useState<Record<string, File[]>>({
+    ROMANEIO: [],
+    NOTAS_FISCAIS: [],
+  });
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const valMotorista = motorista ? validarMotorista(motorista) : null;
-  const valVeiculo = veiculo ? validarVeiculo(veiculo) : null;
+  const todosVeiculosAptos =
+    veiculosSelecionados.length > 0 &&
+    veiculosSelecionados.every((v) => v.validacao.apto);
   const aptoGeral =
-    !!valMotorista?.apto && !!valVeiculo?.apto && !!motoristaId && !!veiculoId;
+    !!valMotorista?.apto && todosVeiculosAptos && !!motoristaId && veiculoIds.length > 0;
 
   useEffect(() => {
     async function load() {
@@ -104,7 +117,7 @@ export function ViagemForm({
   useEffect(() => {
     if (!viagem) return;
     setMotoristaId(viagem.motorista_id);
-    setVeiculoId(viagem.veiculo_id);
+    setVeiculoIds(viagem.veiculo_ids);
     setSaidaEm(isoParaDatetimeLocal(viagem.saida_em));
     setChegadaEm(isoParaDatetimeLocal(viagem.chegada_prevista_em));
     setLocalSaida(viagem.local_saida);
@@ -122,8 +135,19 @@ export function ViagemForm({
     setNumeroCte(viagem.numero_cte ?? "");
     setDescMercadoria(viagem.descricao_mercadoria ?? "");
     setKmTotal(rawNumberStringToBrInput(viagem.km_total, 0));
-    setUploads(ANEXOS_VIAGEM_CATEGORIAS.map((c) => ({ categoria: c, file: null })));
+    setUploads(ANEXOS_VIAGEM_CATEGORIAS_UNICAS.map((c) => ({ categoria: c, file: null })));
+    setUploadsMultiplos({ ROMANEIO: [], NOTAS_FISCAIS: [] });
   }, [viagem]);
+
+  function toggleVeiculo(id: string) {
+    setVeiculoIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
+
+  function labelTipoVeiculo(tipo: Veiculo["tipo"] | undefined) {
+    return VEICULO_TIPO_OPCOES.find((o) => o.value === tipo)?.label ?? "";
+  }
 
   useEffect(() => {
     async function loadSelecoes() {
@@ -168,54 +192,65 @@ export function ViagemForm({
   }, [motoristaId]);
 
   useEffect(() => {
-    async function loadVeiculo() {
-      if (!veiculoId) {
-        setVeiculo(null);
+    async function loadVeiculos() {
+      if (!veiculoIds.length) {
+        setVeiculosSelecionados([]);
+        setAnexosAuto((prev) => prev.filter((a) => a.origem !== "veiculo"));
         return;
       }
       const supabase = createClient();
-      const { data: v } = await supabase
+      const { data: lista } = await supabase
         .from("veiculos")
         .select("*")
-        .eq("id", veiculoId)
-        .single();
-      setVeiculo(v);
+        .in("id", veiculoIds);
 
-      const { data: anexosV } = await supabase
-        .from("veiculo_anexos")
-        .select("*")
-        .eq("veiculo_id", veiculoId);
+      const porId = new Map((lista ?? []).map((v) => [v.id, v as Veiculo]));
+      const ordenados = veiculoIds
+        .map((id) => porId.get(id))
+        .filter((v): v is Veiculo => !!v);
 
-      const refsV =
-        (anexosV ?? [])
-          .map((a) => {
-            const cat = classificarAnexo(a.nome);
-            if (cat !== "CRLV") return null;
-            return {
-              categoria: cat,
-              nome: a.nome,
-              storage_path: a.storage_path,
-              file_name: a.file_name,
-              origem: "veiculo",
-            };
-          })
-          .filter(Boolean) as AnexoRef[];
+      setVeiculosSelecionados(
+        ordenados.map((veiculo) => ({
+          veiculo,
+          validacao: validarVeiculo(veiculo),
+        }))
+      );
+
+      const refsV: AnexoRef[] = [];
+      for (const id of veiculoIds) {
+        const { data: anexosV } = await supabase
+          .from("veiculo_anexos")
+          .select("*")
+          .eq("veiculo_id", id);
+
+        for (const a of anexosV ?? []) {
+          const cat = classificarAnexo(a.nome);
+          if (cat !== "CRLV") continue;
+          refsV.push({
+            categoria: cat,
+            nome: a.nome,
+            storage_path: a.storage_path,
+            file_name: a.file_name,
+            origem: `veiculo:${id}`,
+          });
+        }
+      }
 
       setAnexosAuto((prev) => [
-        ...prev.filter((a) => a.origem !== "veiculo"),
+        ...prev.filter((a) => !a.origem.startsWith("veiculo")),
         ...refsV,
       ]);
     }
-    loadVeiculo();
-  }, [veiculoId]);
+    loadVeiculos();
+  }, [veiculoIds]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
 
-    if (!aptoGeral || !motorista || !veiculo) {
+    if (!aptoGeral || !motorista || veiculosSelecionados.length === 0) {
       setError(
-        "Motorista ou veículo inapto. Corrija o cadastro ou selecione outro."
+        "Motorista ou veículo(s) inapto(s). Corrija o cadastro ou selecione outro(s)."
       );
       return;
     }
@@ -237,9 +272,11 @@ export function ViagemForm({
       data: { user },
     } = await supabase.auth.getUser();
 
+    const veiculoPrincipalId = veiculoIds[0];
+
     const payloadViagem = {
       motorista_id: motoristaId,
-      veiculo_id: veiculoId,
+      veiculo_id: veiculoPrincipalId,
       saida_em: new Date(saidaEm).toISOString(),
       chegada_prevista_em: new Date(chegadaEm).toISOString(),
       local_saida: localSaida.trim(),
@@ -302,6 +339,15 @@ export function ViagemForm({
       }))
     );
 
+    await supabase.from("viagem_veiculos").delete().eq("viagem_id", viagemId);
+    await supabase.from("viagem_veiculos").insert(
+      veiculoIds.map((veiculo_id, i) => ({
+        viagem_id: viagemId,
+        veiculo_id,
+        ordem: i + 1,
+      }))
+    );
+
     const anexosInsert: {
       viagem_id: string;
       categoria: string;
@@ -342,6 +388,24 @@ export function ViagemForm({
       }
     }
 
+    for (const categoria of ANEXOS_VIAGEM_CATEGORIAS_MULTIPLAS) {
+      const arquivos = uploadsMultiplos[categoria] ?? [];
+      for (const file of arquivos) {
+        const up = await uploadFile(file, `viagens/${viagemId}`);
+        if (up) {
+          anexosInsert.push({
+            viagem_id: viagemId,
+            categoria,
+            nome: categoria,
+            storage_path: up.path,
+            file_name: up.fileName,
+            mime_type: up.mimeType,
+            origem: "upload",
+          });
+        }
+      }
+    }
+
     if (anexosInsert.length) {
       await supabase.from("viagem_anexos").insert(anexosInsert);
     }
@@ -357,7 +421,7 @@ export function ViagemForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
       <section className="space-y-4 rounded-xl border border-slate-700/60 p-5">
-        <h2 className="text-lg font-semibold text-cyan-400">1. Motorista e veículo</h2>
+        <h2 className="text-lg font-semibold text-cyan-400">1. Motorista e veículos</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <Select
             label="Motorista"
@@ -371,18 +435,50 @@ export function ViagemForm({
               })),
             ]}
           />
-          <Select
-            label="Veículo"
-            value={veiculoId}
-            onChange={(e) => setVeiculoId(e.target.value)}
-            options={[
-              { value: "", label: "Selecione..." },
-              ...veiculos.map((v) => ({
-                value: v.id,
-                label: `${v.nome} — ${v.placa}`,
-              })),
-            ]}
-          />
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-slate-300">
+            Veículos da viagem (selecione quantos precisar: cavalo, carretas, etc.)
+          </p>
+          <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border border-slate-700/60 bg-slate-800/30 p-3">
+            {veiculos.length === 0 ? (
+              <p className="text-sm text-slate-500">Nenhum veículo cadastrado.</p>
+            ) : (
+              veiculos.map((v) => {
+                const tipoLabel = labelTipoVeiculo(v.tipo);
+                const checked = veiculoIds.includes(v.id);
+                return (
+                  <label
+                    key={v.id}
+                    className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition ${
+                      checked
+                        ? "border-cyan-600/50 bg-cyan-950/30"
+                        : "border-slate-700/50 hover:border-slate-600"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleVeiculo(v.id)}
+                      className="rounded border-slate-600"
+                    />
+                    <span className="text-sm text-slate-200">
+                      {v.nome} — {v.placa}
+                      {tipoLabel ? (
+                        <span className="ml-2 text-xs text-slate-400">({tipoLabel})</span>
+                      ) : null}
+                    </span>
+                  </label>
+                );
+              })
+            )}
+          </div>
+          {veiculoIds.length > 0 && (
+            <p className="text-xs text-slate-400">
+              {veiculoIds.length} veículo(s) selecionado(s)
+            </p>
+          )}
         </div>
 
         {motorista && valMotorista && (
@@ -417,15 +513,21 @@ export function ViagemForm({
           </div>
         )}
 
-        {veiculo && valVeiculo && (
+        {veiculosSelecionados.map(({ veiculo, validacao }) => (
           <div
-            className={`rounded-lg border p-4 ${valVeiculo.apto ? "border-emerald-800/50 bg-emerald-950/20" : "border-red-800/50 bg-red-950/20"}`}
+            key={veiculo.id}
+            className={`rounded-lg border p-4 ${validacao.apto ? "border-emerald-800/50 bg-emerald-950/20" : "border-red-800/50 bg-red-950/20"}`}
           >
             <div className="mb-2 flex items-center justify-between">
               <h3 className="font-medium">
                 {veiculo.nome} — {veiculo.placa}
+                {veiculo.tipo ? (
+                  <span className="ml-2 text-xs font-normal text-slate-400">
+                    ({labelTipoVeiculo(veiculo.tipo)})
+                  </span>
+                ) : null}
               </h3>
-              <AptoBadge apto={valVeiculo.apto} />
+              <AptoBadge apto={validacao.apto} />
             </div>
             <dl className="grid gap-1 text-sm text-slate-300 sm:grid-cols-2">
               <div>Chassi: {veiculo.chassi ?? "—"}</div>
@@ -437,11 +539,11 @@ export function ViagemForm({
                 Status: {veiculo.financiado ? "Financiado" : veiculo.quitado ? "Quitado" : "—"}
               </div>
             </dl>
-            {!valVeiculo.apto && (
+            {!validacao.apto && (
               <div className="mt-3 flex items-start gap-2 text-sm text-red-300">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 <div>
-                  {valVeiculo.problemas.map((p) => (
+                  {validacao.problemas.map((p) => (
                     <p key={p}>{p}</p>
                   ))}
                   <Link href="/cadastro/veiculos" className="mt-1 inline-block text-cyan-400 underline">
@@ -451,7 +553,7 @@ export function ViagemForm({
               </div>
             )}
           </div>
-        )}
+        ))}
 
         {anexosAuto.length > 0 && (
           <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-3">
@@ -460,7 +562,10 @@ export function ViagemForm({
             </p>
             <ul className="space-y-1 text-sm text-slate-400">
               {anexosAuto.map((a) => (
-                <li key={`${a.origem}-${a.categoria}`} className="flex items-center gap-2">
+                <li
+                  key={`${a.origem}-${a.categoria}-${a.file_name}`}
+                  className="flex items-center gap-2"
+                >
                   <FileText className="h-4 w-4 text-cyan-500" />
                   {a.categoria}: {a.file_name} ({a.origem})
                 </li>
@@ -470,7 +575,7 @@ export function ViagemForm({
         )}
       </section>
 
-      {!aptoGeral && (motoristaId || veiculoId) && (
+      {!aptoGeral && (motoristaId || veiculoIds.length > 0) && (
         <p className="rounded-lg bg-amber-950/40 px-4 py-3 text-sm text-amber-200">
           Resolva as pendências acima para liberar o cadastro da viagem.
         </p>
@@ -595,6 +700,7 @@ export function ViagemForm({
           <h2 className="text-lg font-semibold text-cyan-400">3. Anexos da viagem</h2>
           <p className="text-sm text-slate-400">
             CNH, Toxicológico e CRLV são vinculados automaticamente do cadastro.
+            Romaneios e notas fiscais aceitam vários arquivos.
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             {uploads.map((slot, i) => (
@@ -607,6 +713,17 @@ export function ViagemForm({
                   next[i] = { ...slot, file };
                   setUploads(next);
                 }}
+              />
+            ))}
+            {ANEXOS_VIAGEM_CATEGORIAS_MULTIPLAS.map((categoria) => (
+              <FileUploadMultiple
+                key={categoria}
+                label={categoria === "NOTAS_FISCAIS" ? "Notas fiscais" : "Romaneios"}
+                files={uploadsMultiplos[categoria] ?? []}
+                onChange={(files) =>
+                  setUploadsMultiplos((prev) => ({ ...prev, [categoria]: files }))
+                }
+                hint="PDF ou imagem — adicione quantos arquivos precisar"
               />
             ))}
           </div>

@@ -71,13 +71,27 @@ export const VIAGEM_STATUS = [
 
 export type ViagemStatus = (typeof VIAGEM_STATUS)[number];
 
-export const ANEXOS_VIAGEM_CATEGORIAS = [
+export const ANEXOS_VIAGEM_CATEGORIAS_UNICAS = [
   "CTE",
   "CIOT",
   "MDFE",
-  "ROMANEIO",
   "ENTREGAS",
+] as const;
+
+export const ANEXOS_VIAGEM_CATEGORIAS_MULTIPLAS = [
+  "ROMANEIO",
   "NOTAS_FISCAIS",
+] as const;
+
+export const ANEXOS_VIAGEM_CATEGORIAS = [
+  ...ANEXOS_VIAGEM_CATEGORIAS_UNICAS,
+  ...ANEXOS_VIAGEM_CATEGORIAS_MULTIPLAS,
+] as const;
+
+export const VEICULO_TIPO_OPCOES = [
+  { value: "caminhao", label: "Caminhão" },
+  { value: "carreta", label: "Carreta" },
+  { value: "cavalo", label: "Cavalo" },
 ] as const;
 
 export const TIPOS_TRAJETO = [

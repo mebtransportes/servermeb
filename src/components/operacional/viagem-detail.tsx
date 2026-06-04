@@ -12,6 +12,9 @@ import type { Viagem, ViagemStatus } from "@/types";
 import { MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
+import { formatarVeiculosLabel } from "@/lib/viagem-crud";
+import { VEICULO_TIPO_OPCOES } from "@/lib/viagem-validation";
+import type { Veiculo } from "@/types";
 
 const statusColors: Record<string, string> = {
   "EM ANDAMENTO": "bg-blue-900/50 text-blue-300",
@@ -33,6 +36,9 @@ export function ViagemDetail({
   onUpdated: () => void;
 }) {
   const [viagem, setViagem] = useState<Viagem | null>(null);
+  const [veiculosViagem, setVeiculosViagem] = useState<
+    { nome: string; placa: string; tipo?: Veiculo["tipo"] }[]
+  >([]);
   const [entregas, setEntregas] = useState<{ local_entrega: string; ordem: number }[]>([]);
   const [anexos, setAnexos] = useState<
     { id: string; categoria: string; file_name: string; storage_path: string }[]
@@ -44,12 +50,49 @@ export function ViagemDetail({
     const supabase = createClient();
     const { data: v } = await supabase
       .from("viagens")
-      .select("*, motoristas(*), veiculos(*)")
+      .select(
+        "*, motoristas(*), veiculos(*), viagem_veiculos(ordem, veiculos(nome, placa, tipo))"
+      )
       .eq("id", viagemId)
       .single();
     if (v) {
       setViagem(v as Viagem);
       setStatus(v.status);
+      const vv = v.viagem_veiculos as
+        | {
+            ordem: number;
+            veiculos: { nome: string; placa: string; tipo?: Veiculo["tipo"] } | {
+                nome: string;
+                placa: string;
+                tipo?: Veiculo["tipo"];
+              }[];
+          }[]
+        | null;
+      const lista = (vv ?? [])
+        .sort((a, b) => a.ordem - b.ordem)
+        .map((item) => {
+          const veic = item.veiculos;
+          return Array.isArray(veic) ? veic[0] : veic;
+        })
+        .filter(
+          (veic): veic is { nome: string; placa: string; tipo?: Veiculo["tipo"] } =>
+            !!veic
+        );
+      const fallback = v.veiculos as Veiculo | Veiculo[] | null;
+      const veiculoUnico = Array.isArray(fallback) ? fallback[0] : fallback;
+      setVeiculosViagem(
+        lista.length > 0
+          ? lista
+          : veiculoUnico
+            ? [
+                {
+                  nome: veiculoUnico.nome,
+                  placa: veiculoUnico.placa,
+                  tipo: veiculoUnico.tipo,
+                },
+              ]
+            : []
+      );
     }
 
     const { data: e } = await supabase
@@ -87,14 +130,14 @@ export function ViagemDetail({
   if (!viagem) return <p className="text-slate-400">Carregando...</p>;
 
   const m = viagem.motoristas;
-  const ve = viagem.veiculos;
+  const veiculosLabel = formatarVeiculosLabel(veiculosViagem);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-white">
-            {m?.nome_completo ?? "Motorista"} · {ve?.placa ?? "Veículo"}
+            {m?.nome_completo ?? "Motorista"} · {veiculosLabel}
           </h2>
           <p className="text-sm text-slate-400">
             Saída: {new Date(viagem.saida_em).toLocaleString("pt-BR")}
@@ -129,6 +172,23 @@ export function ViagemDetail({
           </Button>
         </div>
       </div>
+
+      {veiculosViagem.length > 0 && (
+        <div>
+          <h3 className="mb-2 text-sm font-semibold text-slate-300">Veículos</h3>
+          <ul className="space-y-1 text-sm text-slate-400">
+            {veiculosViagem.map((ve) => {
+              const tipoLabel = VEICULO_TIPO_OPCOES.find((o) => o.value === ve.tipo)?.label;
+              return (
+                <li key={`${ve.placa}-${ve.nome}`}>
+                  {ve.nome} — {ve.placa}
+                  {tipoLabel ? ` (${tipoLabel})` : ""}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       <dl className="grid gap-2 text-sm sm:grid-cols-2">
         <div>

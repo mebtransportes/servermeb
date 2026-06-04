@@ -10,7 +10,8 @@ import { Select } from "@/components/ui/select";
 import { uploadPdf } from "@/lib/storage";
 import { excluirAnexoTabela } from "@/lib/anexos-crud";
 import { AnexoArquivoRow } from "@/components/shared/anexo-arquivo-row";
-import type { Veiculo, VeiculoCampoCustom } from "@/types";
+import type { Veiculo, VeiculoCampoCustom, VeiculoTipo } from "@/types";
+import { VEICULO_TIPO_OPCOES } from "@/lib/viagem-validation";
 import { Plus, Trash2 } from "lucide-react";
 import { FileUploadField } from "@/components/ui/file-upload";
 
@@ -26,6 +27,7 @@ export function VeiculosForm({
   onCancel: () => void;
 }) {
   const [nome, setNome] = useState(veiculo?.nome ?? "");
+  const [tipo, setTipo] = useState<VeiculoTipo>(veiculo?.tipo ?? "caminhao");
   const [placa, setPlaca] = useState(veiculo?.placa ?? "");
   const [chassi, setChassi] = useState(veiculo?.chassi ?? "");
   const [anoModelo, setAnoModelo] = useState(veiculo?.ano_modelo ?? "");
@@ -68,6 +70,7 @@ export function VeiculosForm({
 
     const payload = {
       nome,
+      tipo,
       placa: placa.toUpperCase(),
       chassi: chassi || null,
       ano_modelo: anoModelo || null,
@@ -146,6 +149,12 @@ export function VeiculosForm({
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Input label="Nome do veículo" value={nome} onChange={(e) => setNome(e.target.value)} required />
+        <Select
+          label="Tipo do veículo"
+          value={tipo}
+          onChange={(e) => setTipo(e.target.value as VeiculoTipo)}
+          options={VEICULO_TIPO_OPCOES.map((o) => ({ value: o.value, label: o.label }))}
+        />
         <Input label="Placa" value={placa} onChange={(e) => setPlaca(e.target.value)} required />
         <Input label="Chassi" value={chassi} onChange={(e) => setChassi(e.target.value)} />
         <Input label="Ano / Modelo" value={anoModelo} onChange={(e) => setAnoModelo(e.target.value)} />

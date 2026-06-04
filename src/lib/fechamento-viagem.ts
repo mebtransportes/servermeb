@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { formatarVeiculosLabel } from "@/lib/viagem-crud";
 import { calcularComissionamento } from "@/types/fechamento";
 
 type RecursoRow = {
@@ -64,7 +65,8 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
       id, status, motorista_id, saida_em, local_saida, km_total,
       valor_frete, numero_cte,
       motoristas ( nome_completo ),
-      veiculos ( nome, placa )
+      veiculos ( nome, placa ),
+      viagem_veiculos ( ordem, veiculos ( nome, placa ) )
     `
     )
     .eq("id", viagemId)
@@ -77,12 +79,29 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     | { nome_completo: string }
     | { nome_completo: string }[]
     | null;
+  const motorista = Array.isArray(motoristaRaw) ? motoristaRaw[0] : motoristaRaw;
+
+  const vv = viagem.viagem_veiculos as
+    | { ordem: number; veiculos: { nome: string; placa: string } | { nome: string; placa: string }[] }[]
+    | null;
+  const veiculosViagem = (vv ?? [])
+    .sort((a, b) => a.ordem - b.ordem)
+    .map((item) => {
+      const v = item.veiculos;
+      return Array.isArray(v) ? v[0] : v;
+    })
+    .filter((v): v is { nome: string; placa: string } => !!v);
   const veiculoRaw = viagem.veiculos as
     | { nome: string; placa: string }
     | { nome: string; placa: string }[]
     | null;
-  const motorista = Array.isArray(motoristaRaw) ? motoristaRaw[0] : motoristaRaw;
-  const veiculo = Array.isArray(veiculoRaw) ? veiculoRaw[0] : veiculoRaw;
+  const veiculoFallback = Array.isArray(veiculoRaw) ? veiculoRaw[0] : veiculoRaw;
+  const listaVeiculos =
+    veiculosViagem.length > 0
+      ? veiculosViagem
+      : veiculoFallback
+        ? [veiculoFallback]
+        : [];
 
   const { data: entregas } = await supabase
     .from("viagem_entregas")
@@ -120,7 +139,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     motorista_nome: motorista?.nome_completo ?? "—",
     data_embarque: viagem.saida_em,
     local_embarque: viagem.local_saida,
-    veiculo_label: veiculo ? `${veiculo.nome} — ${veiculo.placa}` : "—",
+    veiculo_label: formatarVeiculosLabel(listaVeiculos),
     numero_cte: viagem.numero_cte ?? null,
     destino,
     km_total: viagem.km_total != null ? Number(viagem.km_total) : null,

@@ -14,7 +14,15 @@ export type ViagemListItem = {
 
 export type ViagemParaEdicao = Viagem & {
   entregas: { local_entrega: string; ordem: number }[];
+  veiculo_ids: string[];
 };
+
+export function formatarVeiculosLabel(
+  veiculos: { nome: string; placa: string }[]
+): string {
+  if (!veiculos.length) return "—";
+  return veiculos.map((v) => `${v.nome} — ${v.placa}`).join(" · ");
+}
 
 export async function fetchViagensLista(): Promise<ViagemListItem[]> {
   const supabase = createClient();
@@ -24,7 +32,8 @@ export async function fetchViagensLista(): Promise<ViagemListItem[]> {
       `
       id, status, saida_em, local_saida, numero_cte, valor_frete,
       motoristas ( nome_completo ),
-      veiculos ( nome, placa )
+      veiculos ( nome, placa ),
+      viagem_veiculos ( ordem, veiculos ( nome, placa ) )
     `
     )
     .order("saida_em", { ascending: false });
@@ -36,9 +45,28 @@ export async function fetchViagensLista(): Promise<ViagemListItem[]> {
 
   return (data ?? []).map((row) => {
     const m = row.motoristas as { nome_completo: string } | { nome_completo: string }[] | null;
-    const v = row.veiculos as { nome: string; placa: string } | { nome: string; placa: string }[] | null;
     const motorista = Array.isArray(m) ? m[0] : m;
-    const veiculo = Array.isArray(v) ? v[0] : v;
+    const vv = row.viagem_veiculos as
+      | { ordem: number; veiculos: { nome: string; placa: string } | { nome: string; placa: string }[] }[]
+      | null;
+    const veiculosViagem = (vv ?? [])
+      .sort((a, b) => a.ordem - b.ordem)
+      .map((item) => {
+        const v = item.veiculos;
+        return Array.isArray(v) ? v[0] : v;
+      })
+      .filter((v): v is { nome: string; placa: string } => !!v);
+    const fallback = row.veiculos as
+      | { nome: string; placa: string }
+      | { nome: string; placa: string }[]
+      | null;
+    const veiculoFallback = Array.isArray(fallback) ? fallback[0] : fallback;
+    const listaVeiculos =
+      veiculosViagem.length > 0
+        ? veiculosViagem
+        : veiculoFallback
+          ? [veiculoFallback]
+          : [];
     return {
       id: row.id,
       status: row.status,
@@ -47,7 +75,7 @@ export async function fetchViagensLista(): Promise<ViagemListItem[]> {
       numero_cte: row.numero_cte,
       valor_frete: row.valor_frete,
       motorista_nome: motorista?.nome_completo ?? "—",
-      veiculo_label: veiculo ? `${veiculo.nome} — ${veiculo.placa}` : "—",
+      veiculo_label: formatarVeiculosLabel(listaVeiculos),
     };
   });
 }
@@ -63,9 +91,24 @@ export async function fetchViagemParaEdicao(id: string): Promise<ViagemParaEdica
     .eq("viagem_id", id)
     .order("ordem");
 
+  const { data: vv } = await supabase
+    .from("viagem_veiculos")
+    .select("veiculo_id, ordem")
+    .eq("viagem_id", id)
+    .order("ordem");
+
+  const veiculo_ids = (vv ?? []).map((r) => r.veiculo_id);
+  const ids =
+    veiculo_ids.length > 0
+      ? veiculo_ids
+      : viagem.veiculo_id
+        ? [viagem.veiculo_id as string]
+        : [];
+
   return {
     ...(viagem as Viagem),
     entregas: entregas ?? [],
+    veiculo_ids: ids,
   };
 }
 
