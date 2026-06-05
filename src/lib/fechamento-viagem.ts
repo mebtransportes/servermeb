@@ -1,6 +1,9 @@
 import { createClient } from "@/lib/supabase/client";
 import { formatarVeiculosLabel } from "@/lib/viagem-crud";
-import { calcularComissionamento } from "@/types/fechamento";
+import {
+  calcularComissionamento,
+  calcularConsumoKmLitro,
+} from "@/types/fechamento";
 
 type RecursoRow = {
   tipo: string;
@@ -133,6 +136,13 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
   const destino =
     (entregas ?? []).map((e) => e.local_entrega).filter(Boolean).join(" · ") || null;
 
+  const kmTotal =
+    viagem.km_total != null ? Number(viagem.km_total) : null;
+  const consumo_km_litro = calcularConsumoKmLitro(
+    kmTotal,
+    gastos.abastecimento_litros
+  );
+
   const payload = {
     viagem_id: viagemId,
     motorista_id: viagem.motorista_id,
@@ -142,7 +152,8 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     veiculo_label: formatarVeiculosLabel(listaVeiculos),
     numero_cte: viagem.numero_cte ?? null,
     destino,
-    km_total: viagem.km_total != null ? Number(viagem.km_total) : null,
+    km_total: kmTotal,
+    consumo_km_litro,
     ...gastos,
     valor_frete: valorFrete,
     frete_liquido: freteLiquido,

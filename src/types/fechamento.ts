@@ -9,6 +9,7 @@ export type ViagemFechamento = {
   numero_cte?: string | null;
   destino?: string | null;
   km_total?: number | null;
+  consumo_km_litro?: number | null;
   abastecimento_litros: number;
   abastecimento_valor: number;
   arla_valor: number;
@@ -91,6 +92,27 @@ export function calcularComissionamento(opts: {
   );
   const comissao_final = calcularComissaoFinal(total_comissao, opts.reembolso);
   return { frete_liquido, total_comissao, comissao_final };
+}
+
+/** Consumo médio: km total da viagem ÷ litros abastecidos (inicial + durante a viagem). */
+export function calcularConsumoKmLitro(
+  kmTotal: number | null | undefined,
+  litrosTotal: number
+): number | null {
+  const km = Number(kmTotal) || 0;
+  const litros = Number(litrosTotal) || 0;
+  if (km <= 0 || litros <= 0) return null;
+  return Math.round((km / litros) * 100) / 100;
+}
+
+export function formatConsumoKmLitro(kmLitro: number | null | undefined): string {
+  if (kmLitro == null || !Number.isFinite(kmLitro)) return "—";
+  return (
+    kmLitro.toLocaleString("pt-BR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }) + " km/L"
+  );
 }
 
 export function totalComissaoFromFechamento(f: ViagemFechamento) {

@@ -30,6 +30,7 @@ type Recurso = {
   realizado_em: string;
   km_abastecimento?: number | null;
   litros?: number | null;
+  abastecimento_inicial?: boolean;
   nota_fiscal_path?: string | null;
   nota_fiscal_nome?: string | null;
   comprovante_path?: string | null;
@@ -170,6 +171,11 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
   }
 
   async function handleExcluir(recursoId: string) {
+    const recurso = recursos.find((r) => r.id === recursoId);
+    if (recurso?.abastecimento_inicial) {
+      alert("O abastecimento inicial é editado no cadastro da viagem.");
+      return;
+    }
     if (
       !confirm(
         "Excluir este lançamento? Os anexos vinculados também serão removidos."
@@ -510,20 +516,31 @@ function RecursoItem({
   return (
     <li className="rounded-lg border border-slate-700/40 bg-slate-800/30 p-3 text-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="font-medium text-cyan-300">{tipoLabel}</span>
+        <span className="font-medium text-cyan-300">
+          {tipoLabel}
+          {recurso.abastecimento_inicial && (
+            <span className="ml-2 rounded bg-cyan-950/60 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-400">
+              Inicial
+            </span>
+          )}
+        </span>
         <div className="flex items-center gap-2">
-          <span className="text-emerald-400">
-            R$ {Number(recurso.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-          </span>
-          <button
-            type="button"
-            onClick={onExcluir}
-            disabled={excluindo}
-            title="Excluir"
-            className="rounded-md p-1.5 text-red-400 transition hover:bg-red-950/50 disabled:opacity-50"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          {!recurso.abastecimento_inicial && (
+            <span className="text-emerald-400">
+              R$ {Number(recurso.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            </span>
+          )}
+          {!recurso.abastecimento_inicial && (
+            <button
+              type="button"
+              onClick={onExcluir}
+              disabled={excluindo}
+              title="Excluir"
+              className="rounded-md p-1.5 text-red-400 transition hover:bg-red-950/50 disabled:opacity-50"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
       <p className="text-slate-400">

@@ -4,6 +4,8 @@ import type { ViagemFechamento } from "@/types/fechamento";
 import {
   totalDespesasFechamento,
   calcularComissionamento,
+  calcularConsumoKmLitro,
+  formatConsumoKmLitro,
   getComissaoPercent,
   getIcmsPercent,
 } from "@/types/fechamento";
@@ -33,6 +35,9 @@ export function FechamentoViagemCard({
   onUpdated: (atualizado: ViagemFechamento) => void;
 }) {
   const despesas = totalDespesasFechamento(f);
+  const consumoKmLitro =
+    f.consumo_km_litro ??
+    calcularConsumoKmLitro(f.km_total, f.abastecimento_litros);
 
   const [icmsPercent, setIcmsPercent] = useState(String(getIcmsPercent(f)));
   const [comissaoTipo, setComissaoTipo] = useState<"PERCENTUAL" | "LIQUIDO_TOTAL">(
@@ -111,6 +116,10 @@ export function FechamentoViagemCard({
       <Linha
         label="Abastecimento (litros)"
         value={f.abastecimento_litros.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) + " L"}
+      />
+      <Linha
+        label="Consumo médio (km/L)"
+        value={formatConsumoKmLitro(consumoKmLitro)}
       />
       <Linha label="Abastecimento (valor)" value={formatarMoeda(f.abastecimento_valor)} />
       <Linha label="Arla" value={formatarMoeda(f.arla_valor)} />

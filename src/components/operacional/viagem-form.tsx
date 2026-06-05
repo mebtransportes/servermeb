@@ -23,6 +23,10 @@ import { uploadFile } from "@/lib/storage";
 import { calcularIdade } from "@/lib/utils";
 import { isoParaDatetimeLocal, type ViagemParaEdicao } from "@/lib/viagem-crud";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
+import {
+  fetchLitrosAbastecimentoInicial,
+  upsertAbastecimentoInicial,
+} from "@/lib/viagem-abastecimento-inicial";
 import { parseBrNumber, rawNumberStringToBrInput } from "@/lib/number-format";
 import type { Motorista, Veiculo } from "@/types";
 import { Plus, Trash2, FileText, AlertTriangle } from "lucide-react";
@@ -83,6 +87,7 @@ export function ViagemForm({
   const [numeroCte, setNumeroCte] = useState("");
   const [descMercadoria, setDescMercadoria] = useState("");
   const [kmTotal, setKmTotal] = useState("");
+  const [litrosInicial, setLitrosInicial] = useState("");
   const [uploads, setUploads] = useState<UploadSlot[]>(
     ANEXOS_VIAGEM_CATEGORIAS_UNICAS.map((c) => ({ categoria: c, file: null }))
   );
@@ -135,6 +140,9 @@ export function ViagemForm({
     setNumeroCte(viagem.numero_cte ?? "");
     setDescMercadoria(viagem.descricao_mercadoria ?? "");
     setKmTotal(rawNumberStringToBrInput(viagem.km_total, 0));
+    fetchLitrosAbastecimentoInicial(viagem.id).then((litros) => {
+      setLitrosInicial(litros != null ? rawNumberStringToBrInput(litros, 2) : "");
+    });
     setUploads(ANEXOS_VIAGEM_CATEGORIAS_UNICAS.map((c) => ({ categoria: c, file: null })));
     setUploadsMultiplos({ ROMANEIO: [], NOTAS_FISCAIS: [] });
   }, [viagem]);
@@ -263,6 +271,12 @@ export function ViagemForm({
 
     if (!saidaEm || !chegadaEm) {
       setError("Informe data/hora de saída e chegada prevista.");
+      return;
+    }
+
+    const litrosInicialNum = parseBrNumber(litrosInicial);
+    if (!litrosInicialNum || litrosInicialNum <= 0) {
+      setError("Informe a quantidade de litros abastecidos no cadastro da viagem.");
       return;
     }
 
@@ -408,6 +422,17 @@ export function ViagemForm({
 
     if (anexosInsert.length) {
       await supabase.from("viagem_anexos").insert(anexosInsert);
+    }
+
+    const errLitros = await upsertAbastecimentoInicial(
+      viagemId,
+      litrosInicialNum,
+      saidaEm
+    );
+    if (errLitros) {
+      setError(errLitros);
+      setSaving(false);
+      return;
     }
 
     if (isEdit && viagem?.status === "FINALIZADO") {
@@ -688,7 +713,19 @@ export function ViagemForm({
               value={kmTotal}
               onChange={setKmTotal}
             />
+            <BrNumberInput
+              label="Litros abastecidos (saída)"
+              decimalPlaces={2}
+              value={litrosInicial}
+              onChange={setLitrosInicial}
+              placeholder="Ex: 350,00"
+              required
+            />
           </div>
+          <p className="text-xs text-slate-400">
+            Informe os litros já abastecidos na saída. Abastecimentos durante a viagem
+            são lançados no acompanhamento e entram no consumo médio no fechamento.
+          </p>
           <Textarea
             label="Descrição da mercadoria"
             value={descMercadoria}
