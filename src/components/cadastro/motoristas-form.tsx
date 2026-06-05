@@ -3,14 +3,14 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { uploadPdf } from "@/lib/storage";
 import { excluirAnexoTabela } from "@/lib/anexos-crud";
 import { AnexoArquivoRow } from "@/components/shared/anexo-arquivo-row";
 import { calcularIdade } from "@/lib/utils";
 import type { Motorista, RecursoVinculo } from "@/types";
-import { isFrota, VINCULO_OPCOES } from "@/lib/viagem-validation";
+import { VinculoSelector } from "@/components/cadastro/vinculo-selector";
+import { isFrota } from "@/lib/viagem-validation";
 import { FileUploadField } from "@/components/ui/file-upload";
 
 type Anexo = { id?: string; nome: string; storage_path: string; file_name: string };
@@ -113,11 +113,10 @@ export function MotoristasForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <Select
-        label="Vínculo do motorista"
+      <VinculoSelector
+        label="Este motorista é da frota própria ou terceiro?"
         value={vinculo}
-        onChange={(e) => setVinculo(e.target.value as RecursoVinculo)}
-        options={VINCULO_OPCOES.map((o) => ({ value: o.value, label: o.label }))}
+        onChange={setVinculo}
       />
 
       {!ehFrota && (

@@ -11,7 +11,8 @@ import { uploadPdf } from "@/lib/storage";
 import { excluirAnexoTabela } from "@/lib/anexos-crud";
 import { AnexoArquivoRow } from "@/components/shared/anexo-arquivo-row";
 import type { RecursoVinculo, Veiculo, VeiculoCampoCustom, VeiculoTipo } from "@/types";
-import { isFrota, VEICULO_TIPO_OPCOES, VINCULO_OPCOES } from "@/lib/viagem-validation";
+import { VinculoSelector } from "@/components/cadastro/vinculo-selector";
+import { isFrota, VEICULO_TIPO_OPCOES } from "@/lib/viagem-validation";
 import { Plus, Trash2 } from "lucide-react";
 import { FileUploadField } from "@/components/ui/file-upload";
 
@@ -149,11 +150,10 @@ export function VeiculosForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <Select
-        label="Vínculo do veículo"
+      <VinculoSelector
+        label="Este veículo é de frota própria ou de terceiro?"
         value={vinculo}
-        onChange={(e) => setVinculo(e.target.value as RecursoVinculo)}
-        options={VINCULO_OPCOES.map((o) => ({ value: o.value, label: o.label }))}
+        onChange={setVinculo}
       />
 
       {!ehFrota && (
