@@ -1,11 +1,70 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { ViagemFechamento } from "@/types/fechamento";
-import { totalComissaoFromFechamento } from "@/types/fechamento";
+import {
+  totalDespesasFechamento,
+  calcularComissionamento,
+  calcularConsumoKmLitro,
+  formatConsumoKmLitro,
+  getComissaoPercent,
+  getIcmsPercent,
+} from "@/types/fechamento";
 import { formatarMoeda, formatarDataBr } from "@/lib/frota-filters";
 
 function fmtMoeda(v: number) {
   return formatarMoeda(v);
+}
+
+function linhasFechamento(f: ViagemFechamento): [string, string][] {
+  const icms = getIcmsPercent(f);
+  const comissaoTipo = (f.comissao_tipo ?? "PERCENTUAL") as "PERCENTUAL" | "LIQUIDO_TOTAL";
+  const comissaoPercent = getComissaoPercent(f);
+  const litrosTanque = Number(f.litros_tanque_inicial) || 0;
+  const litrosViagem = Number(f.litros_abastecimento_viagem) || 0;
+  const litrosTotal =
+    litrosTanque + litrosViagem > 0
+      ? litrosTanque + litrosViagem
+      : f.abastecimento_litros;
+  const consumo =
+    f.consumo_km_litro ?? calcularConsumoKmLitro(f.km_total, litrosTotal);
+  const despesas = totalDespesasFechamento(f);
+  const { frete_liquido, total_comissao, comissao_final } = calcularComissionamento({
+    valorFrete: Number(f.valor_frete) || 0,
+    icmsPercent: icms,
+    comissaoPercent,
+    comissaoTipo,
+    reembolso: Number(f.reembolso_valor) || 0,
+  });
+
+  const fmtLitros = (n: number) =>
+    n > 0 ? n.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) + " L" : "—";
+
+  const comissaoLabel =
+    comissaoTipo === "LIQUIDO_TOTAL"
+      ? "Comissão (frete líquido total)"
+      : `Comissão (${comissaoPercent}% do líquido)`;
+
+  return [
+    ["Local do embarque", f.local_embarque],
+    ["Veículo", f.veiculo_label],
+    ["CTE", f.numero_cte ?? "—"],
+    ["Destino", f.destino ?? "—"],
+    ["KM total", f.km_total != null ? f.km_total.toLocaleString("pt-BR") : "—"],
+    ["Litros no tanque (frota)", fmtLitros(litrosTanque)],
+    ["Litros na viagem", fmtLitros(litrosViagem)],
+    ["Total litros", litrosTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) + " L"],
+    ["Consumo médio (km/L)", formatConsumoKmLitro(consumo)],
+    ["Abastecimento (valor)", fmtMoeda(f.abastecimento_valor)],
+    ["Arla", fmtMoeda(f.arla_valor)],
+    ["Manutenção total", fmtMoeda(f.manutencao_total)],
+    ["Pedágio", fmtMoeda(f.pedagio_valor)],
+    ["Total gastos", fmtMoeda(despesas)],
+    ["Reembolso ao motorista", fmtMoeda(f.reembolso_valor)],
+    ["Valor do frete", fmtMoeda(f.valor_frete)],
+    [`Frete líquido (ICMS ${icms}%)`, fmtMoeda(frete_liquido)],
+    [comissaoLabel, fmtMoeda(total_comissao)],
+    ["Comissão final (comissão + reembolso)", fmtMoeda(comissao_final)],
+  ];
 }
 
 export function gerarPdfComissaoMotorista(opts: {
@@ -15,59 +74,91 @@ export function gerarPdfComissaoMotorista(opts: {
 }) {
   const { motoristaNome, periodoLabel, fechamentos } = opts;
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 14;
+  let y = 18;
+
+  const totalDespesas = fechamentos.reduce((s, f) => s + totalDespesasFechamento(f), 0);
   const totalComissao = fechamentos.reduce((s, f) => s + (Number(f.comissao_final) || 0), 0);
   const geradoEm = new Date().toLocaleString("pt-BR");
+
+  function novaPaginaSePreciso(altura: number) {
+    if (y + altura > pageH - 20) {
+      doc.addPage();
+      y = 18;
+    }
+  }
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
   doc.setTextColor(0, 100, 120);
-  doc.text("MEB Gestão de Transporte", 14, 18);
+  doc.text("MEB Gestão de Transporte", margin, y);
+  y += 10;
 
   doc.setFontSize(14);
   doc.setTextColor(30, 30, 30);
-  doc.text("Relatório de Comissão", 14, 28);
+  doc.text("Relatório de Comissão", margin, y);
+  y += 8;
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(80);
-  doc.text(`Motorista: ${motoristaNome}`, 14, 38);
-  doc.text(`Período: ${periodoLabel}`, 14, 44);
-  doc.text(`Gerado em: ${geradoEm}`, 14, 50);
-  doc.text(`Viagens no período: ${fechamentos.length}`, 14, 56);
+  doc.text(`Motorista: ${motoristaNome}`, margin, y);
+  y += 5;
+  doc.text(`Período: ${periodoLabel}`, margin, y);
+  y += 5;
+  doc.text(`Gerado em: ${geradoEm}`, margin, y);
+  y += 5;
+  doc.text(`Viagens no período: ${fechamentos.length}`, margin, y);
+  y += 5;
+  doc.text(`Total de despesas: ${fmtMoeda(totalDespesas)}`, margin, y);
+  y += 5;
+  doc.text(`Total de comissão: ${fmtMoeda(totalComissao)}`, margin, y);
+  y += 10;
 
-  const body = fechamentos.map((f) => [
-    formatarDataBr(f.data_embarque.split("T")[0]),
-    (f.destino ?? "—").slice(0, 22),
-    fmtMoeda(totalComissaoFromFechamento(f)), // comissão sem reembolso
-    fmtMoeda(f.reembolso_valor),
-    fmtMoeda(f.comissao_final),
-  ]);
+  for (let i = 0; i < fechamentos.length; i++) {
+    const f = fechamentos[i];
+    const titulo = `Viagem ${i + 1} — ${formatarDataBr(f.data_embarque.split("T")[0])}`;
+    novaPaginaSePreciso(50);
 
-  autoTable(doc, {
-    startY: 64,
-    head: [["Data", "Destino", "Comissão 12%", "Reembolso", "Total final"]],
-    body: body.length ? body : [["—", "Nenhuma viagem", "", "", ""]],
-    styles: { fontSize: 7 },
-    headStyles: { fillColor: [0, 120, 140] },
-    margin: { left: 14, right: 14 },
-  });
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(0, 120, 140);
+    doc.text(titulo, margin, y);
+    y += 4;
 
-  let y = 64;
-  const docWithTable = doc as unknown as { lastAutoTable?: { finalY: number } };
-  if (docWithTable.lastAutoTable?.finalY) y = docWithTable.lastAutoTable.finalY;
-  const finalY = y + 12;
+    autoTable(doc, {
+      startY: y,
+      head: [["Campo", "Valor"]],
+      body: linhasFechamento(f),
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [0, 120, 140], fontSize: 8 },
+      columnStyles: {
+        0: { cellWidth: 62, fontStyle: "bold", textColor: [80, 80, 80] },
+        1: { cellWidth: "auto" },
+      },
+      margin: { left: margin, right: margin },
+      theme: "grid",
+    });
 
+    const docWithTable = doc as unknown as { lastAutoTable?: { finalY: number } };
+    y = (docWithTable.lastAutoTable?.finalY ?? y) + 8;
+  }
+
+  novaPaginaSePreciso(40);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.text(`Total de comissão: ${fmtMoeda(totalComissao)}`, 14, finalY);
+  doc.setTextColor(30, 30, 30);
+  doc.text(`Total de comissão no período: ${fmtMoeda(totalComissao)}`, margin, y);
+  y += 16;
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  doc.text(motoristaNome, 14, finalY + 28);
-  doc.line(14, finalY + 30, 120, finalY + 30);
+  doc.text(motoristaNome, margin, y);
+  doc.line(margin, y + 2, 120, y + 2);
   doc.setFontSize(9);
   doc.setTextColor(100);
-  doc.text("Assinatura do motorista", 14, finalY + 35);
+  doc.text("Assinatura do motorista", margin, y + 7);
 
   doc.save(
     `comissao-${motoristaNome.replace(/\s+/g, "_")}_${periodoLabel.replace(/\s+/g, "_")}.pdf`

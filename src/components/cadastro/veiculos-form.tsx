@@ -76,17 +76,17 @@ export function VeiculosForm({
       vinculo,
       tipo,
       placa: placa.toUpperCase(),
-      chassi: ehFrota ? chassi || null : null,
-      ano_modelo: ehFrota ? anoModelo || null : null,
-      renavam: ehFrota ? renavam || null : null,
+      chassi: chassi || null,
+      ano_modelo: anoModelo || null,
+      renavam: renavam || null,
       crlv_vencimento: ehFrota ? crlvVenc || null : null,
       ipva_vencimento: ehFrota ? ipvaVenc || null : null,
-      quitado: ehFrota ? quitado : true,
-      financiado: ehFrota ? financiado && !quitado : false,
+      quitado,
+      financiado: financiado && !quitado,
       parcelas_restantes:
-        ehFrota && financiado && parcelas ? parseBrNumber(parcelas) : null,
+        financiado && parcelas ? parseBrNumber(parcelas) : null,
       dia_vencimento_parcela:
-        ehFrota && financiado && diaParcela ? parseBrNumber(diaParcela) : null,
+        financiado && diaParcela ? parseBrNumber(diaParcela) : null,
       created_by: user?.id,
     };
 
@@ -117,22 +117,20 @@ export function VeiculosForm({
       veiculoId = data.id;
     }
 
-    if (ehFrota) {
-      const camposValidos = camposCustom.filter(
-        (c) => c.nome_opcao.trim() && c.valor.trim()
+    const camposValidos = camposCustom.filter(
+      (c) => c.nome_opcao.trim() && c.valor.trim()
+    );
+    if (camposValidos.length) {
+      await supabase.from("veiculo_campos_custom").insert(
+        camposValidos.map((c) => ({
+          veiculo_id: veiculoId,
+          nome_opcao: c.nome_opcao.trim(),
+          valor: c.valor.trim(),
+        }))
       );
-      if (camposValidos.length) {
-        await supabase.from("veiculo_campos_custom").insert(
-          camposValidos.map((c) => ({
-            veiculo_id: veiculoId,
-            nome_opcao: c.nome_opcao.trim(),
-            valor: c.valor.trim(),
-          }))
-        );
-      }
     }
 
-    if (ehFrota && pdfFile && veiculoId) {
+    if (pdfFile && veiculoId) {
       const uploaded = await uploadPdf(pdfFile, `veiculos/${veiculoId}`);
       if (uploaded) {
         await supabase.from("veiculo_anexos").insert({
@@ -158,8 +156,8 @@ export function VeiculosForm({
 
       {!ehFrota && (
         <p className="rounded-lg border border-amber-800/40 bg-amber-950/25 px-4 py-3 text-sm text-amber-200">
-          Veículo de terceiro: cadastre apenas identificação para viagens e fechamento.
-          CRLV, IPVA e demais documentos da frota não são exigidos.
+          Veículo de terceiro: mesmo cadastro da frota, exceto vencimento de CRLV e IPVA,
+          que não são controlados nem exigidos em viagens.
         </p>
       )}
 
@@ -172,121 +170,117 @@ export function VeiculosForm({
           options={VEICULO_TIPO_OPCOES.map((o) => ({ value: o.value, label: o.label }))}
         />
         <Input label="Placa" value={placa} onChange={(e) => setPlaca(e.target.value)} required />
+        <Input label="Chassi" value={chassi} onChange={(e) => setChassi(e.target.value)} />
+        <Input label="Ano / Modelo" value={anoModelo} onChange={(e) => setAnoModelo(e.target.value)} />
+        <Input label="RENAVAM" value={renavam} onChange={(e) => setRenavam(e.target.value)} />
         {ehFrota && (
           <>
-            <Input label="Chassi" value={chassi} onChange={(e) => setChassi(e.target.value)} />
-            <Input label="Ano / Modelo" value={anoModelo} onChange={(e) => setAnoModelo(e.target.value)} />
-            <Input label="RENAVAM" value={renavam} onChange={(e) => setRenavam(e.target.value)} />
             <Input label="Vencimento CRLV" type="date" value={crlvVenc} onChange={(e) => setCrlvVenc(e.target.value)} />
             <Input label="Vencimento IPVA" type="date" value={ipvaVenc} onChange={(e) => setIpvaVenc(e.target.value)} />
           </>
         )}
       </div>
 
-      {ehFrota && (
-        <>
-          <div className="flex flex-wrap gap-6">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={quitado}
-                onChange={(e) => setQuitado(e.target.checked)}
-                className="rounded border-slate-600"
-              />
-              Veículo quitado
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={financiado}
-                disabled={quitado}
-                onChange={(e) => setFinanciado(e.target.checked)}
-                className="rounded border-slate-600"
-              />
-              Financiado
-            </label>
-          </div>
+      <div className="flex flex-wrap gap-6">
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={quitado}
+            onChange={(e) => setQuitado(e.target.checked)}
+            className="rounded border-slate-600"
+          />
+          Veículo quitado
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={financiado}
+            disabled={quitado}
+            onChange={(e) => setFinanciado(e.target.checked)}
+            className="rounded border-slate-600"
+          />
+          Financiado
+        </label>
+      </div>
 
-          {financiado && !quitado && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <BrNumberInput
-                label="Parcelas restantes"
-                decimalPlaces={0}
-                value={parcelas}
-                onChange={setParcelas}
-              />
-              <BrNumberInput
-                label="Dia de vencimento da parcela"
-                decimalPlaces={0}
-                value={diaParcela}
-                onChange={setDiaParcela}
-              />
-            </div>
-          )}
-
-          <div className="space-y-3 rounded-xl border border-slate-700/60 p-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-cyan-400">Campos personalizados</h3>
-              <Button type="button" variant="secondary" onClick={addCampoCustom}>
-                <Plus className="h-4 w-4" />
-                Cadastre outra opção
-              </Button>
-            </div>
-            {camposCustom.map((campo, i) => (
-              <div key={i} className="flex flex-wrap items-end gap-2">
-                <Input
-                  label="Nome da opção"
-                  value={campo.nome_opcao}
-                  onChange={(e) => {
-                    const next = [...camposCustom];
-                    next[i] = { ...campo, nome_opcao: e.target.value };
-                    setCamposCustom(next);
-                  }}
-                  className="flex-1 min-w-[180px]"
-                />
-                <Input
-                  label="Dado"
-                  value={campo.valor}
-                  onChange={(e) => {
-                    const next = [...camposCustom];
-                    next[i] = { ...campo, valor: e.target.value };
-                    setCamposCustom(next);
-                  }}
-                  className="flex-1 min-w-[120px]"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setCamposCustom(camposCustom.filter((_, j) => j !== i))}
-                >
-                  <Trash2 className="h-4 w-4 text-red-400" />
-                </Button>
-              </div>
-            ))}
-          </div>
-
-          <div className="space-y-3 rounded-xl border border-slate-700/60 p-4">
-            <h3 className="text-sm font-semibold text-cyan-400">Anexos PDF</h3>
-            {anexos.map((a) => (
-              <AnexoRow
-                key={a.id ?? a.storage_path}
-                anexo={a}
-                onExcluido={() => setAnexos((prev) => prev.filter((x) => x.id !== a.id))}
-              />
-            ))}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Input label="Nome do documento" value={pdfNome} onChange={(e) => setPdfNome(e.target.value)} />
-              <FileUploadField
-                label="Arquivo PDF"
-                accept="application/pdf"
-                hint="Somente PDF"
-                file={pdfFile}
-                onChange={setPdfFile}
-              />
-            </div>
-          </div>
-        </>
+      {financiado && !quitado && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <BrNumberInput
+            label="Parcelas restantes"
+            decimalPlaces={0}
+            value={parcelas}
+            onChange={setParcelas}
+          />
+          <BrNumberInput
+            label="Dia de vencimento da parcela"
+            decimalPlaces={0}
+            value={diaParcela}
+            onChange={setDiaParcela}
+          />
+        </div>
       )}
+
+      <div className="space-y-3 rounded-xl border border-slate-700/60 p-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-cyan-400">Campos personalizados</h3>
+          <Button type="button" variant="secondary" onClick={addCampoCustom}>
+            <Plus className="h-4 w-4" />
+            Cadastre outra opção
+          </Button>
+        </div>
+        {camposCustom.map((campo, i) => (
+          <div key={i} className="flex flex-wrap items-end gap-2">
+            <Input
+              label="Nome da opção"
+              value={campo.nome_opcao}
+              onChange={(e) => {
+                const next = [...camposCustom];
+                next[i] = { ...campo, nome_opcao: e.target.value };
+                setCamposCustom(next);
+              }}
+              className="flex-1 min-w-[180px]"
+            />
+            <Input
+              label="Dado"
+              value={campo.valor}
+              onChange={(e) => {
+                const next = [...camposCustom];
+                next[i] = { ...campo, valor: e.target.value };
+                setCamposCustom(next);
+              }}
+              className="flex-1 min-w-[120px]"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setCamposCustom(camposCustom.filter((_, j) => j !== i))}
+            >
+              <Trash2 className="h-4 w-4 text-red-400" />
+            </Button>
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-3 rounded-xl border border-slate-700/60 p-4">
+        <h3 className="text-sm font-semibold text-cyan-400">Anexos PDF</h3>
+        {anexos.map((a) => (
+          <AnexoRow
+            key={a.id ?? a.storage_path}
+            anexo={a}
+            onExcluido={() => setAnexos((prev) => prev.filter((x) => x.id !== a.id))}
+          />
+        ))}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Input label="Nome do documento" value={pdfNome} onChange={(e) => setPdfNome(e.target.value)} />
+          <FileUploadField
+            label="Arquivo PDF"
+            accept="application/pdf"
+            hint="Somente PDF"
+            file={pdfFile}
+            onChange={setPdfFile}
+          />
+        </div>
+      </div>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
 

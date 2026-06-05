@@ -225,7 +225,6 @@ export function ViagemForm({
 
       const refsV: AnexoRef[] = [];
       for (const veiculo of ordenados) {
-        if (!isFrota(veiculo.vinculo)) continue;
         const { data: anexosV } = await supabase
           .from("veiculo_anexos")
           .select("*")
@@ -571,22 +570,20 @@ export function ViagemForm({
                 label={isFrota(veiculo.vinculo) ? undefined : "Terceiro"}
               />
             </div>
-            {isFrota(veiculo.vinculo) ? (
-              <dl className="grid gap-1 text-sm text-slate-300 sm:grid-cols-2">
-                <div>Chassi: {veiculo.chassi ?? "—"}</div>
-                <div>Ano/Modelo: {veiculo.ano_modelo ?? "—"}</div>
-                <div>RENAVAM: {veiculo.renavam ?? "—"}</div>
-                <div>Venc. CRLV: {veiculo.crlv_vencimento ?? "—"}</div>
-                <div>Venc. IPVA: {veiculo.ipva_vencimento ?? "—"}</div>
-                <div>
-                  Status: {veiculo.financiado ? "Financiado" : veiculo.quitado ? "Quitado" : "—"}
-                </div>
-              </dl>
-            ) : (
-              <p className="text-sm text-slate-400">
-                Veículo de terceiro — documentação da frota não exigida.
-              </p>
-            )}
+            <dl className="grid gap-1 text-sm text-slate-300 sm:grid-cols-2">
+              <div>Chassi: {veiculo.chassi ?? "—"}</div>
+              <div>Ano/Modelo: {veiculo.ano_modelo ?? "—"}</div>
+              <div>RENAVAM: {veiculo.renavam ?? "—"}</div>
+              {isFrota(veiculo.vinculo) && (
+                <>
+                  <div>Venc. CRLV: {veiculo.crlv_vencimento ?? "—"}</div>
+                  <div>Venc. IPVA: {veiculo.ipva_vencimento ?? "—"}</div>
+                </>
+              )}
+              <div>
+                Status: {veiculo.financiado ? "Financiado" : veiculo.quitado ? "Quitado" : "—"}
+              </div>
+            </dl>
             {!validacao.apto && isFrota(veiculo.vinculo) && (
               <div className="mt-3 flex items-start gap-2 text-sm text-red-300">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />

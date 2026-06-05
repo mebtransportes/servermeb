@@ -167,6 +167,7 @@ export default function FechamentoViagensPage() {
           motoristaId={motoristaId}
           motoristaNome={motoristaNome}
           fechamentos={doMotorista}
+          periodoInicial={periodo}
           onClose={() => setShowComissao(false)}
         />
       )}

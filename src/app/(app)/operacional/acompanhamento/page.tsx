@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { MapPinned } from "lucide-react";
 import { ViagemDetail } from "@/components/operacional/viagem-detail";
+import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { Viagem } from "@/types";
 
@@ -21,14 +22,31 @@ function AcompanhamentoContent() {
   const statusUrl = searchParams.get("status") ?? "";
 
   const [viagens, setViagens] = useState<Viagem[]>([]);
+  const [locaisSaida, setLocaisSaida] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState(statusUrl);
+  const [filtroLocalSaida, setFiltroLocalSaida] = useState("");
 
   useEffect(() => {
     setFiltroStatus(statusUrl);
     setLoading(true);
   }, [statusUrl]);
+
+  useEffect(() => {
+    async function loadLocais() {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("viagens")
+        .select("local_saida")
+        .order("local_saida");
+      const unicos = [
+        ...new Set((data ?? []).map((r) => r.local_saida?.trim()).filter(Boolean)),
+      ] as string[];
+      setLocaisSaida(unicos);
+    }
+    loadLocais();
+  }, []);
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -40,11 +58,14 @@ function AcompanhamentoContent() {
     if (filtroStatus) {
       query = query.eq("status", filtroStatus);
     }
+    if (filtroLocalSaida) {
+      query = query.eq("local_saida", filtroLocalSaida);
+    }
 
     const { data } = await query;
     setViagens((data as Viagem[]) ?? []);
     setLoading(false);
-  }, [filtroStatus]);
+  }, [filtroStatus, filtroLocalSaida]);
 
   useEffect(() => {
     load();
@@ -60,25 +81,42 @@ function AcompanhamentoContent() {
             <p className="text-slate-400">Status e recursos das viagens</p>
           </div>
         </div>
-        <select
-          value={filtroStatus}
-          onChange={(e) => {
-            setFiltroStatus(e.target.value);
-            setLoading(true);
-          }}
-          className="rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white"
-        >
-          <option value="">Todos os status</option>
-          <option value="EM ANDAMENTO">EM ANDAMENTO</option>
-          <option value="EM CARREGAMENTO">EM CARREGAMENTO</option>
-          <option value="EM ROTA">EM ROTA</option>
-          <option value="CHEGOU AO DESTINO DE ENTREGA">CHEGOU AO DESTINO DE ENTREGA</option>
-          <option value="CHEGOU AO DESTINO FINAL">CHEGOU AO DESTINO FINAL</option>
-          <option value="DESCARREGANDO">DESCARREGANDO</option>
-          <option value="PARADO NA ESTRADA">PARADO NA ESTRADA</option>
-          <option value="EM ATRASO">EM ATRASO</option>
-          <option value="FINALIZADO">FINALIZADO</option>
-        </select>
+        <div className="flex flex-wrap items-end gap-3">
+          <Select
+            label="Status do veículo"
+            value={filtroStatus}
+            onChange={(e) => {
+              setFiltroStatus(e.target.value);
+              setLoading(true);
+            }}
+            options={[
+              { value: "", label: "Todos os status" },
+              { value: "EM ANDAMENTO", label: "EM ANDAMENTO" },
+              { value: "EM CARREGAMENTO", label: "EM CARREGAMENTO" },
+              { value: "EM ROTA", label: "EM ROTA" },
+              { value: "CHEGOU AO DESTINO DE ENTREGA", label: "CHEGOU AO DESTINO DE ENTREGA" },
+              { value: "CHEGOU AO DESTINO FINAL", label: "CHEGOU AO DESTINO FINAL" },
+              { value: "DESCARREGANDO", label: "DESCARREGANDO" },
+              { value: "PARADO NA ESTRADA", label: "PARADO NA ESTRADA" },
+              { value: "EM ATRASO", label: "EM ATRASO" },
+              { value: "FINALIZADO", label: "FINALIZADO" },
+            ]}
+            className="min-w-[200px]"
+          />
+          <Select
+            label="Local de saída"
+            value={filtroLocalSaida}
+            onChange={(e) => {
+              setFiltroLocalSaida(e.target.value);
+              setLoading(true);
+            }}
+            options={[
+              { value: "", label: "Todos os locais" },
+              ...locaisSaida.map((local) => ({ value: local, label: local })),
+            ]}
+            className="min-w-[220px]"
+          />
+        </div>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-5">
@@ -112,6 +150,9 @@ function AcompanhamentoContent() {
                         {veiculo?.nome} · {veiculo?.placa}
                       </p>
                       <p className="mt-2 text-xs text-cyan-400">{v.status}</p>
+                      <p className="text-xs text-slate-400 truncate" title={v.local_saida}>
+                        Saída: {v.local_saida}
+                      </p>
                       <p className="text-xs text-slate-500">
                         {new Date(v.saida_em).toLocaleDateString("pt-BR")}
                       </p>

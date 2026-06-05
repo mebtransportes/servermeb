@@ -6,7 +6,7 @@ import { Car, Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { VeiculosForm } from "@/components/cadastro/veiculos-form";
 import type { Veiculo } from "@/types";
-import { isFrota, labelVinculo, VEICULO_TIPO_OPCOES } from "@/lib/viagem-validation";
+import { labelVinculo, VEICULO_TIPO_OPCOES } from "@/lib/viagem-validation";
 
 function labelTipo(tipo: Veiculo["tipo"] | undefined) {
   return VEICULO_TIPO_OPCOES.find((o) => o.value === tipo)?.label ?? "—";
@@ -121,13 +121,7 @@ export default function VeiculosPage() {
                   <td className="px-4 py-3 font-mono">{v.placa}</td>
                   <td className="px-4 py-3">{v.ano_modelo ?? "—"}</td>
                   <td className="px-4 py-3">
-                    {isFrota(v.vinculo)
-                      ? v.financiado
-                        ? "Financiado"
-                        : v.quitado
-                          ? "Quitado"
-                          : "—"
-                      : "—"}
+                    {v.financiado ? "Financiado" : v.quitado ? "Quitado" : "—"}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button
