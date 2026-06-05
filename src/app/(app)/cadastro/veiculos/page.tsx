@@ -6,7 +6,7 @@ import { Car, Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { VeiculosForm } from "@/components/cadastro/veiculos-form";
 import type { Veiculo } from "@/types";
-import { VEICULO_TIPO_OPCOES } from "@/lib/viagem-validation";
+import { isFrota, labelVinculo, VEICULO_TIPO_OPCOES } from "@/lib/viagem-validation";
 
 function labelTipo(tipo: Veiculo["tipo"] | undefined) {
   return VEICULO_TIPO_OPCOES.find((o) => o.value === tipo)?.label ?? "—";
@@ -104,6 +104,7 @@ export default function VeiculosPage() {
             <thead className="bg-slate-800/80 text-slate-400">
               <tr>
                 <th className="px-4 py-3">Nome</th>
+                <th className="px-4 py-3">Vínculo</th>
                 <th className="px-4 py-3">Tipo</th>
                 <th className="px-4 py-3">Placa</th>
                 <th className="px-4 py-3">Ano/Modelo</th>
@@ -115,11 +116,18 @@ export default function VeiculosPage() {
               {lista.map((v) => (
                 <tr key={v.id} className="border-t border-slate-700/50">
                   <td className="px-4 py-3">{v.nome}</td>
+                  <td className="px-4 py-3">{labelVinculo(v.vinculo)}</td>
                   <td className="px-4 py-3">{labelTipo(v.tipo)}</td>
                   <td className="px-4 py-3 font-mono">{v.placa}</td>
                   <td className="px-4 py-3">{v.ano_modelo ?? "—"}</td>
                   <td className="px-4 py-3">
-                    {v.financiado ? "Financiado" : v.quitado ? "Quitado" : "—"}
+                    {isFrota(v.vinculo)
+                      ? v.financiado
+                        ? "Financiado"
+                        : v.quitado
+                          ? "Quitado"
+                          : "—"
+                      : "—"}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button

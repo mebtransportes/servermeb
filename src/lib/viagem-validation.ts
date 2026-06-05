@@ -1,5 +1,9 @@
 import { isValid, parseISO, startOfDay } from "date-fns";
-import type { Motorista, Veiculo } from "@/types";
+import type { Motorista, RecursoVinculo, Veiculo } from "@/types";
+
+export function isFrota(vinculo?: RecursoVinculo | null): boolean {
+  return (vinculo ?? "frota") === "frota";
+}
 
 function isVencido(data: string | null | undefined): boolean {
   if (!data) return true;
@@ -14,6 +18,10 @@ export type ResultadoApto = {
 };
 
 export function validarMotorista(m: Motorista): ResultadoApto {
+  if (!isFrota(m.vinculo)) {
+    return { apto: true, problemas: [] };
+  }
+
   const problemas: string[] = [];
 
   if (isVencido(m.cnh_vencimento)) {
@@ -36,6 +44,10 @@ export function validarMotorista(m: Motorista): ResultadoApto {
 }
 
 export function validarVeiculo(v: Veiculo): ResultadoApto {
+  if (!isFrota(v.vinculo)) {
+    return { apto: true, problemas: [] };
+  }
+
   const problemas: string[] = [];
 
   if (isVencido(v.crlv_vencimento)) {
@@ -93,6 +105,15 @@ export const VEICULO_TIPO_OPCOES = [
   { value: "carreta", label: "Carreta" },
   { value: "cavalo", label: "Cavalo" },
 ] as const;
+
+export const VINCULO_OPCOES = [
+  { value: "frota", label: "Frota própria" },
+  { value: "terceiro", label: "Terceiro" },
+] as const;
+
+export function labelVinculo(vinculo?: RecursoVinculo | null): string {
+  return VINCULO_OPCOES.find((o) => o.value === (vinculo ?? "frota"))?.label ?? "Frota própria";
+}
 
 export const TIPOS_TRAJETO = [
   { value: "ida", label: "Somente ida" },

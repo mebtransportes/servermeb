@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { MotoristasForm } from "@/components/cadastro/motoristas-form";
 import { calcularIdade } from "@/lib/utils";
 import type { Motorista } from "@/types";
+import { isFrota, labelVinculo } from "@/lib/viagem-validation";
 
 export default function MotoristasPage() {
   const [lista, setLista] = useState<Motorista[]>([]);
@@ -93,6 +94,7 @@ export default function MotoristasPage() {
             <thead className="bg-slate-800/80 text-slate-400">
               <tr>
                 <th className="px-4 py-3">Nome</th>
+                <th className="px-4 py-3">Vínculo</th>
                 <th className="px-4 py-3">CPF</th>
                 <th className="px-4 py-3">Idade</th>
                 <th className="px-4 py-3">CNH venc.</th>
@@ -103,11 +105,14 @@ export default function MotoristasPage() {
               {lista.map((m) => (
                 <tr key={m.id} className="border-t border-slate-700/50">
                   <td className="px-4 py-3">{m.nome_completo}</td>
+                  <td className="px-4 py-3">{labelVinculo(m.vinculo)}</td>
                   <td className="px-4 py-3">{m.cpf}</td>
                   <td className="px-4 py-3">
-                    {calcularIdade(m.data_nascimento) ?? "—"} anos
+                    {m.data_nascimento ? `${calcularIdade(m.data_nascimento) ?? "—"} anos` : "—"}
                   </td>
-                  <td className="px-4 py-3">{m.cnh_vencimento ?? "—"}</td>
+                  <td className="px-4 py-3">
+                    {isFrota(m.vinculo) ? (m.cnh_vencimento ?? "—") : "Não exigido"}
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <button type="button" onClick={() => openEdit(m)} className="mr-2 text-cyan-400">
                       <Pencil className="h-4 w-4 inline" />

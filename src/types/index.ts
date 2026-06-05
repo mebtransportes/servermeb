@@ -11,12 +11,14 @@ export interface Profile {
 }
 
 export type VeiculoTipo = "caminhao" | "carreta" | "cavalo";
+export type RecursoVinculo = "frota" | "terceiro";
 
 export interface Veiculo {
   id: string;
   nome: string;
   placa: string;
   tipo: VeiculoTipo;
+  vinculo: RecursoVinculo;
   chassi?: string | null;
   ano_modelo?: string | null;
   renavam?: string | null;
@@ -38,7 +40,8 @@ export interface Motorista {
   id: string;
   nome_completo: string;
   cpf: string;
-  data_nascimento: string;
+  vinculo: RecursoVinculo;
+  data_nascimento?: string | null;
   cnh_numero?: string | null;
   cnh_categoria?: string | null;
   cnh_expedicao?: string | null;

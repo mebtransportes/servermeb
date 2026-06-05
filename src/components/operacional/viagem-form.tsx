@@ -16,6 +16,8 @@ import {
   validarVeiculo,
   ANEXOS_VIAGEM_CATEGORIAS_UNICAS,
   ANEXOS_VIAGEM_CATEGORIAS_MULTIPLAS,
+  isFrota,
+  labelVinculo,
   VEICULO_TIPO_OPCOES,
   TIPOS_TRAJETO,
 } from "@/lib/viagem-validation";
@@ -168,25 +170,25 @@ export function ViagemForm({
         .single();
       setMotorista(m);
 
-      const { data: anexosM } = await supabase
-        .from("motorista_anexos")
-        .select("*")
-        .eq("motorista_id", motoristaId);
+      const refsM: AnexoRef[] = [];
+      if (m && isFrota(m.vinculo)) {
+        const { data: anexosM } = await supabase
+          .from("motorista_anexos")
+          .select("*")
+          .eq("motorista_id", motoristaId);
 
-      const refsM =
-        (anexosM ?? [])
-          .map((a) => {
-            const cat = classificarAnexo(a.nome);
-            if (!cat || (cat !== "CNH" && cat !== "TOXICOLOGICO")) return null;
-            return {
-              categoria: cat,
-              nome: a.nome,
-              storage_path: a.storage_path,
-              file_name: a.file_name,
-              origem: "motorista",
-            };
-          })
-          .filter(Boolean) as AnexoRef[];
+        for (const a of anexosM ?? []) {
+          const cat = classificarAnexo(a.nome);
+          if (!cat || (cat !== "CNH" && cat !== "TOXICOLOGICO")) continue;
+          refsM.push({
+            categoria: cat,
+            nome: a.nome,
+            storage_path: a.storage_path,
+            file_name: a.file_name,
+            origem: "motorista",
+          });
+        }
+      }
 
       setAnexosAuto((prev) => [
         ...prev.filter((a) => a.origem !== "motorista"),
@@ -222,11 +224,12 @@ export function ViagemForm({
       );
 
       const refsV: AnexoRef[] = [];
-      for (const id of veiculoIds) {
+      for (const veiculo of ordenados) {
+        if (!isFrota(veiculo.vinculo)) continue;
         const { data: anexosV } = await supabase
           .from("veiculo_anexos")
           .select("*")
-          .eq("veiculo_id", id);
+          .eq("veiculo_id", veiculo.id);
 
         for (const a of anexosV ?? []) {
           const cat = classificarAnexo(a.nome);
@@ -236,7 +239,7 @@ export function ViagemForm({
             nome: a.nome,
             storage_path: a.storage_path,
             file_name: a.file_name,
-            origem: `veiculo:${id}`,
+            origem: `veiculo:${veiculo.id}`,
           });
         }
       }
@@ -446,7 +449,7 @@ export function ViagemForm({
               { value: "", label: "Selecione..." },
               ...motoristas.map((m) => ({
                 value: m.id,
-                label: m.nome_completo,
+                label: `${m.nome_completo} (${labelVinculo(m.vinculo)})`,
               })),
             ]}
           />
@@ -480,9 +483,10 @@ export function ViagemForm({
                     />
                     <span className="text-sm text-slate-200">
                       {v.nome} — {v.placa}
-                      {tipoLabel ? (
-                        <span className="ml-2 text-xs text-slate-400">({tipoLabel})</span>
-                      ) : null}
+                      <span className="ml-2 text-xs text-slate-400">
+                        ({labelVinculo(v.vinculo)}
+                        {tipoLabel ? ` · ${tipoLabel}` : ""})
+                      </span>
                     </span>
                   </label>
                 );
@@ -501,18 +505,39 @@ export function ViagemForm({
             className={`rounded-lg border p-4 ${valMotorista.apto ? "border-emerald-800/50 bg-emerald-950/20" : "border-red-800/50 bg-red-950/20"}`}
           >
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="font-medium">{motorista.nome_completo}</h3>
-              <AptoBadge apto={valMotorista.apto} />
+              <h3 className="font-medium">
+                {motorista.nome_completo}
+                <span className="ml-2 text-xs font-normal text-slate-400">
+                  ({labelVinculo(motorista.vinculo)})
+                </span>
+              </h3>
+              <AptoBadge
+                apto={valMotorista.apto}
+                label={isFrota(motorista.vinculo) ? undefined : "Terceiro"}
+              />
             </div>
             <dl className="grid gap-1 text-sm text-slate-300 sm:grid-cols-2">
               <div>CPF: {motorista.cpf}</div>
-              <div>Idade: {calcularIdade(motorista.data_nascimento) ?? "—"} anos</div>
-              <div>CNH: {motorista.cnh_numero ?? "—"} ({motorista.cnh_categoria ?? "—"})</div>
-              <div>Venc. CNH: {motorista.cnh_vencimento ?? "—"}</div>
-              <div>Toxicológico venc.: {motorista.toxicologico_vencimento ?? "—"}</div>
+              <div>
+                Idade:{" "}
+                {motorista.data_nascimento
+                  ? `${calcularIdade(motorista.data_nascimento) ?? "—"} anos`
+                  : "—"}
+              </div>
               <div>Tel: {motorista.telefone ?? "—"}</div>
+              {isFrota(motorista.vinculo) ? (
+                <>
+                  <div>CNH: {motorista.cnh_numero ?? "—"} ({motorista.cnh_categoria ?? "—"})</div>
+                  <div>Venc. CNH: {motorista.cnh_vencimento ?? "—"}</div>
+                  <div>Toxicológico venc.: {motorista.toxicologico_vencimento ?? "—"}</div>
+                </>
+              ) : (
+                <div className="sm:col-span-2 text-slate-400">
+                  Documentação de frota não exigida para motorista terceiro.
+                </div>
+              )}
             </dl>
-            {!valMotorista.apto && (
+            {!valMotorista.apto && isFrota(motorista.vinculo) && (
               <div className="mt-3 flex items-start gap-2 text-sm text-red-300">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 <div>
@@ -536,25 +561,33 @@ export function ViagemForm({
             <div className="mb-2 flex items-center justify-between">
               <h3 className="font-medium">
                 {veiculo.nome} — {veiculo.placa}
-                {veiculo.tipo ? (
-                  <span className="ml-2 text-xs font-normal text-slate-400">
-                    ({labelTipoVeiculo(veiculo.tipo)})
-                  </span>
-                ) : null}
+                <span className="ml-2 text-xs font-normal text-slate-400">
+                  ({labelVinculo(veiculo.vinculo)}
+                  {veiculo.tipo ? ` · ${labelTipoVeiculo(veiculo.tipo)}` : ""})
+                </span>
               </h3>
-              <AptoBadge apto={validacao.apto} />
+              <AptoBadge
+                apto={validacao.apto}
+                label={isFrota(veiculo.vinculo) ? undefined : "Terceiro"}
+              />
             </div>
-            <dl className="grid gap-1 text-sm text-slate-300 sm:grid-cols-2">
-              <div>Chassi: {veiculo.chassi ?? "—"}</div>
-              <div>Ano/Modelo: {veiculo.ano_modelo ?? "—"}</div>
-              <div>RENAVAM: {veiculo.renavam ?? "—"}</div>
-              <div>Venc. CRLV: {veiculo.crlv_vencimento ?? "—"}</div>
-              <div>Venc. IPVA: {veiculo.ipva_vencimento ?? "—"}</div>
-              <div>
-                Status: {veiculo.financiado ? "Financiado" : veiculo.quitado ? "Quitado" : "—"}
-              </div>
-            </dl>
-            {!validacao.apto && (
+            {isFrota(veiculo.vinculo) ? (
+              <dl className="grid gap-1 text-sm text-slate-300 sm:grid-cols-2">
+                <div>Chassi: {veiculo.chassi ?? "—"}</div>
+                <div>Ano/Modelo: {veiculo.ano_modelo ?? "—"}</div>
+                <div>RENAVAM: {veiculo.renavam ?? "—"}</div>
+                <div>Venc. CRLV: {veiculo.crlv_vencimento ?? "—"}</div>
+                <div>Venc. IPVA: {veiculo.ipva_vencimento ?? "—"}</div>
+                <div>
+                  Status: {veiculo.financiado ? "Financiado" : veiculo.quitado ? "Quitado" : "—"}
+                </div>
+              </dl>
+            ) : (
+              <p className="text-sm text-slate-400">
+                Veículo de terceiro — documentação da frota não exigida.
+              </p>
+            )}
+            {!validacao.apto && isFrota(veiculo.vinculo) && (
               <div className="mt-3 flex items-start gap-2 text-sm text-red-300">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 <div>

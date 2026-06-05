@@ -1,4 +1,5 @@
 import { differenceInCalendarDays, isValid, parseISO, startOfDay } from "date-fns";
+import { isFrota } from "@/lib/viagem-validation";
 import type { Motorista, Veiculo } from "@/types";
 
 export const DIAS_ALERTA_VENCIMENTO = 30;
@@ -126,6 +127,7 @@ export function montarAlertas(
   const alertas: AlertaDocumentacao[] = [];
 
   for (const m of motoristas) {
+    if (!isFrota(m.vinculo)) continue;
     processarEntidade(alertas, {
       categoria: "motorista",
       entidadeId: m.id,
@@ -140,6 +142,7 @@ export function montarAlertas(
   }
 
   for (const v of veiculos) {
+    if (!isFrota(v.vinculo)) continue;
     processarEntidade(alertas, {
       categoria: "veiculo",
       entidadeId: v.id,
