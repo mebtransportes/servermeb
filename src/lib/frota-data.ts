@@ -100,6 +100,7 @@ export async function fetchAbastecimentos(): Promise<AbastecimentoCard[]> {
       valor: Number(a.valor),
       km: a.km_abastecimento ? Number(a.km_abastecimento) : null,
       litros: a.litros ? Number(a.litros) : null,
+      litrosTotais: a.litros_totais ? Number(a.litros_totais) : null,
       descricao: a.descricao,
       dataHora: a.data_hora,
       postoNome: posto?.nome,

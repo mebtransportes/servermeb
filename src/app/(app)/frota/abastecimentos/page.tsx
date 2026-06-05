@@ -172,11 +172,14 @@ function AbastecimentoCardView({
       <p className="text-sm text-slate-300">
         {new Date(item.dataHora).toLocaleString("pt-BR")}
       </p>
-      {(item.km != null || item.litros != null) && (
+      {(item.km != null || item.litros != null || item.litrosTotais != null) && (
         <p className="mt-1 text-sm text-cyan-400">
           {item.km != null && `KM: ${item.km.toLocaleString("pt-BR")}`}
-          {item.km != null && item.litros != null && " · "}
-          {item.litros != null && `${item.litros} L`}
+          {item.km != null && (item.litros != null || item.litrosTotais != null) && " · "}
+          {item.litros != null && `${item.litros.toLocaleString("pt-BR")} L abast.`}
+          {item.litros != null && item.litrosTotais != null && " · "}
+          {item.litrosTotais != null &&
+            `Tanque: ${item.litrosTotais.toLocaleString("pt-BR")} L`}
         </p>
       )}
       <FrotaAnexosLinks anexos={item} />

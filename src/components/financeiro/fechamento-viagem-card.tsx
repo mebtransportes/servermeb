@@ -35,9 +35,14 @@ export function FechamentoViagemCard({
   onUpdated: (atualizado: ViagemFechamento) => void;
 }) {
   const despesas = totalDespesasFechamento(f);
+  const litrosTanque = Number(f.litros_tanque_inicial) || 0;
+  const litrosViagem = Number(f.litros_abastecimento_viagem) || 0;
+  const litrosTotal =
+    litrosTanque + litrosViagem > 0
+      ? litrosTanque + litrosViagem
+      : f.abastecimento_litros;
   const consumoKmLitro =
-    f.consumo_km_litro ??
-    calcularConsumoKmLitro(f.km_total, f.abastecimento_litros);
+    f.consumo_km_litro ?? calcularConsumoKmLitro(f.km_total, litrosTotal);
 
   const [icmsPercent, setIcmsPercent] = useState(String(getIcmsPercent(f)));
   const [comissaoTipo, setComissaoTipo] = useState<"PERCENTUAL" | "LIQUIDO_TOTAL">(
@@ -114,8 +119,24 @@ export function FechamentoViagemCard({
         Gastos
       </p>
       <Linha
-        label="Abastecimento (litros)"
-        value={f.abastecimento_litros.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) + " L"}
+        label="Litros no tanque (frota)"
+        value={
+          litrosTanque > 0
+            ? litrosTanque.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) + " L"
+            : "—"
+        }
+      />
+      <Linha
+        label="Litros na viagem"
+        value={
+          litrosViagem > 0
+            ? litrosViagem.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) + " L"
+            : "—"
+        }
+      />
+      <Linha
+        label="Total litros"
+        value={litrosTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) + " L"}
       />
       <Linha
         label="Consumo médio (km/L)"

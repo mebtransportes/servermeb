@@ -126,6 +126,7 @@ export type AbastecimentoEdicao = {
   postoId: string;
   km: string;
   litros: string;
+  litrosTotais: string;
   valor: string;
   descricao: string;
   dataHora: string;
@@ -157,6 +158,7 @@ export async function carregarAbastecimentoEdicao(
       postoId: data.posto_id ?? "",
       km: data.km_abastecimento?.toString() ?? "",
       litros: data.litros?.toString() ?? "",
+      litrosTotais: data.litros_totais?.toString() ?? "",
       valor: String(data.valor),
       descricao: data.descricao ?? "",
       dataHora: local,
@@ -185,6 +187,7 @@ export async function carregarAbastecimentoEdicao(
       postoId: data.posto_id ?? "",
       km: data.km_abastecimento?.toString() ?? "",
       litros: data.litros?.toString() ?? "",
+      litrosTotais: "",
       valor: String(data.valor),
       descricao: data.descricao ?? "",
       dataHora: local,

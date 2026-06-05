@@ -173,7 +173,9 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
   async function handleExcluir(recursoId: string) {
     const recurso = recursos.find((r) => r.id === recursoId);
     if (recurso?.abastecimento_inicial) {
-      alert("O abastecimento inicial é editado no cadastro da viagem.");
+      alert(
+        "Registro antigo de abastecimento inicial. O tanque atual vem de Frota → Abastecimentos."
+      );
       return;
     }
     if (

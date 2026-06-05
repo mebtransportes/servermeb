@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase/client";
 import { formatarVeiculosLabel } from "@/lib/viagem-crud";
 import {
+  fetchLitrosLegacyViagemInicial,
+  fetchLitrosTotaisVeiculo,
+} from "@/lib/litros-frota-veiculo";
+import {
   calcularComissionamento,
   calcularConsumoKmLitro,
 } from "@/types/fechamento";
@@ -9,10 +13,11 @@ type RecursoRow = {
   tipo: string;
   valor: number;
   litros?: number | null;
+  abastecimento_inicial?: boolean;
 };
 
 function somarRecursos(recursos: RecursoRow[]) {
-  let abastecimento_litros = 0;
+  let litros_abastecimento_viagem = 0;
   let abastecimento_valor = 0;
   let arla_valor = 0;
   let manutencao_total = 0;
@@ -24,7 +29,9 @@ function somarRecursos(recursos: RecursoRow[]) {
     switch (r.tipo) {
       case "abastecimento":
         abastecimento_valor += v;
-        abastecimento_litros += Number(r.litros) || 0;
+        if (!r.abastecimento_inicial) {
+          litros_abastecimento_viagem += Number(r.litros) || 0;
+        }
         break;
       case "arla":
         arla_valor += v;
@@ -42,7 +49,7 @@ function somarRecursos(recursos: RecursoRow[]) {
   }
 
   return {
-    abastecimento_litros,
+    litros_abastecimento_viagem,
     abastecimento_valor,
     arla_valor,
     manutencao_total,
@@ -65,7 +72,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     .from("viagens")
     .select(
       `
-      id, status, motorista_id, saida_em, local_saida, km_total,
+      id, status, motorista_id, veiculo_id, saida_em, local_saida, km_total,
       valor_frete, numero_cte,
       motoristas ( nome_completo ),
       veiculos ( nome, placa ),
@@ -114,7 +121,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
 
   const { data: recursos } = await supabase
     .from("viagem_recursos")
-    .select("tipo, valor, litros")
+    .select("tipo, valor, litros, abastecimento_inicial")
     .eq("viagem_id", viagemId);
 
   const gastos = somarRecursos((recursos as RecursoRow[]) ?? []);
@@ -136,12 +143,16 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
   const destino =
     (entregas ?? []).map((e) => e.local_entrega).filter(Boolean).join(" · ") || null;
 
+  const veiculoId = viagem.veiculo_id as string;
+  const tanqueFrota = await fetchLitrosTotaisVeiculo(veiculoId, viagem.saida_em);
+  const litrosLegacy = await fetchLitrosLegacyViagemInicial(viagemId);
+  const litros_tanque_inicial = tanqueFrota?.litrosTotais ?? litrosLegacy ?? 0;
+  const litros_abastecimento_viagem = gastos.litros_abastecimento_viagem;
+  const abastecimento_litros = litros_tanque_inicial + litros_abastecimento_viagem;
+
   const kmTotal =
     viagem.km_total != null ? Number(viagem.km_total) : null;
-  const consumo_km_litro = calcularConsumoKmLitro(
-    kmTotal,
-    gastos.abastecimento_litros
-  );
+  const consumo_km_litro = calcularConsumoKmLitro(kmTotal, abastecimento_litros);
 
   const payload = {
     viagem_id: viagemId,
@@ -154,7 +165,14 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     destino,
     km_total: kmTotal,
     consumo_km_litro,
-    ...gastos,
+    litros_tanque_inicial,
+    litros_abastecimento_viagem,
+    abastecimento_litros,
+    abastecimento_valor: gastos.abastecimento_valor,
+    arla_valor: gastos.arla_valor,
+    manutencao_total: gastos.manutencao_total,
+    pedagio_valor: gastos.pedagio_valor,
+    reembolso_valor: gastos.reembolso_valor,
     valor_frete: valorFrete,
     frete_liquido: freteLiquido,
     comissao_final: comissaoFinal,

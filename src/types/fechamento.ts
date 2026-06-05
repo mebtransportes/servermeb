@@ -10,6 +10,8 @@ export type ViagemFechamento = {
   destino?: string | null;
   km_total?: number | null;
   consumo_km_litro?: number | null;
+  litros_tanque_inicial?: number | null;
+  litros_abastecimento_viagem?: number | null;
   abastecimento_litros: number;
   abastecimento_valor: number;
   arla_valor: number;

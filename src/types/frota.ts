@@ -27,6 +27,7 @@ export type AbastecimentoCard = {
   valor: number;
   km?: number | null;
   litros?: number | null;
+  litrosTotais?: number | null;
   descricao?: string | null;
   dataHora: string;
   postoNome?: string;

@@ -27,6 +27,7 @@ export function AbastecimentoForm({
   const [postoId, setPostoId] = useState("");
   const [km, setKm] = useState("");
   const [litros, setLitros] = useState("");
+  const [litrosTotais, setLitrosTotais] = useState("");
   const [valor, setValor] = useState("");
   const [descricao, setDescricao] = useState("");
   const [dataHora, setDataHora] = useState("");
@@ -69,6 +70,7 @@ export function AbastecimentoForm({
       setPostoId(d.postoId);
       setKm(rawNumberStringToBrInput(d.km, 0));
       setLitros(rawNumberStringToBrInput(d.litros, 2));
+      setLitrosTotais(rawNumberStringToBrInput(d.litrosTotais, 2));
       setValor(rawNumberStringToBrInput(d.valor, 2));
       setDescricao(d.descricao);
       setDataHora(d.dataHora);
@@ -116,6 +118,7 @@ export function AbastecimentoForm({
           posto_id: postoId || null,
           km_abastecimento: parseBrNumber(km),
           litros: parseBrNumber(litros),
+          litros_totais: parseBrNumber(litrosTotais),
           valor: parseBrNumber(valor) ?? 0,
           descricao: descricao || null,
           data_hora: new Date(dataHora).toISOString(),
@@ -164,6 +167,7 @@ export function AbastecimentoForm({
         posto_id: postoId || null,
         km_abastecimento: parseBrNumber(km),
         litros: parseBrNumber(litros),
+        litros_totais: parseBrNumber(litrosTotais),
         valor: parseBrNumber(valor) ?? 0,
         descricao: descricao || null,
         data_hora: new Date(dataHora).toISOString(),
@@ -239,10 +243,18 @@ export function AbastecimentoForm({
           placeholder="Ex: 125.430"
         />
         <BrNumberInput
-          label="Litros (opcional)"
+          label="Litros abastecidos (opcional)"
           decimalPlaces={2}
           value={litros}
           onChange={setLitros}
+          placeholder="Litros colocados no tanque"
+        />
+        <BrNumberInput
+          label="Litros totais no tanque"
+          decimalPlaces={2}
+          value={litrosTotais}
+          onChange={setLitrosTotais}
+          placeholder="Ex: 400,00 — usado no cadastro da viagem"
         />
         <BrNumberInput
           label="Valor (R$)"
