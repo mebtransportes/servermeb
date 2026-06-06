@@ -69,14 +69,26 @@ export function validarVeiculo(v: Veiculo): ResultadoApto {
   return { apto: problemas.length === 0, problemas };
 }
 
+/** Status disponíveis para seleção em acompanhamento / cadastro. */
 export const VIAGEM_STATUS = [
   "EM ANDAMENTO",
   "EM CARREGAMENTO",
   "EM ROTA",
-  "CHEGOU AO DESTINO DE ENTREGA",
-  "CHEGOU AO DESTINO FINAL",
+  "AGUARDANDO DESCARGA",
   "DESCARREGANDO",
-  "PARADO NA ESTRADA",
+  "EM ATRASO",
+  "FINALIZADO",
+  "PAGAMENTO PENDENTE",
+  "ARQUIVADO",
+] as const;
+
+/** Status exibidos no filtro do acompanhamento (subset operacional). */
+export const VIAGEM_STATUS_FILTRO_ACOMPANHAMENTO = [
+  "EM ANDAMENTO",
+  "EM CARREGAMENTO",
+  "EM ROTA",
+  "AGUARDANDO DESCARGA",
+  "DESCARREGANDO",
   "EM ATRASO",
   "FINALIZADO",
   "PAGAMENTO PENDENTE",

@@ -12,24 +12,14 @@ import type { Viagem, ViagemStatus } from "@/types";
 import { MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
-import { statusGeraFechamento } from "@/lib/viagem-status";
+import {
+  statusGeraFechamento,
+  VIAGEM_STATUS_CORES,
+  VIAGEM_STATUS_LABEL,
+} from "@/lib/viagem-status";
 import { formatarVeiculosLabel } from "@/lib/viagem-crud";
 import { VEICULO_TIPO_OPCOES } from "@/lib/viagem-validation";
 import type { Veiculo } from "@/types";
-
-const statusColors: Record<string, string> = {
-  "EM ANDAMENTO": "bg-blue-900/50 text-blue-300",
-  "EM CARREGAMENTO": "bg-amber-900/50 text-amber-300",
-  "EM ROTA": "bg-cyan-900/50 text-cyan-300",
-  "CHEGOU AO DESTINO DE ENTREGA": "bg-purple-900/50 text-purple-300",
-  "CHEGOU AO DESTINO FINAL": "bg-indigo-900/50 text-indigo-300",
-  DESCARREGANDO: "bg-orange-900/50 text-orange-300",
-  "PARADO NA ESTRADA": "bg-red-900/50 text-red-300",
-  "EM ATRASO": "bg-rose-900/50 text-rose-300",
-  FINALIZADO: "bg-emerald-900/50 text-emerald-300",
-  "PAGAMENTO PENDENTE": "bg-amber-900/50 text-amber-300",
-  ARQUIVADO: "bg-slate-700/50 text-slate-400",
-};
 
 export function ViagemDetail({
   viagemId,
@@ -47,6 +37,7 @@ export function ViagemDetail({
     { id: string; categoria: string; file_name: string; storage_path: string }[]
   >([]);
   const [status, setStatus] = useState<ViagemStatus>("EM ANDAMENTO");
+  const [entregaAtualOrdem, setEntregaAtualOrdem] = useState("");
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
@@ -61,6 +52,9 @@ export function ViagemDetail({
     if (v) {
       setViagem(v as Viagem);
       setStatus(v.status);
+      setEntregaAtualOrdem(
+        v.entrega_atual_ordem != null ? String(v.entrega_atual_ordem) : ""
+      );
       const vv = v.viagem_veiculos as
         | {
             ordem: number;
@@ -120,7 +114,13 @@ export function ViagemDetail({
   async function saveStatus() {
     setSaving(true);
     const supabase = createClient();
-    await supabase.from("viagens").update({ status }).eq("id", viagemId);
+    const entregaOrdem =
+      entregas.length > 1 && entregaAtualOrdem ? Number(entregaAtualOrdem) : null;
+
+    await supabase
+      .from("viagens")
+      .update({ status, entrega_atual_ordem: entregaOrdem })
+      .eq("id", viagemId);
     if (statusGeraFechamento(status)) {
       const err = await syncFechamentoViagem(viagemId);
       if (err) console.warn("Fechamento:", err);
@@ -149,10 +149,10 @@ export function ViagemDetail({
         <span
           className={cn(
             "rounded-full px-3 py-1 text-xs font-semibold",
-            statusColors[viagem.status] ?? "bg-slate-800 text-slate-300"
+            VIAGEM_STATUS_CORES[viagem.status] ?? "bg-slate-800 text-slate-300"
           )}
         >
-          {viagem.status}
+          {VIAGEM_STATUS_LABEL[viagem.status] ?? viagem.status}
         </span>
       </div>
 
@@ -163,17 +163,44 @@ export function ViagemDetail({
             label="Status da viagem"
             value={status}
             onChange={(e) => setStatus(e.target.value as ViagemStatus)}
-            options={VIAGEM_STATUS.map((s) => ({ value: s, label: s }))}
+            options={VIAGEM_STATUS.map((s) => ({
+              value: s,
+              label: VIAGEM_STATUS_LABEL[s] ?? s,
+            }))}
           />
+          {entregas.length > 1 && (
+            <Select
+              label="Entrega atual (em qual parada está)"
+              value={entregaAtualOrdem}
+              onChange={(e) => setEntregaAtualOrdem(e.target.value)}
+              options={[
+                { value: "", label: "Selecione a entrega atual..." },
+                ...entregas.map((e) => ({
+                  value: String(e.ordem),
+                  label: `Entrega ${e.ordem} — ${e.local_entrega}`,
+                })),
+              ]}
+            />
+          )}
           <Button
             type="button"
             onClick={saveStatus}
-            disabled={saving || status === viagem.status}
+            disabled={
+              saving ||
+              (status === viagem.status &&
+                String(viagem.entrega_atual_ordem ?? "") === entregaAtualOrdem)
+            }
             className="self-end"
           >
             {saving ? "Salvando..." : "Salvar status"}
           </Button>
         </div>
+        {entregas.length > 1 && (
+          <p className="mt-2 text-xs text-amber-200/90">
+            Esta viagem tem <strong>{entregas.length} entregas</strong>. Informe em qual parada o
+            caminhão está para o painel de acompanhamento exibir corretamente.
+          </p>
+        )}
         <p className="mt-2 text-xs text-slate-500">
           <strong className="text-slate-400">Finalizado</strong> e{" "}
           <strong className="text-slate-400">Pagamento pendente</strong> aparecem no Fechamento de

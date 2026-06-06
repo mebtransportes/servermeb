@@ -1,14 +1,19 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { MapPinned } from "lucide-react";
+import { MapPinned, Printer } from "lucide-react";
 import { ViagemDetail } from "@/components/operacional/viagem-detail";
+import { ViagemAcompanhamentoCard } from "@/components/operacional/viagem-acompanhamento-card";
 import { Select } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
-import type { Viagem } from "@/types";
-import { VIAGEM_STATUS } from "@/lib/viagem-validation";
+import { Button } from "@/components/ui/button";
+import {
+  fetchClientesAcompanhamento,
+  fetchViagensAcompanhamento,
+  viagemMatchCliente,
+  type AcompanhamentoViagemItem,
+} from "@/lib/acompanhamento-data";
+import { VIAGEM_STATUS_FILTRO_ACOMPANHAMENTO } from "@/lib/viagem-validation";
 import { VIAGEM_STATUS_LABEL } from "@/lib/viagem-status";
 
 export default function AcompanhamentoPage() {
@@ -23,12 +28,12 @@ function AcompanhamentoContent() {
   const searchParams = useSearchParams();
   const statusUrl = searchParams.get("status") ?? "";
 
-  const [viagens, setViagens] = useState<Viagem[]>([]);
-  const [locaisSaida, setLocaisSaida] = useState<string[]>([]);
+  const [viagens, setViagens] = useState<AcompanhamentoViagemItem[]>([]);
+  const [clientes, setClientes] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState(statusUrl);
-  const [filtroLocalSaida, setFiltroLocalSaida] = useState("");
+  const [filtroCliente, setFiltroCliente] = useState("");
 
   useEffect(() => {
     setFiltroStatus(statusUrl);
@@ -36,142 +41,115 @@ function AcompanhamentoContent() {
   }, [statusUrl]);
 
   useEffect(() => {
-    async function loadLocais() {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("viagens")
-        .select("local_saida")
-        .order("local_saida");
-      const unicos = [
-        ...new Set((data ?? []).map((r) => r.local_saida?.trim()).filter(Boolean)),
-      ] as string[];
-      setLocaisSaida(unicos);
-    }
-    loadLocais();
+    fetchClientesAcompanhamento().then(setClientes);
   }, []);
 
   const load = useCallback(async () => {
-    const supabase = createClient();
-    let query = supabase
-      .from("viagens")
-      .select("*, motoristas(nome_completo), veiculos(nome, placa)")
-      .order("created_at", { ascending: false });
-
-    if (filtroStatus) {
-      query = query.eq("status", filtroStatus);
-    }
-    if (filtroLocalSaida) {
-      query = query.eq("local_saida", filtroLocalSaida);
-    }
-
-    const { data } = await query;
-    setViagens((data as Viagem[]) ?? []);
+    setLoading(true);
+    setViagens(await fetchViagensAcompanhamento());
     setLoading(false);
-  }, [filtroStatus, filtroLocalSaida]);
+  }, []);
 
   useEffect(() => {
     load();
   }, [load]);
 
+  const filtradas = useMemo(() => {
+    return viagens.filter((v) => {
+      if (filtroStatus && v.status !== filtroStatus) return false;
+      if (filtroCliente && !viagemMatchCliente(v, filtroCliente)) return false;
+      return true;
+    });
+  }, [viagens, filtroStatus, filtroCliente]);
+
+  const excluirArquivadas = filtroStatus === "" && !filtroCliente;
+
+  const visiveis = useMemo(() => {
+    if (!excluirArquivadas) return filtradas;
+    return filtradas.filter((v) => v.status !== "ARQUIVADO");
+  }, [filtradas, excluirArquivadas]);
+
   return (
-    <div>
-      <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
+    <div className="space-y-6">
+      <header className="flex flex-wrap items-center justify-between gap-4 print:hidden">
         <div className="flex items-center gap-3">
           <MapPinned className="h-8 w-8 text-cyan-400" />
           <div>
             <h1 className="text-2xl font-bold">Acompanhamento</h1>
-            <p className="text-slate-400">Status e recursos das viagens</p>
+            <p className="text-slate-400">
+              Painel completo para acompanhar e compartilhar o andamento das viagens
+            </p>
           </div>
         </div>
-        <div className="flex flex-wrap items-end gap-3">
-          <Select
-            label="Status do veículo"
-            value={filtroStatus}
-            onChange={(e) => {
-              setFiltroStatus(e.target.value);
-              setLoading(true);
-            }}
-            options={[
-              { value: "", label: "Todos os status" },
-              ...VIAGEM_STATUS.map((s) => ({
-                value: s,
-                label: VIAGEM_STATUS_LABEL[s] ?? s,
-              })),
-            ]}
-            className="min-w-[200px]"
-          />
-          <Select
-            label="Local de saída"
-            value={filtroLocalSaida}
-            onChange={(e) => {
-              setFiltroLocalSaida(e.target.value);
-              setLoading(true);
-            }}
-            options={[
-              { value: "", label: "Todos os locais" },
-              ...locaisSaida.map((local) => ({ value: local, label: local })),
-            ]}
-            className="min-w-[220px]"
-          />
-        </div>
+        <Button type="button" variant="secondary" onClick={() => window.print()}>
+          <Printer className="mr-2 h-4 w-4" />
+          Imprimir / print
+        </Button>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-5">
-        <div className="lg:col-span-2">
-          {loading ? (
-            <p className="text-slate-400">Carregando...</p>
-          ) : viagens.length === 0 ? (
-            <p className="text-slate-500">Nenhuma viagem encontrada.</p>
-          ) : (
-            <ul className="max-h-[70vh] space-y-2 overflow-y-auto pr-1">
-              {viagens.map((v) => {
-                const active = selectedId === v.id;
-                const motorista = (v as Viagem & { motoristas?: { nome_completo: string } }).motoristas;
-                const veiculo = (v as Viagem & { veiculos?: { placa: string; nome: string } }).veiculos;
-                return (
-                  <li key={v.id}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedId(v.id)}
-                      className={cn(
-                        "w-full rounded-xl border p-4 text-left transition",
-                        active
-                          ? "border-cyan-500 bg-cyan-950/30"
-                          : "border-slate-700/50 bg-slate-800/30 hover:border-slate-600"
-                      )}
-                    >
-                      <p className="font-medium text-white">
-                        {motorista?.nome_completo ?? "—"}
-                      </p>
-                      <p className="text-sm text-slate-400">
-                        {veiculo?.nome} · {veiculo?.placa}
-                      </p>
-                      <p className="mt-2 text-xs text-cyan-400">{v.status}</p>
-                      <p className="text-xs text-slate-400 truncate" title={v.local_saida}>
-                        Saída: {v.local_saida}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {new Date(v.saida_em).toLocaleDateString("pt-BR")}
-                      </p>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-
-        <div className="rounded-xl border border-slate-700/50 bg-slate-800/20 p-6 lg:col-span-3">
-          {selectedId ? (
-            <ViagemDetail viagemId={selectedId} onUpdated={load} />
-          ) : (
-            <p className="text-center text-slate-500 py-12">
-              Selecione uma viagem para acompanhar
-            </p>
-          )}
-        </div>
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-700/50 bg-slate-800/20 p-4 print:hidden">
+        <Select
+          label="Status"
+          value={filtroStatus}
+          onChange={(e) => setFiltroStatus(e.target.value)}
+          options={[
+            { value: "", label: "Todos os status" },
+            ...VIAGEM_STATUS_FILTRO_ACOMPANHAMENTO.map((s) => ({
+              value: s,
+              label: VIAGEM_STATUS_LABEL[s] ?? s,
+            })),
+          ]}
+          className="min-w-[200px]"
+        />
+        <Select
+          label="Cliente / local"
+          value={filtroCliente}
+          onChange={(e) => setFiltroCliente(e.target.value)}
+          options={[
+            { value: "", label: "Todos os clientes" },
+            ...clientes.map((nome) => ({ value: nome, label: nome })),
+          ]}
+          className="min-w-[240px]"
+        />
       </div>
+
+      {filtroCliente && (
+        <p className="rounded-lg border border-cyan-800/40 bg-cyan-950/20 px-4 py-3 text-sm text-cyan-100 print:border-gray-400 print:bg-gray-50 print:text-black">
+          Exibindo viagens relacionadas a <strong>{filtroCliente}</strong> (saída ou entrega).
+          Todos os cards abaixo podem ser capturados em print para enviar à empresa.
+        </p>
+      )}
+
+      {loading ? (
+        <p className="text-slate-400">Carregando...</p>
+      ) : visiveis.length === 0 ? (
+        <p className="text-slate-500">Nenhuma viagem encontrada com os filtros selecionados.</p>
+      ) : (
+        <>
+          <p className="text-sm text-slate-400 print:text-gray-600">
+            {visiveis.length} viagem(ns) · clique em um card para editar detalhes
+          </p>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {visiveis.map((v) => (
+              <ViagemAcompanhamentoCard
+                key={v.id}
+                viagem={v}
+                clienteFiltro={filtroCliente}
+                selected={selectedId === v.id}
+                onSelect={() => setSelectedId((prev) => (prev === v.id ? null : v.id))}
+                onEntregaAtualizada={load}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      {selectedId && (
+        <section className="rounded-xl border border-slate-700/50 bg-slate-800/20 p-6 print:hidden">
+          <h2 className="mb-4 text-lg font-semibold text-white">Detalhes e atualização</h2>
+          <ViagemDetail viagemId={selectedId} onUpdated={load} />
+        </section>
+      )}
     </div>
   );
 }
-

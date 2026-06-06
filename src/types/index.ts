@@ -56,14 +56,15 @@ export type ViagemStatus =
   | "EM ANDAMENTO"
   | "EM CARREGAMENTO"
   | "EM ROTA"
-  | "CHEGOU AO DESTINO DE ENTREGA"
-  | "CHEGOU AO DESTINO FINAL"
+  | "AGUARDANDO DESCARGA"
   | "DESCARREGANDO"
-  | "PARADO NA ESTRADA"
   | "EM ATRASO"
   | "FINALIZADO"
   | "PAGAMENTO PENDENTE"
-  | "ARQUIVADO";
+  | "ARQUIVADO"
+  | "CHEGOU AO DESTINO DE ENTREGA"
+  | "CHEGOU AO DESTINO FINAL"
+  | "PARADO NA ESTRADA";
 
 export type ViagemTipoTrajeto = "ida" | "volta" | "ida_volta";
 export type ViagemRecursoTipo =
@@ -89,6 +90,7 @@ export interface Viagem {
   descricao_mercadoria?: string | null;
   km_total?: number | null;
   status: ViagemStatus;
+  entrega_atual_ordem?: number | null;
   motorista_apto: boolean;
   veiculo_apto: boolean;
   motoristas?: Pick<Motorista, "nome_completo" | "cpf" | "telefone"> & Partial<Motorista>;
