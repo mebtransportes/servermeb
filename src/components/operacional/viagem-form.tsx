@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { BrNumberInput } from "@/components/ui/br-number-input";
 import { EntregaAutocomplete } from "@/components/ui/entrega-autocomplete";
 import { MotoristaAutocomplete } from "@/components/ui/motorista-autocomplete";
+import { VeiculosViagemPicker } from "@/components/ui/veiculos-viagem-picker";
 import { FileUploadField, FileUploadMultiple } from "@/components/ui/file-upload";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -147,12 +148,6 @@ export function ViagemForm({
     setUploads(ANEXOS_VIAGEM_CATEGORIAS_UNICAS.map((c) => ({ categoria: c, file: null })));
     setUploadsMultiplos({ ROMANEIO: [], NOTAS_FISCAIS: [] });
   }, [viagem]);
-
-  function toggleVeiculo(id: string) {
-    setVeiculoIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  }
 
   function labelTipoVeiculo(tipo: Veiculo["tipo"] | undefined) {
     return VEICULO_TIPO_OPCOES.find((o) => o.value === tipo)?.label ?? "";
@@ -451,50 +446,15 @@ export function ViagemForm({
           />
         </div>
 
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-slate-300">
-            Veículos da viagem (selecione quantos precisar: cavalo, carretas, etc.)
-          </p>
-          <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border border-slate-700/60 bg-slate-800/30 p-3">
-            {veiculos.length === 0 ? (
-              <p className="text-sm text-slate-500">Nenhum veículo cadastrado.</p>
-            ) : (
-              veiculos.map((v) => {
-                const tipoLabel = labelTipoVeiculo(v.tipo);
-                const checked = veiculoIds.includes(v.id);
-                return (
-                  <label
-                    key={v.id}
-                    className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition ${
-                      checked
-                        ? "border-cyan-600/50 bg-cyan-950/30"
-                        : "border-slate-700/50 hover:border-slate-600"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleVeiculo(v.id)}
-                      className="rounded border-slate-600"
-                    />
-                    <span className="text-sm text-slate-200">
-                      {v.nome} — {v.placa}
-                      <span className="ml-2 text-xs text-slate-400">
-                        ({labelVinculo(v.vinculo)}
-                        {tipoLabel ? ` · ${tipoLabel}` : ""})
-                      </span>
-                    </span>
-                  </label>
-                );
-              })
-            )}
-          </div>
-          {veiculoIds.length > 0 && (
-            <p className="text-xs text-slate-400">
-              {veiculoIds.length} veículo(s) selecionado(s)
-            </p>
-          )}
-        </div>
+        {veiculos.length === 0 ? (
+          <p className="text-sm text-slate-500">Nenhum veículo cadastrado.</p>
+        ) : (
+          <VeiculosViagemPicker
+            veiculos={veiculos}
+            veiculoIds={veiculoIds}
+            onVeiculoIdsChange={setVeiculoIds}
+          />
+        )}
 
         {motorista && valMotorista && (
           <div
