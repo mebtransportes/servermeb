@@ -9,6 +9,7 @@ import {
   Route,
   LayoutDashboard,
   Loader2,
+  Banknote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EvolucaoMensalChart } from "@/components/financeiro/evolucao-mensal-chart";
@@ -36,6 +37,13 @@ const modulos = [
     desc: "Comissões, despesas e holerite por motorista",
     icon: Route,
     cor: "text-emerald-400",
+  },
+  {
+    href: "/financeiro/recebimentos",
+    label: "Recebimentos",
+    desc: "Valores a receber das empresas — viagens arquivadas",
+    icon: Banknote,
+    cor: "text-amber-400",
   },
 ];
 

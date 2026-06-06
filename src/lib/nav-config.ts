@@ -67,10 +67,10 @@ const mainNavAll: NavItem[] = [
     prefix: "/financeiro",
     children: [
       { href: "/financeiro", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/financeiro/recebimentos", label: "Recebimentos", icon: Banknote },
       { href: "/financeiro/custos-operacionais", label: "Custos Operacionais", icon: Fuel },
       { href: "/financeiro/custos-empresariais", label: "Custos Empresariais", icon: Building2 },
       { href: "/financeiro/fechamento-viagens", label: "Fechamento de Viagens", icon: Route },
-      { href: "/financeiro/recebimentos", label: "Recebimentos", icon: Banknote },
     ],
   },
   {
