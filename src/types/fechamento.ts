@@ -1,6 +1,7 @@
 export type ViagemFechamento = {
   id: string;
   viagem_id: string;
+  viagem_status?: string | null;
   motorista_id: string;
   motorista_nome: string;
   data_embarque: string;
@@ -114,6 +115,48 @@ export function formatConsumoKmLitro(kmLitro: number | null | undefined): string
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }) + " km/L"
+  );
+}
+
+export type ResumoFechamentosAgrupados = {
+  viagens: number;
+  km_total: number;
+  valor_frete: number;
+  frete_liquido: number;
+  despesas: number;
+  reembolso_valor: number;
+  abastecimento_valor: number;
+  abastecimento_litros: number;
+  comissao_final: number;
+};
+
+/** Soma fretes, gastos e comissão de várias viagens para o relatório agrupado. */
+export function agruparFechamentosComissao(
+  fechamentos: ViagemFechamento[]
+): ResumoFechamentosAgrupados {
+  return fechamentos.reduce(
+    (acc, f) => ({
+      viagens: acc.viagens + 1,
+      km_total: acc.km_total + (Number(f.km_total) || 0),
+      valor_frete: acc.valor_frete + (Number(f.valor_frete) || 0),
+      frete_liquido: acc.frete_liquido + (Number(f.frete_liquido) || 0),
+      despesas: acc.despesas + totalDespesasFechamento(f),
+      reembolso_valor: acc.reembolso_valor + (Number(f.reembolso_valor) || 0),
+      abastecimento_valor: acc.abastecimento_valor + (Number(f.abastecimento_valor) || 0),
+      abastecimento_litros: acc.abastecimento_litros + (Number(f.abastecimento_litros) || 0),
+      comissao_final: acc.comissao_final + (Number(f.comissao_final) || 0),
+    }),
+    {
+      viagens: 0,
+      km_total: 0,
+      valor_frete: 0,
+      frete_liquido: 0,
+      despesas: 0,
+      reembolso_valor: 0,
+      abastecimento_valor: 0,
+      abastecimento_litros: 0,
+      comissao_final: 0,
+    }
   );
 }
 

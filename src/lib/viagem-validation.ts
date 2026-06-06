@@ -79,6 +79,8 @@ export const VIAGEM_STATUS = [
   "PARADO NA ESTRADA",
   "EM ATRASO",
   "FINALIZADO",
+  "PAGAMENTO PENDENTE",
+  "ARQUIVADO",
 ] as const;
 
 export type ViagemStatus = (typeof VIAGEM_STATUS)[number];

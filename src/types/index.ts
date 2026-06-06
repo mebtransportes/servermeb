@@ -61,7 +61,9 @@ export type ViagemStatus =
   | "DESCARREGANDO"
   | "PARADO NA ESTRADA"
   | "EM ATRASO"
-  | "FINALIZADO";
+  | "FINALIZADO"
+  | "PAGAMENTO PENDENTE"
+  | "ARQUIVADO";
 
 export type ViagemTipoTrajeto = "ida" | "volta" | "ida_volta";
 export type ViagemRecursoTipo =

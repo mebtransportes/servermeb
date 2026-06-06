@@ -25,6 +25,7 @@ import { uploadFile } from "@/lib/storage";
 import { calcularIdade } from "@/lib/utils";
 import { isoParaDatetimeLocal, type ViagemParaEdicao } from "@/lib/viagem-crud";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
+import { statusGeraFechamento } from "@/lib/viagem-status";
 import {
   fetchLitrosTotaisVeiculo,
   type LitrosTanqueVeiculo,
@@ -427,7 +428,7 @@ export function ViagemForm({
       await supabase.from("viagem_anexos").insert(anexosInsert);
     }
 
-    if (isEdit && viagem?.status === "FINALIZADO") {
+    if (isEdit && viagem?.status && statusGeraFechamento(viagem.status)) {
       await syncFechamentoViagem(viagemId);
     }
 

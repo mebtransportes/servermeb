@@ -8,6 +8,8 @@ import { ViagemDetail } from "@/components/operacional/viagem-detail";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { Viagem } from "@/types";
+import { VIAGEM_STATUS } from "@/lib/viagem-validation";
+import { VIAGEM_STATUS_LABEL } from "@/lib/viagem-status";
 
 export default function AcompanhamentoPage() {
   return (
@@ -91,15 +93,10 @@ function AcompanhamentoContent() {
             }}
             options={[
               { value: "", label: "Todos os status" },
-              { value: "EM ANDAMENTO", label: "EM ANDAMENTO" },
-              { value: "EM CARREGAMENTO", label: "EM CARREGAMENTO" },
-              { value: "EM ROTA", label: "EM ROTA" },
-              { value: "CHEGOU AO DESTINO DE ENTREGA", label: "CHEGOU AO DESTINO DE ENTREGA" },
-              { value: "CHEGOU AO DESTINO FINAL", label: "CHEGOU AO DESTINO FINAL" },
-              { value: "DESCARREGANDO", label: "DESCARREGANDO" },
-              { value: "PARADO NA ESTRADA", label: "PARADO NA ESTRADA" },
-              { value: "EM ATRASO", label: "EM ATRASO" },
-              { value: "FINALIZADO", label: "FINALIZADO" },
+              ...VIAGEM_STATUS.map((s) => ({
+                value: s,
+                label: VIAGEM_STATUS_LABEL[s] ?? s,
+              })),
             ]}
             className="min-w-[200px]"
           />

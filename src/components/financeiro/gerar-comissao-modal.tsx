@@ -2,53 +2,76 @@
 
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { PeriodoFilter } from "@/components/frota/periodo-filter";
 import { FechamentoViagemDetalhe } from "@/components/financeiro/fechamento-viagem-detalhe";
 import { gerarPdfComissaoMotorista } from "@/lib/comissao-pdf";
-import { filtrarPorPeriodoConfig } from "@/lib/custos-operacionais";
-import {
-  formatarMoeda,
-  labelPeriodoConfig,
-  PERIODO_FILTRO_INICIAL,
-  type PeriodoFiltroState,
-} from "@/lib/frota-filters";
+import { formatarMoeda } from "@/lib/frota-filters";
 import type { ViagemFechamento } from "@/types/fechamento";
-import { totalDespesasFechamento } from "@/types/fechamento";
-import { Coins, FileText, Wallet, X } from "lucide-react";
+import { agruparFechamentosComissao } from "@/types/fechamento";
+import { statusElegivelComissao } from "@/lib/viagem-status";
+import { VIAGEM_STATUS_LABEL } from "@/lib/viagem-status";
+import { FileText, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export function GerarComissaoModal({
   motoristaNome,
   fechamentos,
-  periodoInicial,
+  selecionadosInicial,
   onClose,
 }: {
   motoristaId: string;
   motoristaNome: string;
   fechamentos: ViagemFechamento[];
-  periodoInicial?: PeriodoFiltroState;
+  selecionadosInicial: string[];
   onClose: () => void;
 }) {
-  const [periodo, setPeriodo] = useState<PeriodoFiltroState>(
-    periodoInicial ?? PERIODO_FILTRO_INICIAL
+  const elegiveis = useMemo(
+    () =>
+      fechamentos.filter((f) =>
+        statusElegivelComissao(f.viagem_status ?? "FINALIZADO")
+      ),
+    [fechamentos]
   );
 
-  const filtrados = useMemo(
-    () => filtrarPorPeriodoConfig(fechamentos, periodo),
-    [fechamentos, periodo]
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(
+    () => new Set(selecionadosInicial.filter((id) => elegiveis.some((f) => f.id === id)))
   );
 
-  const totalDespesas = filtrados.reduce((s, f) => s + totalDespesasFechamento(f), 0);
-  const totalComissao = filtrados.reduce((s, f) => s + (Number(f.comissao_final) || 0), 0);
+  const selecionados = useMemo(
+    () => elegiveis.filter((f) => selectedIds.has(f.id)),
+    [elegiveis, selectedIds]
+  );
+
+  const resumo = useMemo(
+    () => agruparFechamentosComissao(selecionados),
+    [selecionados]
+  );
+
+  function toggle(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function selecionarTodas() {
+    setSelectedIds(new Set(elegiveis.map((f) => f.id)));
+  }
+
+  function limparSelecao() {
+    setSelectedIds(new Set());
+  }
 
   function gerar() {
-    if (!filtrados.length) {
-      alert("Nenhuma viagem finalizada neste período para este motorista.");
+    if (!selecionados.length) {
+      alert("Selecione ao menos uma viagem (finalizada ou pagamento pendente).");
       return;
     }
     gerarPdfComissaoMotorista({
       motoristaNome,
-      periodoLabel: labelPeriodoConfig(periodo),
-      fechamentos: filtrados,
+      periodoLabel: `${selecionados.length} viagem(ns) selecionada(s)`,
+      fechamentos: selecionados,
     });
   }
 
@@ -62,7 +85,7 @@ export function GerarComissaoModal({
               Motorista: <span className="text-slate-200">{motoristaNome}</span>
             </p>
             <p className="mt-1 text-xs text-slate-500">
-              Revise o fechamento completo de cada viagem antes de gerar o PDF.
+              Selecione as viagens para juntar gastos, fretes e comissão no relatório.
             </p>
           </div>
           <button type="button" onClick={onClose} className="text-slate-400 hover:text-white">
@@ -70,46 +93,111 @@ export function GerarComissaoModal({
           </button>
         </div>
 
-        <div className="shrink-0 border-b border-slate-700/60 px-6 py-4">
-          <label className="mb-2 block text-xs text-slate-400">Período do relatório</label>
-          <PeriodoFilter value={periodo} onChange={setPeriodo} />
+        <div className="shrink-0 border-b border-slate-700/60 px-6 py-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="secondary" onClick={selecionarTodas}>
+              Selecionar todas
+            </Button>
+            <Button type="button" variant="ghost" onClick={limparSelecao}>
+              Limpar seleção
+            </Button>
+            <span className="text-sm text-slate-400">
+              {selectedIds.size} de {elegiveis.length} viagem(ns) selecionada(s)
+            </span>
+          </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
-          {filtrados.length === 0 ? (
-            <p className="text-slate-500">Nenhum fechamento neste período.</p>
+          {elegiveis.length === 0 ? (
+            <p className="text-slate-500">
+              Nenhuma viagem finalizada ou com pagamento pendente para este motorista.
+            </p>
           ) : (
             <div className="space-y-6">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <article className="rounded-xl border border-amber-700/40 bg-amber-950/20 p-4">
-                  <div className="mb-1 flex items-center gap-2 text-amber-400/80">
-                    <Wallet className="h-5 w-5" />
-                    <span className="text-sm">Total de despesas</span>
+              {selecionados.length > 0 && (
+                <div className="rounded-xl border border-cyan-800/40 bg-cyan-950/20 p-4">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-cyan-400">
+                    Resumo agrupado ({resumo.viagens} viagem(ns))
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <ResumoItem label="KM total" value={resumo.km_total.toLocaleString("pt-BR")} />
+                    <ResumoItem label="Frete bruto" value={formatarMoeda(resumo.valor_frete)} />
+                    <ResumoItem label="Frete líquido" value={formatarMoeda(resumo.frete_liquido)} />
+                    <ResumoItem label="Total despesas" value={formatarMoeda(resumo.despesas)} />
+                    <ResumoItem
+                      label="Reembolso"
+                      value={formatarMoeda(resumo.reembolso_valor)}
+                    />
+                    <ResumoItem
+                      label="Abastecimento"
+                      value={formatarMoeda(resumo.abastecimento_valor)}
+                    />
+                    <ResumoItem
+                      label="Litros"
+                      value={
+                        resumo.abastecimento_litros.toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                        }) + " L"
+                      }
+                    />
+                    <ResumoItem
+                      label="Comissão final"
+                      value={formatarMoeda(resumo.comissao_final)}
+                      destaque
+                    />
                   </div>
-                  <p className="text-2xl font-bold text-amber-300">{formatarMoeda(totalDespesas)}</p>
-                </article>
-                <article className="rounded-xl border border-emerald-700/40 bg-emerald-950/20 p-4">
-                  <div className="mb-1 flex items-center gap-2 text-emerald-400/80">
-                    <Coins className="h-5 w-5" />
-                    <span className="text-sm">Total de comissão</span>
-                  </div>
-                  <p className="text-2xl font-bold text-emerald-300">{formatarMoeda(totalComissao)}</p>
-                </article>
-              </div>
-
-              <p className="text-sm text-slate-400">
-                {filtrados.length} viagem(ns) no período · {labelPeriodoConfig(periodo)}
-              </p>
+                </div>
+              )}
 
               <div className="grid gap-4 lg:grid-cols-2">
-                {filtrados.map((f) => (
-                  <article
-                    key={f.id}
-                    className="rounded-xl border border-slate-700/50 bg-slate-800/30 p-4"
-                  >
-                    <FechamentoViagemDetalhe f={f} />
-                  </article>
-                ))}
+                {elegiveis.map((f) => {
+                  const checked = selectedIds.has(f.id);
+                  const statusLabel =
+                    VIAGEM_STATUS_LABEL[f.viagem_status ?? ""] ?? f.viagem_status ?? "—";
+                  return (
+                    <article
+                      key={f.id}
+                      className={cn(
+                        "rounded-xl border p-4 transition",
+                        checked
+                          ? "border-cyan-600/50 bg-cyan-950/20"
+                          : "border-slate-700/50 bg-slate-800/30"
+                      )}
+                    >
+                      <label className="mb-3 flex cursor-pointer items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggle(f.id)}
+                          className="mt-1 rounded border-slate-600"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-white">
+                            {new Date(f.data_embarque).toLocaleDateString("pt-BR")} —{" "}
+                            {f.destino ?? f.local_embarque}
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            CTE: {f.numero_cte ?? "—"} · {f.veiculo_label}
+                          </p>
+                          <span
+                            className={cn(
+                              "mt-1 inline-block rounded px-2 py-0.5 text-[10px] font-semibold uppercase",
+                              f.viagem_status === "PAGAMENTO PENDENTE"
+                                ? "bg-amber-900/50 text-amber-300"
+                                : "bg-emerald-900/50 text-emerald-300"
+                            )}
+                          >
+                            {statusLabel}
+                          </span>
+                        </div>
+                        <span className="shrink-0 text-sm font-semibold text-emerald-400">
+                          {formatarMoeda(f.comissao_final)}
+                        </span>
+                      </label>
+                      {checked && <FechamentoViagemDetalhe f={f} />}
+                    </article>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -119,12 +207,36 @@ export function GerarComissaoModal({
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancelar
           </Button>
-          <Button type="button" disabled={!filtrados.length} onClick={gerar}>
+          <Button type="button" disabled={!selecionados.length} onClick={gerar}>
             <FileText className="mr-2 h-4 w-4" />
-            Gerar PDF
+            Gerar PDF ({selectedIds.size})
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ResumoItem({
+  label,
+  value,
+  destaque,
+}: {
+  label: string;
+  value: string;
+  destaque?: boolean;
+}) {
+  return (
+    <div>
+      <p className="text-xs text-slate-500">{label}</p>
+      <p
+        className={cn(
+          "text-sm font-semibold",
+          destaque ? "text-emerald-400" : "text-slate-200"
+        )}
+      >
+        {value}
+      </p>
     </div>
   );
 }

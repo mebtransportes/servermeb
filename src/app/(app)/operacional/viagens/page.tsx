@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils";
 const statusCor: Record<string, string> = {
   "EM ANDAMENTO": "bg-blue-900/50 text-blue-300",
   FINALIZADO: "bg-emerald-900/50 text-emerald-300",
+  "PAGAMENTO PENDENTE": "bg-amber-900/50 text-amber-300",
+  ARQUIVADO: "bg-slate-700/50 text-slate-400",
 };
 
 export default function CadastroViagensPage() {

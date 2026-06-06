@@ -8,6 +8,7 @@ import {
   calcularComissionamento,
   calcularConsumoKmLitro,
 } from "@/types/fechamento";
+import { statusGeraFechamento } from "@/lib/viagem-status";
 
 type RecursoRow = {
   tipo: string;
@@ -83,7 +84,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     .single();
 
   if (errV || !viagem) return errV?.message ?? "Viagem não encontrada";
-  if (viagem.status !== "FINALIZADO") return null;
+  if (!statusGeraFechamento(viagem.status)) return null;
 
   const motoristaRaw = viagem.motoristas as
     | { nome_completo: string }

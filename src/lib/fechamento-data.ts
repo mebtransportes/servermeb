@@ -1,19 +1,43 @@
 import { createClient } from "@/lib/supabase/client";
 import type { ViagemFechamento } from "@/types/fechamento";
 import { calcularComissionamento } from "@/types/fechamento";
+import { VIAGEM_STATUS_FECHAMENTO } from "@/lib/viagem-status";
 
 export async function fetchViagemFechamentos(): Promise<ViagemFechamento[]> {
   const supabase = createClient();
+
+  const { data: viagens, error: errV } = await supabase
+    .from("viagens")
+    .select("id, status")
+    .in("status", [...VIAGEM_STATUS_FECHAMENTO]);
+
+  if (errV) {
+    console.warn(errV.message);
+    return [];
+  }
+
+  const viagemIds = (viagens ?? []).map((v) => v.id);
+  if (!viagemIds.length) return [];
+
+  const statusPorViagem = new Map(
+    (viagens ?? []).map((v) => [v.id, v.status as string])
+  );
+
   const { data, error } = await supabase
     .from("viagem_fechamentos")
     .select("*")
+    .in("viagem_id", viagemIds)
     .order("data_embarque", { ascending: false });
 
   if (error) {
     console.warn(error.message);
     return [];
   }
-  return (data ?? []) as ViagemFechamento[];
+
+  return (data ?? []).map((row) => ({
+    ...(row as ViagemFechamento),
+    viagem_status: statusPorViagem.get(row.viagem_id) ?? null,
+  }));
 }
 
 export async function fetchMotoristasOptions() {

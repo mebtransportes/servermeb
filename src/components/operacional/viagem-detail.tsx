@@ -12,6 +12,7 @@ import type { Viagem, ViagemStatus } from "@/types";
 import { MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
+import { statusGeraFechamento } from "@/lib/viagem-status";
 import { formatarVeiculosLabel } from "@/lib/viagem-crud";
 import { VEICULO_TIPO_OPCOES } from "@/lib/viagem-validation";
 import type { Veiculo } from "@/types";
@@ -26,6 +27,8 @@ const statusColors: Record<string, string> = {
   "PARADO NA ESTRADA": "bg-red-900/50 text-red-300",
   "EM ATRASO": "bg-rose-900/50 text-rose-300",
   FINALIZADO: "bg-emerald-900/50 text-emerald-300",
+  "PAGAMENTO PENDENTE": "bg-amber-900/50 text-amber-300",
+  ARQUIVADO: "bg-slate-700/50 text-slate-400",
 };
 
 export function ViagemDetail({
@@ -118,7 +121,7 @@ export function ViagemDetail({
     setSaving(true);
     const supabase = createClient();
     await supabase.from("viagens").update({ status }).eq("id", viagemId);
-    if (status === "FINALIZADO") {
+    if (statusGeraFechamento(status)) {
       const err = await syncFechamentoViagem(viagemId);
       if (err) console.warn("Fechamento:", err);
     }
@@ -171,6 +174,12 @@ export function ViagemDetail({
             {saving ? "Salvando..." : "Salvar status"}
           </Button>
         </div>
+        <p className="mt-2 text-xs text-slate-500">
+          <strong className="text-slate-400">Finalizado</strong> e{" "}
+          <strong className="text-slate-400">Pagamento pendente</strong> aparecem no Fechamento de
+          viagens. <strong className="text-slate-400">Arquivado</strong> remove do fechamento
+          (comissão já paga).
+        </p>
       </div>
 
       {veiculosViagem.length > 0 && (

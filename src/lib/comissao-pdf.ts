@@ -8,6 +8,7 @@ import {
   formatConsumoKmLitro,
   getComissaoPercent,
   getIcmsPercent,
+  agruparFechamentosComissao,
 } from "@/types/fechamento";
 import { formatarMoeda, formatarDataBr } from "@/lib/frota-filters";
 
@@ -78,8 +79,7 @@ export function gerarPdfComissaoMotorista(opts: {
   const margin = 14;
   let y = 18;
 
-  const totalDespesas = fechamentos.reduce((s, f) => s + totalDespesasFechamento(f), 0);
-  const totalComissao = fechamentos.reduce((s, f) => s + (Number(f.comissao_final) || 0), 0);
+  const resumo = agruparFechamentosComissao(fechamentos);
   const geradoEm = new Date().toLocaleString("pt-BR");
 
   function novaPaginaSePreciso(altura: number) {
@@ -109,11 +109,19 @@ export function gerarPdfComissaoMotorista(opts: {
   y += 5;
   doc.text(`Gerado em: ${geradoEm}`, margin, y);
   y += 5;
-  doc.text(`Viagens no período: ${fechamentos.length}`, margin, y);
+  doc.text(`Viagens selecionadas: ${resumo.viagens}`, margin, y);
   y += 5;
-  doc.text(`Total de despesas: ${fmtMoeda(totalDespesas)}`, margin, y);
+  doc.text(`KM total: ${resumo.km_total.toLocaleString("pt-BR")}`, margin, y);
   y += 5;
-  doc.text(`Total de comissão: ${fmtMoeda(totalComissao)}`, margin, y);
+  doc.text(`Frete bruto: ${fmtMoeda(resumo.valor_frete)}`, margin, y);
+  y += 5;
+  doc.text(`Frete líquido: ${fmtMoeda(resumo.frete_liquido)}`, margin, y);
+  y += 5;
+  doc.text(`Total de despesas: ${fmtMoeda(resumo.despesas)}`, margin, y);
+  y += 5;
+  doc.text(`Reembolso: ${fmtMoeda(resumo.reembolso_valor)}`, margin, y);
+  y += 5;
+  doc.text(`Total de comissão: ${fmtMoeda(resumo.comissao_final)}`, margin, y);
   y += 10;
 
   for (let i = 0; i < fechamentos.length; i++) {
@@ -149,7 +157,7 @@ export function gerarPdfComissaoMotorista(opts: {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.setTextColor(30, 30, 30);
-  doc.text(`Total de comissão no período: ${fmtMoeda(totalComissao)}`, margin, y);
+  doc.text(`Total de comissão (viagens selecionadas): ${fmtMoeda(resumo.comissao_final)}`, margin, y);
   y += 16;
 
   doc.setFont("helvetica", "normal");
