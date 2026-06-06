@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
 import { syncRecebimentoViagem } from "@/lib/recebimento-viagem";
 import { ViagemCanhotos } from "@/components/operacional/viagem-canhotos";
+import { ViagemComprovantesDescarga } from "@/components/operacional/viagem-comprovantes-descarga";
 import {
   statusGeraFechamento,
   VIAGEM_STATUS_CORES,
@@ -311,7 +312,10 @@ export function ViagemDetail({
         </div>
       )}
 
-      <ViagemCanhotos viagemId={viagemId} />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ViagemCanhotos viagemId={viagemId} />
+        <ViagemComprovantesDescarga viagemId={viagemId} />
+      </div>
 
       <ViagemRecursos viagemId={viagemId} />
     </div>

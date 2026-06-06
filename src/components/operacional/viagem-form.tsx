@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { BrNumberInput } from "@/components/ui/br-number-input";
 import { EntregaAutocomplete } from "@/components/ui/entrega-autocomplete";
+import { MotoristaAutocomplete } from "@/components/ui/motorista-autocomplete";
 import { FileUploadField, FileUploadMultiple } from "@/components/ui/file-upload";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -441,17 +442,12 @@ export function ViagemForm({
       <section className="space-y-4 rounded-xl border border-slate-700/60 p-5">
         <h2 className="text-lg font-semibold text-cyan-400">1. Motorista e veículos</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Select
+          <MotoristaAutocomplete
             label="Motorista"
-            value={motoristaId}
-            onChange={(e) => setMotoristaId(e.target.value)}
-            options={[
-              { value: "", label: "Selecione..." },
-              ...motoristas.map((m) => ({
-                value: m.id,
-                label: `${m.nome_completo} (${labelVinculo(m.vinculo)})`,
-              })),
-            ]}
+            motoristas={motoristas}
+            motoristaId={motoristaId}
+            onMotoristaIdChange={setMotoristaId}
+            required
           />
         </div>
 
@@ -649,12 +645,13 @@ export function ViagemForm({
               required
             />
             <EntregaAutocomplete
-              label="Local de saída"
+              label="Local de saída (fornecedor)"
               value={localSaida}
               onChange={setLocalSaida}
               required
               className="sm:col-span-2"
-              placeholder="Local de saída ou busque cliente/fornecedor"
+              tipoParceiro="fornecedor"
+              placeholder="Digite o nome do fornecedor"
             />
             <Select
               label="Tipo de viagem"

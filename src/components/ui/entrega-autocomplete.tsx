@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   carregarParceiros,
   filtrarParceiros,
   type ParceiroSugestao,
 } from "@/lib/parceiros";
 import { cn } from "@/lib/utils";
+
+const MIN_CHARS = 2;
 
 type EntregaAutocompleteProps = {
   label: string;
@@ -15,6 +17,8 @@ type EntregaAutocompleteProps = {
   className?: string;
   placeholder?: string;
   required?: boolean;
+  /** Restringe sugestões a clientes, fornecedores ou ambos. */
+  tipoParceiro?: "cliente" | "fornecedor" | "todos";
 };
 
 export function EntregaAutocomplete({
@@ -22,15 +26,21 @@ export function EntregaAutocomplete({
   value,
   onChange,
   className,
-  placeholder = "Digite o local ou nome do cliente/fornecedor",
+  placeholder = "Digite o local ou nome",
   required,
+  tipoParceiro = "todos",
 }: EntregaAutocompleteProps) {
   const [parceiros, setParceiros] = useState<ParceiroSugestao[]>([]);
   const [aberto, setAberto] = useState(false);
   const [destaque, setDestaque] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const sugestoes = filtrarParceiros(parceiros, value);
+  const parceirosFiltrados = useMemo(() => {
+    if (tipoParceiro === "todos") return parceiros;
+    return parceiros.filter((p) => p.tipo === tipoParceiro);
+  }, [parceiros, tipoParceiro]);
+
+  const sugestoes = filtrarParceiros(parceirosFiltrados, value);
 
   useEffect(() => {
     carregarParceiros().then(setParceiros);
@@ -75,7 +85,8 @@ export function EntregaAutocomplete({
     }
   }
 
-  const mostrarLista = aberto && value.trim().length > 0 && sugestoes.length > 0;
+  const queryOk = value.trim().length >= MIN_CHARS;
+  const mostrarLista = aberto && queryOk && sugestoes.length > 0;
 
   return (
     <div ref={containerRef} className={cn("relative flex flex-col gap-1", className)}>
@@ -84,10 +95,10 @@ export function EntregaAutocomplete({
         type="text"
         value={value}
         onChange={(e) => {
-          onChange(e.target.value);
-          setAberto(true);
+          const val = e.target.value;
+          onChange(val);
+          setAberto(val.trim().length >= MIN_CHARS);
         }}
-        onFocus={() => setAberto(true)}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         required={required}
@@ -132,14 +143,11 @@ export function EntregaAutocomplete({
         </ul>
       )}
 
-      {aberto &&
-        value.trim().length >= 2 &&
-        sugestoes.length === 0 &&
-        parceiros.length > 0 && (
-          <p className="absolute top-full z-40 mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-500 shadow-lg">
-            Nenhum cliente ou fornecedor encontrado — continue digitando o local manualmente.
-          </p>
-        )}
+      {aberto && queryOk && sugestoes.length === 0 && parceirosFiltrados.length > 0 && (
+        <p className="absolute top-full z-40 mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-500 shadow-lg">
+          Nenhum cadastro encontrado — continue digitando o local manualmente.
+        </p>
+      )}
     </div>
   );
 }
