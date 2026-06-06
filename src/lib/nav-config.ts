@@ -14,6 +14,7 @@ import {
   MapPinned,
   FileText,
   Settings,
+  Banknote,
   type LucideIcon,
 } from "lucide-react";
 import { isNavHrefAllowed, type UserRole } from "@/lib/roles";
@@ -69,6 +70,7 @@ const mainNavAll: NavItem[] = [
       { href: "/financeiro/custos-operacionais", label: "Custos Operacionais", icon: Fuel },
       { href: "/financeiro/custos-empresariais", label: "Custos Empresariais", icon: Building2 },
       { href: "/financeiro/fechamento-viagens", label: "Fechamento de Viagens", icon: Route },
+      { href: "/financeiro/recebimentos", label: "Recebimentos", icon: Banknote },
     ],
   },
   {

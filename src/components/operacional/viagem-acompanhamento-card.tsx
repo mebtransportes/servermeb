@@ -11,7 +11,8 @@ import { VIAGEM_STATUS_CORES, VIAGEM_STATUS_LABEL } from "@/lib/viagem-status";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Paperclip } from "lucide-react";
+import { ViagemCanhotos } from "@/components/operacional/viagem-canhotos";
 
 function encurtar(texto: string, max = 38) {
   const t = texto.trim();
@@ -154,6 +155,15 @@ export function ViagemAcompanhamentoCard({
               })),
             ]}
           />
+        </div>
+      )}
+
+      {selected && (
+        <div className="mb-2 print:hidden" onClick={(e) => e.stopPropagation()}>
+          <p className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-slate-500">
+            <Paperclip className="h-3 w-3" /> Canhotos
+          </p>
+          <ViagemCanhotos viagemId={viagem.id} compact />
         </div>
       )}
 

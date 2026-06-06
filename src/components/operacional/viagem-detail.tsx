@@ -12,6 +12,8 @@ import type { Viagem, ViagemStatus } from "@/types";
 import { MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
+import { syncRecebimentoViagem } from "@/lib/recebimento-viagem";
+import { ViagemCanhotos } from "@/components/operacional/viagem-canhotos";
 import {
   statusGeraFechamento,
   VIAGEM_STATUS_CORES,
@@ -125,6 +127,10 @@ export function ViagemDetail({
       const err = await syncFechamentoViagem(viagemId);
       if (err) console.warn("Fechamento:", err);
     }
+    if (status === "ARQUIVADO") {
+      const errRec = await syncRecebimentoViagem(viagemId);
+      if (errRec) console.warn("Recebimento:", errRec);
+    }
     setSaving(false);
     onUpdated();
     load();
@@ -204,8 +210,8 @@ export function ViagemDetail({
         <p className="mt-2 text-xs text-slate-500">
           <strong className="text-slate-400">Finalizado</strong> e{" "}
           <strong className="text-slate-400">Pagamento pendente</strong> aparecem no Fechamento de
-          viagens. <strong className="text-slate-400">Arquivado</strong> remove do fechamento
-          (comissão já paga).
+          viagens.           <strong className="text-slate-400">Arquivado</strong> remove do fechamento
+          (comissão já paga) e envia para <strong className="text-slate-400">Recebimentos</strong>.
         </p>
       </div>
 
@@ -304,6 +310,8 @@ export function ViagemDetail({
           </ul>
         </div>
       )}
+
+      <ViagemCanhotos viagemId={viagemId} />
 
       <ViagemRecursos viagemId={viagemId} />
     </div>
