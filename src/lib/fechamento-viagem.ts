@@ -1,9 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import { formatarVeiculosLabel } from "@/lib/viagem-crud";
-import {
-  fetchLitrosLegacyViagemInicial,
-  fetchLitrosTotaisVeiculo,
-} from "@/lib/litros-frota-veiculo";
+import { fetchLitrosTotaisVeiculo } from "@/lib/litros-frota-veiculo";
 import {
   calcularComissionamento,
   calcularConsumoKmLitro,
@@ -146,8 +143,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
 
   const veiculoId = viagem.veiculo_id as string;
   const tanqueFrota = await fetchLitrosTotaisVeiculo(veiculoId, viagem.saida_em);
-  const litrosLegacy = await fetchLitrosLegacyViagemInicial(viagemId);
-  const litros_tanque_inicial = tanqueFrota?.litrosTotais ?? litrosLegacy ?? 0;
+  const litros_tanque_inicial = tanqueFrota?.litrosTotais ?? 0;
   const litros_abastecimento_viagem = gastos.litros_abastecimento_viagem;
   const abastecimento_litros = litros_tanque_inicial + litros_abastecimento_viagem;
 

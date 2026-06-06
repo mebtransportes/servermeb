@@ -39,19 +39,3 @@ export async function fetchLitrosTotaisVeiculo(
   };
 }
 
-/** Compatibilidade com viagens antigas que tinham abastecimento inicial no cadastro. */
-export async function fetchLitrosLegacyViagemInicial(
-  viagemId: string
-): Promise<number | null> {
-  const supabase = createClient();
-  const { data } = await supabase
-    .from("viagem_recursos")
-    .select("litros")
-    .eq("viagem_id", viagemId)
-    .eq("abastecimento_inicial", true)
-    .maybeSingle();
-
-  if (!data?.litros) return null;
-  const litros = Number(data.litros);
-  return Number.isFinite(litros) && litros > 0 ? litros : null;
-}
