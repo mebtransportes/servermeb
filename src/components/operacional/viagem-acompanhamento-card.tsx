@@ -2,12 +2,21 @@
 
 import { useState } from "react";
 import type { AcompanhamentoViagemItem } from "@/lib/acompanhamento-data";
-import { textoResumoAcompanhamento } from "@/lib/acompanhamento-data";
+import {
+  formatarTextoWhatsAppAcompanhamento,
+  textoResumoCurto,
+} from "@/lib/acompanhamento-data";
 import { atualizarEntregaAtual } from "@/lib/viagem-entrega-atual";
 import { VIAGEM_STATUS_CORES, VIAGEM_STATUS_LABEL } from "@/lib/viagem-status";
 import { Select } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { MapPin, Phone, Truck, User } from "lucide-react";
+import { Check, Copy } from "lucide-react";
+
+function encurtar(texto: string, max = 38) {
+  const t = texto.trim();
+  return t.length <= max ? t : t.slice(0, max - 1) + "…";
+}
 
 export function ViagemAcompanhamentoCard({
   viagem,
@@ -23,46 +32,45 @@ export function ViagemAcompanhamentoCard({
   onEntregaAtualizada?: () => void;
 }) {
   const [salvandoEntrega, setSalvandoEntrega] = useState(false);
+  const [copiado, setCopiado] = useState(false);
   const multiplasEntregas = viagem.entregas.length > 1;
   const statusLabel = VIAGEM_STATUS_LABEL[viagem.status] ?? viagem.status;
-  const resumo = textoResumoAcompanhamento(viagem, statusLabel);
+  const resumoCurto = textoResumoCurto(viagem, statusLabel);
   const clienteAlvo = clienteFiltro?.trim().toLowerCase() ?? "";
+
+  async function copiarWhatsApp(e: React.MouseEvent) {
+    e.stopPropagation();
+    const texto = formatarTextoWhatsAppAcompanhamento(viagem, statusLabel);
+    try {
+      await navigator.clipboard.writeText(texto);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2500);
+    } catch {
+      alert("Não foi possível copiar. Tente novamente.");
+    }
+  }
 
   return (
     <article
       className={cn(
-        "break-inside-avoid rounded-xl border bg-slate-800/40 p-5 shadow-sm transition print:border-slate-400 print:bg-white print:text-black print:shadow-none",
+        "break-inside-avoid rounded-lg border bg-slate-800/50 p-3 shadow-sm transition print:border-slate-400 print:bg-white print:p-2 print:text-black print:shadow-none",
         selected
           ? "border-cyan-500 ring-1 ring-cyan-500/40"
-          : "border-slate-700/50 hover:border-slate-600",
-        onSelect && "cursor-pointer"
+          : "border-slate-700/50 hover:border-slate-600"
       )}
-      onClick={onSelect}
-      onKeyDown={
-        onSelect
-          ? (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onSelect();
-              }
-            }
-          : undefined
-      }
-      role={onSelect ? "button" : undefined}
-      tabIndex={onSelect ? 0 : undefined}
     >
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-cyan-500 print:text-gray-600">
-            MEB Transportes — Acompanhamento
-          </p>
-          <p className="mt-1 text-lg font-bold text-white print:text-black">
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-bold text-white print:text-black">
             {viagem.motorista_nome}
+          </p>
+          <p className="truncate text-xs text-slate-400 print:text-gray-600">
+            {viagem.veiculos_label}
           </p>
         </div>
         <span
           className={cn(
-            "rounded-full px-3 py-1 text-xs font-bold uppercase print:border print:border-gray-400 print:bg-gray-100 print:text-black",
+            "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase print:border print:border-gray-400 print:bg-gray-100 print:text-black",
             VIAGEM_STATUS_CORES[viagem.status] ?? "bg-slate-800 text-slate-300"
           )}
         >
@@ -72,23 +80,52 @@ export function ViagemAcompanhamentoCard({
 
       <p
         className={cn(
-          "mb-4 rounded-lg border px-3 py-2 text-sm leading-relaxed print:border-gray-300 print:bg-gray-50 print:text-black",
+          "mb-2 rounded-md border px-2 py-1.5 text-xs leading-snug print:border-gray-300 print:bg-gray-50 print:text-black",
           multiplasEntregas && !viagem.entrega_atual_ordem
-            ? "border-amber-700/40 bg-amber-950/25 text-amber-100"
-            : "border-cyan-800/30 bg-cyan-950/20 text-cyan-50"
+            ? "border-amber-700/40 bg-amber-950/30 text-amber-100"
+            : "border-cyan-800/30 bg-cyan-950/20 text-cyan-100"
         )}
       >
-        {resumo}
+        {resumoCurto}
       </p>
 
+      <div className="mb-2 space-y-0.5 text-[11px] text-slate-400 print:text-gray-700">
+        {viagem.motorista_telefone && <p>📱 {viagem.motorista_telefone}</p>}
+        {viagem.numero_cte && <p>📋 CTE {viagem.numero_cte}</p>}
+        <p>🏁 {new Date(viagem.saida_em).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</p>
+      </div>
+
+      {viagem.entregas.length > 0 && (
+        <ul className="mb-2 flex flex-wrap gap-1">
+          {viagem.entregas.map((e) => {
+            const destaqueCliente =
+              !!clienteAlvo && e.local_entrega.trim().toLowerCase() === clienteAlvo;
+            const destaqueAtual = viagem.entrega_atual_ordem === e.ordem;
+            return (
+              <li
+                key={e.ordem}
+                title={e.local_entrega}
+                className={cn(
+                  "rounded px-1.5 py-0.5 text-[10px] print:border print:border-gray-300",
+                  destaqueAtual
+                    ? "bg-orange-900/40 font-semibold text-orange-200 print:bg-orange-50 print:text-black"
+                    : destaqueCliente
+                      ? "bg-cyan-900/30 text-cyan-200 print:bg-cyan-50 print:text-black"
+                      : "bg-slate-800/60 text-slate-400 print:text-black"
+                )}
+              >
+                {e.ordem}) {encurtar(e.local_entrega)}
+                {destaqueAtual && " ●"}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
       {multiplasEntregas && (
-        <div
-          className="mb-4 print:hidden"
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
-        >
+        <div className="mb-2 print:hidden" onClick={(e) => e.stopPropagation()}>
           <Select
-            label="Entrega atual do caminhão"
+            label="Entrega atual"
             value={
               viagem.entrega_atual_ordem != null
                 ? String(viagem.entrega_atual_ordem)
@@ -110,95 +147,52 @@ export function ViagemAcompanhamentoCard({
               onEntregaAtualizada?.();
             }}
             options={[
-              { value: "", label: "Selecione em qual entrega está..." },
+              { value: "", label: "Qual entrega?" },
               ...viagem.entregas.map((ent) => ({
                 value: String(ent.ordem),
-                label: `Entrega ${ent.ordem} — ${ent.local_entrega}`,
+                label: `${ent.ordem}) ${encurtar(ent.local_entrega, 28)}`,
               })),
             ]}
           />
-          {salvandoEntrega && (
-            <p className="mt-1 text-xs text-slate-500">Salvando...</p>
+        </div>
+      )}
+
+      <div
+        className="flex flex-wrap gap-1.5 print:hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Button
+          type="button"
+          variant="secondary"
+          className="h-8 flex-1 text-xs"
+          onClick={copiarWhatsApp}
+        >
+          {copiado ? (
+            <>
+              <Check className="mr-1 h-3.5 w-3.5" />
+              Copiado!
+            </>
+          ) : (
+            <>
+              <Copy className="mr-1 h-3.5 w-3.5" />
+              Copiar p/ WhatsApp
+            </>
           )}
-        </div>
-      )}
-
-      <dl className="grid gap-2 text-sm sm:grid-cols-2">
-        <InfoItem icon={Truck} label="Veículo(s)" value={viagem.veiculos_label} />
-        <InfoItem icon={User} label="Motorista" value={viagem.motorista_nome} />
-        {viagem.motorista_telefone && (
-          <InfoItem icon={Phone} label="Telefone" value={viagem.motorista_telefone} />
+        </Button>
+        {onSelect && (
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-8 text-xs"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect();
+            }}
+          >
+            {selected ? "Fechar" : "Editar"}
+          </Button>
         )}
-        <InfoItem
-          label="Saída"
-          value={new Date(viagem.saida_em).toLocaleString("pt-BR")}
-        />
-        <InfoItem
-          label="Chegada prevista"
-          value={new Date(viagem.chegada_prevista_em).toLocaleString("pt-BR")}
-        />
-        <InfoItem label="CTE" value={viagem.numero_cte ?? "—"} />
-        <InfoItem icon={MapPin} label="Local de saída" value={viagem.local_saida} />
-      </dl>
-
-      {viagem.entregas.length > 0 && (
-        <div className="mt-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 print:text-gray-600">
-            Entregas
-          </p>
-          <ol className="space-y-1.5">
-            {viagem.entregas.map((e) => {
-              const destaqueCliente =
-                !!clienteAlvo && e.local_entrega.trim().toLowerCase() === clienteAlvo;
-              const destaqueAtual = viagem.entrega_atual_ordem === e.ordem;
-              return (
-                <li
-                  key={e.ordem}
-                  className={cn(
-                    "rounded-lg border px-3 py-2 text-sm print:border-gray-300",
-                    destaqueAtual
-                      ? "border-orange-600/50 bg-orange-950/25 text-orange-100 print:bg-orange-50 print:text-black"
-                      : destaqueCliente
-                        ? "border-cyan-600/40 bg-cyan-950/20 text-cyan-100 print:bg-cyan-50 print:text-black"
-                        : "border-slate-700/40 text-slate-300 print:text-black"
-                  )}
-                >
-                  <span className="font-semibold">Entrega {e.ordem}:</span> {e.local_entrega}
-                  {destaqueAtual && (
-                    <span className="ml-2 text-xs font-bold uppercase text-orange-300 print:text-orange-800">
-                      · Em andamento
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
-        </div>
-      )}
-
-      <p className="mt-4 text-[10px] text-slate-500 print:text-gray-500">
-        Atualizado em {new Date().toLocaleString("pt-BR")}
-      </p>
-    </article>
-  );
-}
-
-function InfoItem({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon?: typeof Truck;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex gap-2 text-slate-300 print:text-black">
-      {Icon && <Icon className="mt-0.5 h-4 w-4 shrink-0 text-slate-500 print:text-gray-600" />}
-      <div>
-        <dt className="text-xs text-slate-500 print:text-gray-600">{label}</dt>
-        <dd className="font-medium text-slate-200 print:text-black">{value}</dd>
       </div>
-    </div>
+    </article>
   );
 }

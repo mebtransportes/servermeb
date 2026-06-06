@@ -127,9 +127,10 @@ function AcompanhamentoContent() {
       ) : (
         <>
           <p className="text-sm text-slate-400 print:text-gray-600">
-            {visiveis.length} viagem(ns) · clique em um card para editar detalhes
+            {visiveis.length} viagem(ns) · use <strong>Copiar p/ WhatsApp</strong> ou imprima
+            a tela
           </p>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 print:grid-cols-2">
             {visiveis.map((v) => (
               <ViagemAcompanhamentoCard
                 key={v.id}

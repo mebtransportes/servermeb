@@ -117,6 +117,90 @@ export function viagemMatchCliente(viagem: AcompanhamentoViagemItem, cliente: st
   return viagem.entregas.some((e) => e.local_entrega.trim().toLowerCase() === alvo);
 }
 
+function encurtarTexto(texto: string, max = 42): string {
+  const t = texto.trim();
+  if (t.length <= max) return t;
+  return t.slice(0, max - 1) + "…";
+}
+
+export function textoResumoCurto(
+  viagem: AcompanhamentoViagemItem,
+  statusLabel: string
+): string {
+  const ordem = viagem.entrega_atual_ordem;
+  const entrega = ordem
+    ? viagem.entregas.find((e) => e.ordem === ordem)
+    : undefined;
+
+  if (ordem && entrega) {
+    return `Entrega ${ordem} — ${encurtarTexto(entrega.local_entrega, 36)} · ${statusLabel}`;
+  }
+  if (viagem.entregas.length === 1) {
+    return `${encurtarTexto(viagem.entregas[0].local_entrega, 40)} · ${statusLabel}`;
+  }
+  if (viagem.entregas.length > 1) {
+    return `${viagem.entregas.length} entregas · informe a atual · ${statusLabel}`;
+  }
+  return statusLabel;
+}
+
+export function formatarTextoWhatsAppAcompanhamento(
+  viagem: AcompanhamentoViagemItem,
+  statusLabel: string
+): string {
+  const linhas: string[] = [
+    "🚛 *MEB Transportes — Acompanhamento*",
+    "",
+    `👤 *Motorista:* ${viagem.motorista_nome}`,
+  ];
+
+  if (viagem.motorista_telefone) {
+    linhas.push(`📱 *Telefone:* ${viagem.motorista_telefone}`);
+  }
+
+  linhas.push(
+    `🚚 *Veículo:* ${viagem.veiculos_label}`,
+    `📍 *Status:* ${statusLabel}`,
+    `🏁 *Saída:* ${new Date(viagem.saida_em).toLocaleString("pt-BR")}`,
+    `🕐 *Chegada prevista:* ${new Date(viagem.chegada_prevista_em).toLocaleString("pt-BR")}`
+  );
+
+  if (viagem.numero_cte) {
+    linhas.push(`📋 *CTE:* ${viagem.numero_cte}`);
+  }
+
+  linhas.push(`📤 *Origem:* ${viagem.local_saida}`);
+
+  const ordem = viagem.entrega_atual_ordem;
+  const entregaAtual = ordem
+    ? viagem.entregas.find((e) => e.ordem === ordem)
+    : undefined;
+
+  if (entregaAtual) {
+    linhas.push(
+      "",
+      `📦 *Entrega atual:* ${ordem} — ${entregaAtual.local_entrega}`
+    );
+  }
+
+  if (viagem.entregas.length > 0) {
+    linhas.push("", "*Entregas:*");
+    for (const e of viagem.entregas) {
+      const atual = e.ordem === ordem;
+      const icone = atual ? "✅" : "📍";
+      const sufixo = atual ? " _(atual)_" : "";
+      linhas.push(`${icone} ${e.ordem}) ${e.local_entrega}${sufixo}`);
+    }
+  }
+
+  linhas.push(
+    "",
+    `🕒 _Atualizado: ${new Date().toLocaleString("pt-BR")}_`
+  );
+
+  return linhas.join("\n");
+}
+
 export function textoResumoAcompanhamento(viagem: AcompanhamentoViagemItem, statusLabel: string): string {
   const ordem = viagem.entrega_atual_ordem;
   const entrega = ordem
@@ -132,8 +216,7 @@ export function textoResumoAcompanhamento(viagem: AcompanhamentoViagemItem, stat
   }
 
   if (viagem.entregas.length > 1) {
-    const lista = viagem.entregas.map((e) => `${e.ordem}) ${e.local_entrega}`).join(" · ");
-    return `${viagem.veiculos_label} com ${viagem.motorista_nome} — ${viagem.entregas.length} entregas (${lista}) — selecione a entrega atual — ${statusLabel}`;
+    return `${viagem.veiculos_label} com ${viagem.motorista_nome} — ${viagem.entregas.length} entregas — selecione a entrega atual — ${statusLabel}`;
   }
 
   return `${viagem.veiculos_label} com ${viagem.motorista_nome} — ${statusLabel}`;
