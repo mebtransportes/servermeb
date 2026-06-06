@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import { formatarVeiculosLabel } from "@/lib/viagem-crud";
+import { carregarParceiros, type ParceiroSugestao } from "@/lib/parceiros";
 export type AcompanhamentoEntrega = {
   ordem: number;
   local_entrega: string;
@@ -19,24 +20,9 @@ export type AcompanhamentoViagemItem = {
   entregas: AcompanhamentoEntrega[];
 };
 
-export async function fetchClientesAcompanhamento(): Promise<string[]> {
-  const supabase = createClient();
-  const [{ data: saidas }, { data: entregas }] = await Promise.all([
-    supabase.from("viagens").select("local_saida"),
-    supabase.from("viagem_entregas").select("local_entrega"),
-  ]);
-
-  const nomes = new Set<string>();
-  for (const row of saidas ?? []) {
-    const n = row.local_saida?.trim();
-    if (n) nomes.add(n);
-  }
-  for (const row of entregas ?? []) {
-    const n = row.local_entrega?.trim();
-    if (n) nomes.add(n);
-  }
-
-  return [...nomes].sort((a, b) => a.localeCompare(b, "pt-BR"));
+export async function fetchFornecedoresAcompanhamento(): Promise<ParceiroSugestao[]> {
+  const parceiros = await carregarParceiros();
+  return parceiros.filter((p) => p.tipo === "fornecedor");
 }
 
 export async function fetchViagensAcompanhamento(): Promise<AcompanhamentoViagemItem[]> {
@@ -110,11 +96,16 @@ export async function fetchViagensAcompanhamento(): Promise<AcompanhamentoViagem
   });
 }
 
-export function viagemMatchCliente(viagem: AcompanhamentoViagemItem, cliente: string): boolean {
-  if (!cliente) return true;
-  const alvo = cliente.trim().toLowerCase();
-  if (viagem.local_saida.trim().toLowerCase() === alvo) return true;
-  return viagem.entregas.some((e) => e.local_entrega.trim().toLowerCase() === alvo);
+/** Viagem cuja saída corresponde ao fornecedor (origem do frete). */
+export function viagemMatchFornecedor(
+  viagem: AcompanhamentoViagemItem,
+  fornecedor: Pick<ParceiroSugestao, "nome" | "textoCompleto">
+): boolean {
+  const saida = viagem.local_saida.trim().toLowerCase();
+  const texto = fornecedor.textoCompleto.trim().toLowerCase();
+  if (saida === texto) return true;
+  const nome = fornecedor.nome.trim().toLowerCase();
+  return nome.length > 0 && saida.startsWith(nome);
 }
 
 function encurtarTexto(texto: string, max = 42): string {

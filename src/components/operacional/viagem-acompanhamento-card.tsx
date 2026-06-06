@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { AcompanhamentoViagemItem } from "@/lib/acompanhamento-data";
 import {
   formatarTextoWhatsAppAcompanhamento,
@@ -11,8 +12,7 @@ import { VIAGEM_STATUS_CORES, VIAGEM_STATUS_LABEL } from "@/lib/viagem-status";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Check, Copy, Paperclip } from "lucide-react";
-import { ViagemCanhotos } from "@/components/operacional/viagem-canhotos";
+import { Check, Copy, Pencil } from "lucide-react";
 
 function encurtar(texto: string, max = 38) {
   const t = texto.trim();
@@ -21,15 +21,9 @@ function encurtar(texto: string, max = 38) {
 
 export function ViagemAcompanhamentoCard({
   viagem,
-  clienteFiltro,
-  selected,
-  onSelect,
   onEntregaAtualizada,
 }: {
   viagem: AcompanhamentoViagemItem;
-  clienteFiltro?: string;
-  selected?: boolean;
-  onSelect?: () => void;
   onEntregaAtualizada?: () => void;
 }) {
   const [salvandoEntrega, setSalvandoEntrega] = useState(false);
@@ -37,7 +31,7 @@ export function ViagemAcompanhamentoCard({
   const multiplasEntregas = viagem.entregas.length > 1;
   const statusLabel = VIAGEM_STATUS_LABEL[viagem.status] ?? viagem.status;
   const resumoCurto = textoResumoCurto(viagem, statusLabel);
-  const clienteAlvo = clienteFiltro?.trim().toLowerCase() ?? "";
+  const editarHref = `/operacional/acompanhamento/${viagem.id}`;
 
   async function copiarWhatsApp(e: React.MouseEvent) {
     e.stopPropagation();
@@ -54,10 +48,7 @@ export function ViagemAcompanhamentoCard({
   return (
     <article
       className={cn(
-        "break-inside-avoid rounded-lg border bg-slate-800/50 p-3 shadow-sm transition print:border-slate-400 print:bg-white print:p-2 print:text-black print:shadow-none",
-        selected
-          ? "border-cyan-500 ring-1 ring-cyan-500/40"
-          : "border-slate-700/50 hover:border-slate-600"
+        "break-inside-avoid rounded-lg border border-slate-700/50 bg-slate-800/50 p-3 shadow-sm transition print:border-slate-400 print:bg-white print:p-2 print:text-black print:shadow-none hover:border-slate-600"
       )}
     >
       <div className="mb-2 flex items-start justify-between gap-2">
@@ -99,8 +90,6 @@ export function ViagemAcompanhamentoCard({
       {viagem.entregas.length > 0 && (
         <ul className="mb-2 flex flex-wrap gap-1">
           {viagem.entregas.map((e) => {
-            const destaqueCliente =
-              !!clienteAlvo && e.local_entrega.trim().toLowerCase() === clienteAlvo;
             const destaqueAtual = viagem.entrega_atual_ordem === e.ordem;
             return (
               <li
@@ -110,9 +99,7 @@ export function ViagemAcompanhamentoCard({
                   "rounded px-1.5 py-0.5 text-[10px] print:border print:border-gray-300",
                   destaqueAtual
                     ? "bg-orange-900/40 font-semibold text-orange-200 print:bg-orange-50 print:text-black"
-                    : destaqueCliente
-                      ? "bg-cyan-900/30 text-cyan-200 print:bg-cyan-50 print:text-black"
-                      : "bg-slate-800/60 text-slate-400 print:text-black"
+                    : "bg-slate-800/60 text-slate-400 print:text-black"
                 )}
               >
                 {e.ordem}) {encurtar(e.local_entrega)}
@@ -158,15 +145,6 @@ export function ViagemAcompanhamentoCard({
         </div>
       )}
 
-      {selected && (
-        <div className="mb-2 print:hidden" onClick={(e) => e.stopPropagation()}>
-          <p className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-slate-500">
-            <Paperclip className="h-3 w-3" /> Canhotos
-          </p>
-          <ViagemCanhotos viagemId={viagem.id} compact />
-        </div>
-      )}
-
       <div
         className="flex flex-wrap gap-1.5 print:hidden"
         onClick={(e) => e.stopPropagation()}
@@ -189,19 +167,12 @@ export function ViagemAcompanhamentoCard({
             </>
           )}
         </Button>
-        {onSelect && (
-          <Button
-            type="button"
-            variant="ghost"
-            className="h-8 text-xs"
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelect();
-            }}
-          >
-            {selected ? "Fechar" : "Editar"}
+        <Link href={editarHref} className="inline-flex">
+          <Button type="button" variant="ghost" className="h-8 text-xs">
+            <Pencil className="mr-1 h-3.5 w-3.5" />
+            Editar
           </Button>
-        )}
+        </Link>
       </div>
     </article>
   );

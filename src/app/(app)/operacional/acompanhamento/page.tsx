@@ -3,16 +3,16 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { MapPinned, Printer } from "lucide-react";
-import { ViagemDetail } from "@/components/operacional/viagem-detail";
 import { ViagemAcompanhamentoCard } from "@/components/operacional/viagem-acompanhamento-card";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import {
-  fetchClientesAcompanhamento,
+  fetchFornecedoresAcompanhamento,
   fetchViagensAcompanhamento,
-  viagemMatchCliente,
+  viagemMatchFornecedor,
   type AcompanhamentoViagemItem,
 } from "@/lib/acompanhamento-data";
+import type { ParceiroSugestao } from "@/lib/parceiros";
 import { VIAGEM_STATUS_FILTRO_ACOMPANHAMENTO } from "@/lib/viagem-validation";
 import { VIAGEM_STATUS_LABEL } from "@/lib/viagem-status";
 
@@ -29,11 +29,10 @@ function AcompanhamentoContent() {
   const statusUrl = searchParams.get("status") ?? "";
 
   const [viagens, setViagens] = useState<AcompanhamentoViagemItem[]>([]);
-  const [clientes, setClientes] = useState<string[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [fornecedores, setFornecedores] = useState<ParceiroSugestao[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState(statusUrl);
-  const [filtroCliente, setFiltroCliente] = useState("");
+  const [filtroFornecedorId, setFiltroFornecedorId] = useState("");
 
   useEffect(() => {
     setFiltroStatus(statusUrl);
@@ -41,8 +40,13 @@ function AcompanhamentoContent() {
   }, [statusUrl]);
 
   useEffect(() => {
-    fetchClientesAcompanhamento().then(setClientes);
+    fetchFornecedoresAcompanhamento().then(setFornecedores);
   }, []);
+
+  const fornecedorSelecionado = useMemo(
+    () => fornecedores.find((f) => f.id === filtroFornecedorId),
+    [fornecedores, filtroFornecedorId]
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -57,12 +61,14 @@ function AcompanhamentoContent() {
   const filtradas = useMemo(() => {
     return viagens.filter((v) => {
       if (filtroStatus && v.status !== filtroStatus) return false;
-      if (filtroCliente && !viagemMatchCliente(v, filtroCliente)) return false;
+      if (fornecedorSelecionado && !viagemMatchFornecedor(v, fornecedorSelecionado)) {
+        return false;
+      }
       return true;
     });
-  }, [viagens, filtroStatus, filtroCliente]);
+  }, [viagens, filtroStatus, fornecedorSelecionado]);
 
-  const excluirArquivadas = filtroStatus === "" && !filtroCliente;
+  const excluirArquivadas = filtroStatus === "" && !filtroFornecedorId;
 
   const visiveis = useMemo(() => {
     if (!excluirArquivadas) return filtradas;
@@ -102,20 +108,23 @@ function AcompanhamentoContent() {
           className="min-w-[200px]"
         />
         <Select
-          label="Cliente / local"
-          value={filtroCliente}
-          onChange={(e) => setFiltroCliente(e.target.value)}
+          label="Fornecedor"
+          value={filtroFornecedorId}
+          onChange={(e) => setFiltroFornecedorId(e.target.value)}
           options={[
-            { value: "", label: "Todos os clientes" },
-            ...clientes.map((nome) => ({ value: nome, label: nome })),
+            { value: "", label: "Todos os fornecedores" },
+            ...fornecedores.map((f) => ({
+              value: f.id,
+              label: f.nome,
+            })),
           ]}
           className="min-w-[240px]"
         />
       </div>
 
-      {filtroCliente && (
+      {fornecedorSelecionado && (
         <p className="rounded-lg border border-cyan-800/40 bg-cyan-950/20 px-4 py-3 text-sm text-cyan-100 print:border-gray-400 print:bg-gray-50 print:text-black">
-          Exibindo viagens relacionadas a <strong>{filtroCliente}</strong> (saída ou entrega).
+          Exibindo viagens com saída em <strong>{fornecedorSelecionado.nome}</strong> (fornecedor).
           Todos os cards abaixo podem ser capturados em print para enviar à empresa.
         </p>
       )}
@@ -127,17 +136,14 @@ function AcompanhamentoContent() {
       ) : (
         <>
           <p className="text-sm text-slate-400 print:text-gray-600">
-            {visiveis.length} viagem(ns) · use <strong>Copiar p/ WhatsApp</strong> ou imprima
-            a tela
+            {visiveis.length} viagem(ns) · <strong>Editar</strong> abre página completa ·{" "}
+            <strong>Copiar p/ WhatsApp</strong> ou imprima a tela
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 print:grid-cols-2">
             {visiveis.map((v) => (
               <ViagemAcompanhamentoCard
                 key={v.id}
                 viagem={v}
-                clienteFiltro={filtroCliente}
-                selected={selectedId === v.id}
-                onSelect={() => setSelectedId((prev) => (prev === v.id ? null : v.id))}
                 onEntregaAtualizada={load}
               />
             ))}
@@ -145,12 +151,6 @@ function AcompanhamentoContent() {
         </>
       )}
 
-      {selectedId && (
-        <section className="rounded-xl border border-slate-700/50 bg-slate-800/20 p-6 print:hidden">
-          <h2 className="mb-4 text-lg font-semibold text-white">Detalhes e atualização</h2>
-          <ViagemDetail viagemId={selectedId} onUpdated={load} />
-        </section>
-      )}
     </div>
   );
 }
