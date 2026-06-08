@@ -6,13 +6,20 @@ import {
   calcularConsumoKmLitro,
 } from "@/types/fechamento";
 import { statusGeraFechamento } from "@/lib/viagem-status";
+import { isFrota } from "@/lib/viagem-validation";
+import type { RecursoVinculo } from "@/types";
 
 type RecursoRow = {
   tipo: string;
   valor: number;
   litros?: number | null;
   abastecimento_inicial?: boolean;
+  combustivel_tipo?: string | null;
 };
+
+function isArlaCombustivel(tipo?: string | null) {
+  return (tipo ?? "").trim().toLowerCase() === "arla";
+}
 
 function somarRecursos(recursos: RecursoRow[]) {
   let litros_abastecimento_viagem = 0;
@@ -20,15 +27,21 @@ function somarRecursos(recursos: RecursoRow[]) {
   let arla_valor = 0;
   let manutencao_total = 0;
   let pedagio_valor = 0;
+  let seguro_valor = 0;
+  let monitoramento_valor = 0;
   let reembolso_valor = 0;
 
   for (const r of recursos) {
     const v = Number(r.valor) || 0;
     switch (r.tipo) {
       case "abastecimento":
-        abastecimento_valor += v;
-        if (!r.abastecimento_inicial) {
-          litros_abastecimento_viagem += Number(r.litros) || 0;
+        if (isArlaCombustivel(r.combustivel_tipo)) {
+          arla_valor += v;
+        } else {
+          abastecimento_valor += v;
+          if (!r.abastecimento_inicial) {
+            litros_abastecimento_viagem += Number(r.litros) || 0;
+          }
         }
         break;
       case "arla":
@@ -38,7 +51,14 @@ function somarRecursos(recursos: RecursoRow[]) {
         manutencao_total += v;
         break;
       case "pedagio":
+      case "estacionamento":
         pedagio_valor += v;
+        break;
+      case "seguro":
+        seguro_valor += v;
+        break;
+      case "monitoramento":
+        monitoramento_valor += v;
         break;
       case "reembolso":
         reembolso_valor += v;
@@ -52,6 +72,8 @@ function somarRecursos(recursos: RecursoRow[]) {
     arla_valor,
     manutencao_total,
     pedagio_valor,
+    seguro_valor,
+    monitoramento_valor,
     reembolso_valor,
   };
 }
@@ -71,8 +93,8 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     .select(
       `
       id, status, motorista_id, veiculo_id, saida_em, local_saida, km_total,
-      valor_frete, numero_cte,
-      motoristas ( nome_completo ),
+      valor_frete, valor_mercadoria, numero_cte,
+      motoristas ( nome_completo, vinculo ),
       veiculos ( nome, placa ),
       viagem_veiculos ( ordem, veiculos ( nome, placa ) )
     `
@@ -84,10 +106,11 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
   if (!statusGeraFechamento(viagem.status)) return null;
 
   const motoristaRaw = viagem.motoristas as
-    | { nome_completo: string }
-    | { nome_completo: string }[]
+    | { nome_completo: string; vinculo?: RecursoVinculo }
+    | { nome_completo: string; vinculo?: RecursoVinculo }[]
     | null;
   const motorista = Array.isArray(motoristaRaw) ? motoristaRaw[0] : motoristaRaw;
+  const motoristaTerceiro = motorista ? !isFrota(motorista.vinculo) : false;
 
   const vv = viagem.viagem_veiculos as
     | { ordem: number; veiculos: { nome: string; placa: string } | { nome: string; placa: string }[] }[]
@@ -119,7 +142,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
 
   const { data: recursos } = await supabase
     .from("viagem_recursos")
-    .select("tipo, valor, litros, abastecimento_inicial")
+    .select("tipo, valor, litros, abastecimento_inicial, combustivel_tipo")
     .eq("viagem_id", viagemId);
 
   const gastos = somarRecursos((recursos as RecursoRow[]) ?? []);
@@ -128,16 +151,27 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
   const icmsPercent = Number(fechamentoExistente?.icms_percent);
   const comissaoPercent = Number(fechamentoExistente?.comissao_percent);
   const comissaoTipo = (fechamentoExistente?.comissao_tipo ??
-    "PERCENTUAL") as "PERCENTUAL" | "LIQUIDO_TOTAL";
+    (motoristaTerceiro ? "LIQUIDO_TOTAL" : "PERCENTUAL")) as
+    | "PERCENTUAL"
+    | "LIQUIDO_TOTAL";
+  const comissaoPercentEfetivo = Number.isFinite(comissaoPercent)
+    ? comissaoPercent
+    : motoristaTerceiro
+      ? 100
+      : 12;
 
-  const { frete_liquido: freteLiquido, comissao_final: comissaoFinal } =
+  const { frete_liquido: freteLiquido, comissao_final: comissaoFinal, valor_icms } =
     calcularComissionamento({
       valorFrete,
       icmsPercent,
-      comissaoPercent,
+      comissaoPercent: comissaoPercentEfetivo,
       comissaoTipo,
       reembolso: gastos.reembolso_valor,
+      motoristaTerceiro,
+      seguroValor: gastos.seguro_valor,
+      monitoramentoValor: gastos.monitoramento_valor,
     });
+  const valorCarga = Number(viagem.valor_mercadoria) || 0;
   const destino =
     (entregas ?? []).map((e) => e.local_entrega).filter(Boolean).join(" · ") || null;
 
@@ -170,12 +204,17 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     manutencao_total: gastos.manutencao_total,
     pedagio_valor: gastos.pedagio_valor,
     reembolso_valor: gastos.reembolso_valor,
+    motorista_terceiro: motoristaTerceiro,
+    valor_carga: valorCarga,
+    valor_icms,
+    seguro_valor: gastos.seguro_valor,
+    monitoramento_valor: gastos.monitoramento_valor,
     valor_frete: valorFrete,
     frete_liquido: freteLiquido,
     comissao_final: comissaoFinal,
     icms_percent: Number.isFinite(icmsPercent) ? icmsPercent : 12,
     comissao_tipo: comissaoTipo,
-    comissao_percent: Number.isFinite(comissaoPercent) ? comissaoPercent : 12,
+    comissao_percent: comissaoPercentEfetivo,
   };
 
   const { error } = await supabase

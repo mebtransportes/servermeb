@@ -66,12 +66,12 @@ export function DocumentacaoAvisos() {
       supabase
         .from("motoristas")
         .select(
-          "id, nome_completo, cpf, cnh_numero, cnh_vencimento, toxicologico_vencimento"
+          "id, nome_completo, cpf, vinculo, cnh_numero, cnh_vencimento, toxicologico_vencimento"
         )
         .order("nome_completo"),
       supabase
         .from("veiculos")
-        .select("id, nome, placa, crlv_vencimento, ipva_vencimento")
+        .select("id, nome, placa, vinculo, crlv_vencimento, ipva_vencimento")
         .order("nome"),
     ]).then(([m, v]) => {
       setAlertas(

@@ -10,6 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { uploadFile, getFileUrl } from "@/lib/storage";
 import type { ViagemRecursoTipo } from "@/types";
+import { COMBUSTIVEL_TIPOS, isFrota } from "@/lib/viagem-validation";
+import {
+  calcularSeguroCarga,
+  MONITORAMENTO_VALOR_FIXO,
+} from "@/types/fechamento";
+import { rawNumberStringToBrInput } from "@/lib/number-format";
 import { Plus, Trash2 } from "lucide-react";
 import { AnexoArquivoRow } from "@/components/shared/anexo-arquivo-row";
 import { FrotaAnexosLinks } from "@/components/frota/frota-anexos-links";
@@ -31,6 +37,7 @@ type Recurso = {
   km_abastecimento?: number | null;
   litros?: number | null;
   abastecimento_inicial?: boolean;
+  combustivel_tipo?: string | null;
   nota_fiscal_path?: string | null;
   nota_fiscal_nome?: string | null;
   comprovante_path?: string | null;
@@ -61,11 +68,14 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
   const [realizadoEm, setRealizadoEm] = useState("");
   const [kmVeiculo, setKmVeiculo] = useState("");
   const [litros, setLitros] = useState("");
+  const [combustivelTipo, setCombustivelTipo] = useState("");
   const [notaFiscal, setNotaFiscal] = useState<File | null>(null);
   const [comprovante, setComprovante] = useState<File | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
+  const [valorCarga, setValorCarga] = useState<number | null>(null);
+  const [motoristaTerceiro, setMotoristaTerceiro] = useState(false);
 
   const load = async () => {
     const supabase = createClient();
@@ -85,11 +95,38 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
     Promise.all([
       supabase.from("postos").select("id, nome").order("nome"),
       supabase.from("oficinas").select("id, nome").order("nome"),
-    ]).then(([p, o]) => {
+      supabase
+        .from("viagens")
+        .select("valor_mercadoria, motoristas(vinculo)")
+        .eq("id", viagemId)
+        .single(),
+    ]).then(([p, o, v]) => {
       setPostos(p.data ?? []);
       setOficinas(o.data ?? []);
+      const viagem = v.data;
+      if (viagem) {
+        const carga = Number(viagem.valor_mercadoria);
+        setValorCarga(Number.isFinite(carga) && carga > 0 ? carga : null);
+        const mRaw = viagem.motoristas as
+          | { vinculo?: string }
+          | { vinculo?: string }[]
+          | null;
+        const m = Array.isArray(mRaw) ? mRaw[0] : mRaw;
+        setMotoristaTerceiro(m ? !isFrota(m.vinculo as "frota" | "terceiro") : false);
+      }
     });
   }, [viagemId]);
+
+  useEffect(() => {
+    if (!motoristaTerceiro) return;
+    if (tipo === "seguro" && valorCarga) {
+      setValor(
+        rawNumberStringToBrInput(String(calcularSeguroCarga(valorCarga)), 2)
+      );
+    } else if (tipo === "monitoramento") {
+      setValor(rawNumberStringToBrInput(String(MONITORAMENTO_VALOR_FIXO), 2));
+    }
+  }, [tipo, valorCarga, motoristaTerceiro]);
 
   const recursosGastos = recursos.filter((r) => r.tipo !== "reembolso");
   const recursosReembolso = recursos.filter((r) => r.tipo === "reembolso");
@@ -114,8 +151,9 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
       if (tipoLancamento === "abastecimento") payload.km_abastecimento = km;
       else if (tipoLancamento === "manutencao") payload.km_veiculo = km;
     }
-    if (tipoLancamento === "abastecimento" && litros) {
-      payload.litros = parseBrNumber(litros);
+    if (tipoLancamento === "abastecimento") {
+      if (litros) payload.litros = parseBrNumber(litros);
+      if (combustivelTipo) payload.combustivel_tipo = combustivelTipo;
     }
     if (tipoLancamento === "manutencao") payload.status_frota = "FINALIZADO";
 
@@ -164,6 +202,7 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
     setRealizadoEm("");
     setKmVeiculo("");
     setLitros("");
+    setCombustivelTipo("");
     setNotaFiscal(null);
     setComprovante(null);
     setFiles([]);
@@ -227,15 +266,35 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
             onChange={(e) => {
               const t = e.target.value as ViagemRecursoTipo;
               setTipo(t);
-              if (t !== "abastecimento") setLitros("");
+              if (t !== "abastecimento") {
+                setLitros("");
+                setCombustivelTipo("");
+              }
             }}
             options={[
               { value: "abastecimento", label: "Abastecimento" },
               { value: "manutencao", label: "Manutenção" },
               { value: "pedagio", label: "Pedágio" },
-              { value: "arla", label: "Arla" },
+              { value: "estacionamento", label: "Estacionamento" },
+              { value: "seguro", label: "Seguro" },
+              { value: "monitoramento", label: "Monitoramento" },
             ]}
           />
+          {motoristaTerceiro && tipo === "seguro" && !valorCarga && (
+            <p className="text-xs text-amber-400">
+              Cadastre o valor da carga na viagem para calcular o seguro (0,09%).
+            </p>
+          )}
+          {motoristaTerceiro && tipo === "seguro" && valorCarga && (
+            <p className="text-xs text-cyan-400/90">
+              Seguro calculado: 0,09% sobre {valorCarga.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+            </p>
+          )}
+          {motoristaTerceiro && tipo === "monitoramento" && (
+            <p className="text-xs text-cyan-400/90">
+              Valor fixo de monitoramento: R$ {MONITORAMENTO_VALOR_FIXO.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            </p>
+          )}
           <div className="grid gap-3 sm:grid-cols-2">
             <BrNumberInput
               label="Valor (R$)"
@@ -263,6 +322,15 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
           )}
           {tipo === "abastecimento" && (
             <>
+              <Select
+                label="Tipo de combustível"
+                value={combustivelTipo}
+                onChange={(e) => setCombustivelTipo(e.target.value)}
+                options={[
+                  { value: "", label: "Selecione o combustível" },
+                  ...COMBUSTIVEL_TIPOS.map((c) => ({ value: c, label: c })),
+                ]}
+              />
               <Select
                 label="Posto"
                 value={postoId}
@@ -299,9 +367,13 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
             placeholder={
               tipo === "pedagio"
                 ? "Ex: praça de pedágio, rota, etc."
-                : tipo === "arla"
-                  ? "Ex: litros, posto, nota fiscal, etc."
-                  : ""
+                : tipo === "estacionamento"
+                  ? "Ex: local, período, etc."
+                  : tipo === "seguro"
+                    ? "Ex: apólice, cobertura, etc."
+                    : tipo === "monitoramento"
+                      ? "Ex: rastreador, mensalidade, etc."
+                      : ""
             }
           />
           <AnexosFrotaCampos
@@ -496,16 +568,24 @@ function RecursoItem({
 
   const tipoLabel =
     recurso.tipo === "abastecimento"
-      ? "Abastecimento"
+      ? recurso.combustivel_tipo
+        ? `Abastecimento — ${recurso.combustivel_tipo}`
+        : "Abastecimento"
       : recurso.tipo === "manutencao"
         ? "Manutenção"
         : recurso.tipo === "reembolso"
           ? "Reembolso"
           : recurso.tipo === "pedagio"
             ? "Pedágio"
-            : recurso.tipo === "arla"
-              ? "Arla"
-              : "Outro";
+            : recurso.tipo === "estacionamento"
+              ? "Estacionamento"
+              : recurso.tipo === "seguro"
+                ? "Seguro"
+                : recurso.tipo === "monitoramento"
+                  ? "Monitoramento"
+                  : recurso.tipo === "arla"
+                    ? "Arla"
+                    : "Outro";
 
   const local =
     recurso.postos?.nome ?? recurso.oficinas?.nome ?? null;

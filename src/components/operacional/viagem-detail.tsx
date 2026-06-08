@@ -39,7 +39,7 @@ export function ViagemDetail({
   const [anexos, setAnexos] = useState<
     { id: string; categoria: string; file_name: string; storage_path: string }[]
   >([]);
-  const [status, setStatus] = useState<ViagemStatus>("EM ANDAMENTO");
+  const [status, setStatus] = useState<ViagemStatus>("EM CARREGAMENTO");
   const [entregaAtualOrdem, setEntregaAtualOrdem] = useState("");
   const [saving, setSaving] = useState(false);
 

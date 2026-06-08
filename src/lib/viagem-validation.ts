@@ -71,31 +71,33 @@ export function validarVeiculo(v: Veiculo): ResultadoApto {
 
 /** Status disponíveis para seleção em acompanhamento / cadastro. */
 export const VIAGEM_STATUS = [
-  "EM ANDAMENTO",
   "EM CARREGAMENTO",
   "EM ROTA",
+  "EM MANUTENÇÃO",
   "AGUARDANDO DESCARGA",
-  "DESCARREGANDO",
-  "EM ATRASO",
+  "DESCARGA EM ANDAMENTO",
   "FINALIZADO",
   "PAGAMENTO PENDENTE",
   "ARQUIVADO",
 ] as const;
 
-/** Status exibidos no filtro do acompanhamento (subset operacional). */
-export const VIAGEM_STATUS_FILTRO_ACOMPANHAMENTO = [
-  "EM ANDAMENTO",
-  "EM CARREGAMENTO",
-  "EM ROTA",
-  "AGUARDANDO DESCARGA",
-  "DESCARREGANDO",
-  "EM ATRASO",
-  "FINALIZADO",
-  "PAGAMENTO PENDENTE",
-  "ARQUIVADO",
-] as const;
+/** Status exibidos no filtro do acompanhamento e cards do dashboard. */
+export const VIAGEM_STATUS_FILTRO_ACOMPANHAMENTO = VIAGEM_STATUS;
 
 export type ViagemStatus = (typeof VIAGEM_STATUS)[number];
+
+export const COMBUSTIVEL_TIPOS = [
+  "Arla",
+  "Diesel Aditivado",
+  "Diesel BS10",
+  "Diesel BS10 COMUM",
+  "DIESEL COMUM",
+  "DIESEL S10",
+  "DIESEL S10 ADITIVADO",
+  "DIESEL S500",
+] as const;
+
+export type CombustivelTipo = (typeof COMBUSTIVEL_TIPOS)[number];
 
 export const ANEXOS_VIAGEM_CATEGORIAS_UNICAS = [
   "CTE",

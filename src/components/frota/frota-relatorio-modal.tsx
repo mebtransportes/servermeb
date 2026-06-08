@@ -1,11 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { FileDown, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { dataNoIntervalo } from "@/lib/frota-filters";
-import { gerarPdfManutencao, gerarPdfAbastecimento } from "@/lib/frota-relatorio-pdf";
+import {
+  gerarPdfManutencao,
+  gerarPdfAbastecimento,
+  gerarPdfAbastecimentoPorVeiculos,
+} from "@/lib/frota-relatorio-pdf";
 import type { ManutencaoCard, AbastecimentoCard } from "@/types/frota";
 import { format } from "date-fns";
 
@@ -32,12 +37,45 @@ function padraoDatas() {
   };
 }
 
+function filtrarPorVeiculo<T extends { veiculoPlaca?: string }>(
+  lista: T[],
+  placa: string
+) {
+  if (!placa) return lista;
+  return lista.filter((i) => i.veiculoPlaca === placa);
+}
+
 export function FrotaRelatorioModal(props: Props) {
   const { open, onClose, tipo, itens } = props;
   const [de, setDe] = useState(padraoDatas().de);
   const [ate, setAte] = useState(padraoDatas().ate);
+  const [veiculoPlaca, setVeiculoPlaca] = useState("");
+  const [formatoAbastecimento, setFormatoAbastecimento] = useState<"geral" | "por_veiculo">(
+    "geral"
+  );
   const [erro, setErro] = useState("");
   const [gerando, setGerando] = useState(false);
+
+  const veiculoOpcoes = useMemo(() => {
+    const map = new Map<string, string>();
+    if (tipo === "manutencao") {
+      for (const i of itens as ManutencaoCard[]) {
+        if (i.veiculoPlaca) map.set(i.veiculoPlaca, i.veiculoPlaca);
+      }
+    } else {
+      for (const i of itens as AbastecimentoCard[]) {
+        if (i.veiculoPlaca) {
+          map.set(i.veiculoPlaca, i.veiculoLabel ?? i.veiculoPlaca);
+        }
+      }
+    }
+    return [
+      { value: "", label: "Todos os veículos" },
+      ...[...map.entries()]
+        .sort(([, a], [, b]) => a.localeCompare(b, "pt-BR"))
+        .map(([placa, label]) => ({ value: placa, label })),
+    ];
+  }, [itens, tipo]);
 
   if (!open) return null;
 
@@ -55,16 +93,18 @@ export function FrotaRelatorioModal(props: Props) {
   }
 
   function filtrarManutencao() {
-    return (itens as ManutencaoCard[]).filter((i) => {
+    const porPeriodo = (itens as ManutencaoCard[]).filter((i) => {
       const ref = i.dataRef.includes("T") ? i.dataRef : `${i.dataRef}T12:00:00`;
       return dataNoIntervalo(ref, de, ate);
     });
+    return filtrarPorVeiculo(porPeriodo, veiculoPlaca);
   }
 
   function filtrarAbastecimento() {
-    return (itens as AbastecimentoCard[]).filter((i) =>
+    const porPeriodo = (itens as AbastecimentoCard[]).filter((i) =>
       dataNoIntervalo(i.dataHora, de, ate)
     );
+    return filtrarPorVeiculo(porPeriodo, veiculoPlaca);
   }
 
   async function handleGerar() {
@@ -72,9 +112,23 @@ export function FrotaRelatorioModal(props: Props) {
     setGerando(true);
     try {
       if (tipo === "manutencao") {
-        gerarPdfManutencao(filtrarManutencao(), de, ate);
+        const filtrados = filtrarManutencao();
+        if (!filtrados.length) {
+          setErro("Nenhum registro encontrado para o período e veículo selecionados.");
+          return;
+        }
+        gerarPdfManutencao(filtrados, de, ate);
       } else {
-        gerarPdfAbastecimento(filtrarAbastecimento(), de, ate);
+        const filtrados = filtrarAbastecimento();
+        if (!filtrados.length) {
+          setErro("Nenhum registro encontrado para o período e veículo selecionados.");
+          return;
+        }
+        if (formatoAbastecimento === "por_veiculo" && !veiculoPlaca) {
+          gerarPdfAbastecimentoPorVeiculos(filtrados, de, ate);
+        } else {
+          gerarPdfAbastecimento(filtrados, de, ate);
+        }
       }
       onClose();
     } catch (e) {
@@ -102,8 +156,8 @@ export function FrotaRelatorioModal(props: Props) {
               {titulo}
             </h2>
             <p className="mt-1 text-sm text-slate-400">
-              Escolha o período. O PDF inclui todos os registros com valores, locais,
-              descrições, veículos, motoristas e anexos.
+              Filtre por período e veículo. O PDF inclui valores, locais, descrições,
+              motoristas e anexos.
             </p>
           </div>
           <button
@@ -132,6 +186,36 @@ export function FrotaRelatorioModal(props: Props) {
             required
           />
         </div>
+
+        <div className="mt-4">
+          <Select
+            label="Veículo"
+            value={veiculoPlaca}
+            onChange={(e) => setVeiculoPlaca(e.target.value)}
+            options={veiculoOpcoes}
+          />
+        </div>
+
+        {tipo === "abastecimento" && (
+          <div className="mt-4">
+            <Select
+              label="Formato do relatório"
+              value={formatoAbastecimento}
+              onChange={(e) =>
+                setFormatoAbastecimento(e.target.value as "geral" | "por_veiculo")
+              }
+              options={[
+                { value: "geral", label: "Geral — tabela única" },
+                {
+                  value: "por_veiculo",
+                  label: veiculoPlaca
+                    ? "Por caminhão — seção do veículo"
+                    : "Por caminhão — uma seção por veículo",
+                },
+              ]}
+            />
+          </div>
+        )}
 
         {erro && <p className="mt-3 text-sm text-red-400">{erro}</p>}
 

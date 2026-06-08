@@ -280,6 +280,12 @@ export function ViagemForm({
       return;
     }
 
+    const valorCargaNum = parseBrNumber(valorMercadoria) ?? 0;
+    if (motorista && !isFrota(motorista.vinculo) && valorCargaNum <= 0) {
+      setError("Para motorista terceiro, informe o valor da carga.");
+      return;
+    }
+
     setSaving(true);
     const supabase = createClient();
     const {
@@ -325,7 +331,7 @@ export function ViagemForm({
         .from("viagens")
         .insert({
           ...payloadViagem,
-          status: "EM ANDAMENTO",
+          status: "EM CARREGAMENTO",
           created_by: user?.id,
         })
         .select("id")
@@ -673,10 +679,15 @@ export function ViagemForm({
               onChange={setPesoKg}
             />
             <BrNumberInput
-              label="Valor da mercadoria (R$)"
+              label={
+                motorista && !isFrota(motorista.vinculo)
+                  ? "Valor da carga (R$)"
+                  : "Valor da mercadoria (R$)"
+              }
               decimalPlaces={2}
               value={valorMercadoria}
               onChange={setValorMercadoria}
+              required={!!motorista && !isFrota(motorista.vinculo)}
             />
             <BrNumberInput
               label="Valor do frete (R$)"

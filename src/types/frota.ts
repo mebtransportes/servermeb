@@ -32,6 +32,7 @@ export type AbastecimentoCard = {
   dataHora: string;
   postoNome?: string;
   veiculoLabel?: string;
+  veiculoPlaca?: string;
   motoristaNome?: string;
   nota_fiscal_path?: string | null;
   comprovante_path?: string | null;

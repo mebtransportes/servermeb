@@ -44,14 +44,18 @@ export function useFechamentoValores(
   const despesas = totalDespesasFechamento(f);
 
   const valores = useMemo(() => {
-    const { frete_liquido, total_comissao, comissao_final } = calcularComissionamento({
-      valorFrete: Number(f.valor_frete) || 0,
-      icmsPercent: icms,
-      comissaoPercent,
-      comissaoTipo,
-      reembolso: Number(f.reembolso_valor) || 0,
-    });
-    return { icms, frete_liquido, total_comissao, comissao_final };
+    const { frete_liquido, total_comissao, comissao_final, valor_icms } =
+      calcularComissionamento({
+        valorFrete: Number(f.valor_frete) || 0,
+        icmsPercent: icms,
+        comissaoPercent,
+        comissaoTipo,
+        reembolso: Number(f.reembolso_valor) || 0,
+        motoristaTerceiro: !!f.motorista_terceiro,
+        seguroValor: f.seguro_valor,
+        monitoramentoValor: f.monitoramento_valor,
+      });
+    return { icms, frete_liquido, total_comissao, comissao_final, valor_icms };
   }, [f, icms, comissaoPercent, comissaoTipo]);
 
   return {
@@ -133,7 +137,13 @@ export function FechamentoViagemDetalhe({
       <Linha label="Abastecimento (valor)" value={formatarMoeda(f.abastecimento_valor)} />
       <Linha label="Arla" value={formatarMoeda(f.arla_valor)} />
       <Linha label="Manutenção total" value={formatarMoeda(f.manutencao_total)} />
-      <Linha label="Pedágio" value={formatarMoeda(f.pedagio_valor)} />
+      <Linha label="Pedágio / estacionamento" value={formatarMoeda(f.pedagio_valor)} />
+      {!f.motorista_terceiro && (f.seguro_valor ?? 0) > 0 && (
+        <Linha label="Seguro" value={formatarMoeda(f.seguro_valor ?? 0)} />
+      )}
+      {!f.motorista_terceiro && (f.monitoramento_valor ?? 0) > 0 && (
+        <Linha label="Monitoramento" value={formatarMoeda(f.monitoramento_valor ?? 0)} />
+      )}
       <Linha label="Total gastos" value={formatarMoeda(v.despesas)} />
 
       <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-violet-400">
@@ -143,10 +153,38 @@ export function FechamentoViagemDetalhe({
 
       <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-emerald-500">
         Comissionamento
+        {f.motorista_terceiro && (
+          <span className="ml-2 font-normal normal-case text-amber-400/90">
+            (motorista terceiro)
+          </span>
+        )}
       </p>
-      <Linha label="Valor do frete" value={formatarMoeda(f.valor_frete)} />
+      {f.motorista_terceiro && (
+        <Linha label="Valor da carga" value={formatarMoeda(f.valor_carga ?? 0)} />
+      )}
+      <Linha label="Frete bruto" value={formatarMoeda(f.valor_frete)} />
       <Linha
-        label={`Frete líquido (frete − ICMS ${v.icms}%)`}
+        label={`ICMS (${v.icms}%)`}
+        value={formatarMoeda(v.valor_icms)}
+      />
+      {f.motorista_terceiro && (
+        <>
+          <Linha
+            label="Seguro (0,09% da carga)"
+            value={formatarMoeda(f.seguro_valor ?? 0)}
+          />
+          <Linha
+            label="Monitoramento"
+            value={formatarMoeda(f.monitoramento_valor ?? 0)}
+          />
+        </>
+      )}
+      <Linha
+        label={
+          f.motorista_terceiro
+            ? "Frete líquido (bruto − ICMS − seguro − monitoramento)"
+            : `Frete líquido (frete − ICMS ${v.icms}%)`
+        }
         value={formatarMoeda(v.frete_liquido)}
       />
       <Linha

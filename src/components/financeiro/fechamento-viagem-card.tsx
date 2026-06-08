@@ -55,6 +55,9 @@ export function FechamentoViagemCard({
       icmsPercent: icms,
       comissaoTipo,
       comissaoPercent: comPerc,
+      motoristaTerceiro: !!f.motorista_terceiro,
+      seguroValor: f.seguro_valor,
+      monitoramentoValor: f.monitoramento_valor,
     });
     setSaving(false);
     if (result.error) {

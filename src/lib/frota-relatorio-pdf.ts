@@ -196,3 +196,89 @@ export function gerarPdfAbastecimento(
   aplicarRodapes(doc);
   doc.save(`relatorio-abastecimentos_${de}_${ate}.pdf`);
 }
+
+function tabelaAbastecimento(doc: jsPDF, itens: AbastecimentoCard[], startY: number) {
+  const body = itens.map((i) => [
+    formatarDataHoraBr(i.dataHora),
+    formatarMoeda(i.valor),
+    i.litros != null ? `${i.litros.toLocaleString("pt-BR")} L` : "—",
+    formatarKm(i.km),
+    i.postoNome || "—",
+    i.motoristaNome || "—",
+    i.descricao || "—",
+    i.source === "manual" ? "Manual" : "Viagem",
+    textoAnexo(!!i.nota_fiscal_path),
+    textoAnexo(!!i.comprovante_path),
+  ]);
+
+  autoTable(doc, {
+    startY,
+    head: [
+      [
+        "Data/Hora",
+        "Valor",
+        "Litros",
+        "KM",
+        "Posto",
+        "Motorista",
+        "Descrição",
+        "Origem",
+        "NF",
+        "Comp.",
+      ],
+    ],
+    body: body.length ? body : [["—", "Nenhum registro", "", "", "", "", "", "", "", ""]],
+    styles: { fontSize: 7, cellPadding: 1.5 },
+    headStyles: { fillColor: [0, 120, 140], textColor: 255 },
+    alternateRowStyles: { fillColor: [245, 248, 250] },
+    margin: { left: 14, right: 14 },
+  });
+
+  return (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? startY;
+}
+
+/** Relatório com uma seção/tabela por caminhão no período. */
+export function gerarPdfAbastecimentoPorVeiculos(
+  itens: AbastecimentoCard[],
+  de: string,
+  ate: string
+) {
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const totalValor = itens.reduce((s, i) => s + i.valor, 0);
+
+  const grupos = new Map<string, AbastecimentoCard[]>();
+  for (const i of itens) {
+    const key = i.veiculoLabel || i.veiculoPlaca || "Sem veículo";
+    const lista = grupos.get(key) ?? [];
+    lista.push(i);
+    grupos.set(key, lista);
+  }
+
+  const startY = cabecalhoRelatorio(doc, "Relatório de Abastecimentos por Caminhão", de, ate, [
+    `Total de registros: ${itens.length}`,
+    `Valor total: ${formatarMoeda(totalValor)}`,
+    `Caminhões no período: ${grupos.size}`,
+  ]);
+
+  let y = startY;
+  const ordenados = [...grupos.entries()].sort(([a], [b]) => a.localeCompare(b, "pt-BR"));
+
+  ordenados.forEach(([veiculo, lista], idx) => {
+    const valorGrupo = lista.reduce((s, i) => s + i.valor, 0);
+    if (idx > 0 && y > doc.internal.pageSize.getHeight() - 40) {
+      doc.addPage();
+      y = 18;
+    }
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(30);
+    doc.text(`${veiculo} — ${lista.length} abastecimento(s) — ${formatarMoeda(valorGrupo)}`, 14, y);
+    y += 6;
+
+    y = tabelaAbastecimento(doc, lista, y) + 8;
+  });
+
+  aplicarRodapes(doc);
+  doc.save(`relatorio-abastecimentos-por-caminhao_${de}_${ate}.pdf`);
+}

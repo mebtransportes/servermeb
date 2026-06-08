@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Fuel, Plus, Route, ClipboardList, FileBarChart } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { PeriodoFilter } from "@/components/frota/periodo-filter";
 import { StatsCards, buildAbastecimentoStats } from "@/components/frota/stats-cards";
 import { AbastecimentoForm } from "@/components/frota/abastecimento-form";
 import { CardAcoes } from "@/components/frota/card-acoes";
 import { fetchAbastecimentos } from "@/lib/frota-data";
 import { excluirAbastecimento } from "@/lib/frota-crud";
+import { createClient } from "@/lib/supabase/client";
 import {
   dataNoPeriodoConfig,
   formatarMoeda,
@@ -24,6 +26,10 @@ import { FrotaRelatorioModal } from "@/components/frota/frota-relatorio-modal";
 export default function FrotaAbastecimentosPage() {
   const [items, setItems] = useState<AbastecimentoCard[]>([]);
   const [periodo, setPeriodo] = useState<PeriodoFiltroState>(PERIODO_FILTRO_INICIAL);
+  const [veiculoPlaca, setVeiculoPlaca] = useState("");
+  const [veiculosFrota, setVeiculosFrota] = useState<
+    { placa: string; nome: string }[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<AbastecimentoCard | null>(null);
@@ -39,9 +45,29 @@ export default function FrotaAbastecimentosPage() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    const supabase = createClient();
+    supabase
+      .from("veiculos")
+      .select("nome, placa, vinculo")
+      .order("nome")
+      .then(({ data }) => {
+        setVeiculosFrota(
+          (data ?? [])
+            .filter((v) => (v.vinculo ?? "frota") === "frota")
+            .map((v) => ({ placa: v.placa, nome: v.nome }))
+        );
+      });
+  }, []);
+
   const filtrados = useMemo(
-    () => items.filter((i) => dataNoPeriodoConfig(i.dataHora, periodo)),
-    [items, periodo]
+    () =>
+      items.filter((i) => {
+        if (!dataNoPeriodoConfig(i.dataHora, periodo)) return false;
+        if (veiculoPlaca && i.veiculoPlaca !== veiculoPlaca) return false;
+        return true;
+      }),
+    [items, periodo, veiculoPlaca]
   );
 
   const periodoLabel = labelPeriodoConfig(periodo);
@@ -97,8 +123,23 @@ export default function FrotaAbastecimentosPage() {
         </div>
       </header>
 
-      <PeriodoFilter value={periodo} onChange={setPeriodo} />
-      <StatsCards stats={stats} />
+      <div className="flex flex-wrap items-end gap-4">
+        <PeriodoFilter value={periodo} onChange={setPeriodo} />
+        <Select
+          label="Veículo"
+          value={veiculoPlaca}
+          onChange={(e) => setVeiculoPlaca(e.target.value)}
+          className="min-w-[220px]"
+          options={[
+            { value: "", label: "Todos os veículos" },
+            ...veiculosFrota.map((v) => ({
+              value: v.placa,
+              label: `${v.nome} — ${v.placa}`,
+            })),
+          ]}
+        />
+      </div>
+      <StatsCards stats={stats} compact />
 
       {showForm && (
         <AbastecimentoForm
@@ -127,7 +168,7 @@ export default function FrotaAbastecimentosPage() {
       ) : filtrados.length === 0 ? (
         <p className="text-slate-500">Nenhum abastecimento no período.</p>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtrados.map((item) => (
             <AbastecimentoCardView
               key={item.id}
@@ -152,9 +193,9 @@ function AbastecimentoCardView({
   onDelete: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-slate-700/50 bg-slate-800/30 p-4">
-      <div className="mb-2 flex items-start justify-between gap-2">
-        <span className="text-lg font-bold text-emerald-400">
+    <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-2.5">
+      <div className="mb-1 flex items-start justify-between gap-2">
+        <span className="text-base font-bold text-emerald-400">
           {formatarMoeda(item.valor)}
         </span>
         {item.source === "viagem" ? (
@@ -169,11 +210,11 @@ function AbastecimentoCardView({
           </span>
         )}
       </div>
-      <p className="text-sm text-slate-300">
+      <p className="text-xs text-slate-300">
         {new Date(item.dataHora).toLocaleString("pt-BR")}
       </p>
       {(item.km != null || item.litros != null || item.litrosTotais != null) && (
-        <p className="mt-1 text-sm text-cyan-400">
+        <p className="mt-0.5 text-xs text-cyan-400">
           {item.km != null && `KM: ${item.km.toLocaleString("pt-BR")}`}
           {item.km != null && (item.litros != null || item.litrosTotais != null) && " · "}
           {item.litros != null && `${item.litros.toLocaleString("pt-BR")} L abast.`}
@@ -183,13 +224,13 @@ function AbastecimentoCardView({
         </p>
       )}
       <FrotaAnexosLinks anexos={item} />
-      {item.postoNome && <p className="text-sm text-slate-400">Posto: {item.postoNome}</p>}
-      {item.veiculoLabel && <p className="text-sm text-slate-400">{item.veiculoLabel}</p>}
+      {item.postoNome && <p className="text-xs text-slate-400">Posto: {item.postoNome}</p>}
+      {item.veiculoLabel && <p className="text-xs text-slate-400">{item.veiculoLabel}</p>}
       {item.motoristaNome && (
-        <p className="text-sm text-cyan-400/80">Motorista: {item.motoristaNome}</p>
+        <p className="text-xs text-cyan-400/80">Motorista: {item.motoristaNome}</p>
       )}
       {item.descricao && (
-        <p className={cn("mt-2 text-xs text-slate-500")}>{item.descricao}</p>
+        <p className={cn("mt-1 text-[10px] text-slate-500")}>{item.descricao}</p>
       )}
       <CardAcoes onEdit={onEdit} onDelete={onDelete} />
     </div>

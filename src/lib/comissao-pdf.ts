@@ -29,13 +29,17 @@ function linhasFechamento(f: ViagemFechamento): [string, string][] {
   const consumo =
     f.consumo_km_litro ?? calcularConsumoKmLitro(f.km_total, litrosTotal);
   const despesas = totalDespesasFechamento(f);
-  const { frete_liquido, total_comissao, comissao_final } = calcularComissionamento({
-    valorFrete: Number(f.valor_frete) || 0,
-    icmsPercent: icms,
-    comissaoPercent,
-    comissaoTipo,
-    reembolso: Number(f.reembolso_valor) || 0,
-  });
+  const { frete_liquido, total_comissao, comissao_final, valor_icms } =
+    calcularComissionamento({
+      valorFrete: Number(f.valor_frete) || 0,
+      icmsPercent: icms,
+      comissaoPercent,
+      comissaoTipo,
+      reembolso: Number(f.reembolso_valor) || 0,
+      motoristaTerceiro: !!f.motorista_terceiro,
+      seguroValor: f.seguro_valor,
+      monitoramentoValor: f.monitoramento_valor,
+    });
 
   const fmtLitros = (n: number) =>
     n > 0 ? n.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) + " L" : "—";
@@ -58,11 +62,32 @@ function linhasFechamento(f: ViagemFechamento): [string, string][] {
     ["Abastecimento (valor)", fmtMoeda(f.abastecimento_valor)],
     ["Arla", fmtMoeda(f.arla_valor)],
     ["Manutenção total", fmtMoeda(f.manutencao_total)],
-    ["Pedágio", fmtMoeda(f.pedagio_valor)],
+    ["Pedágio / estacionamento", fmtMoeda(f.pedagio_valor)],
+    ...(!f.motorista_terceiro && (f.seguro_valor ?? 0) > 0
+      ? [["Seguro", fmtMoeda(f.seguro_valor ?? 0)] as [string, string]]
+      : []),
+    ...(!f.motorista_terceiro && (f.monitoramento_valor ?? 0) > 0
+      ? [["Monitoramento", fmtMoeda(f.monitoramento_valor ?? 0)] as [string, string]]
+      : []),
     ["Total gastos", fmtMoeda(despesas)],
     ["Reembolso ao motorista", fmtMoeda(f.reembolso_valor)],
-    ["Valor do frete", fmtMoeda(f.valor_frete)],
-    [`Frete líquido (ICMS ${icms}%)`, fmtMoeda(frete_liquido)],
+    ...(f.motorista_terceiro
+      ? [["Valor da carga", fmtMoeda(f.valor_carga ?? 0)] as [string, string]]
+      : []),
+    ["Frete bruto", fmtMoeda(f.valor_frete)],
+    [`ICMS (${icms}%)`, fmtMoeda(valor_icms)],
+    ...(f.motorista_terceiro
+      ? [
+          ["Seguro (0,09% da carga)", fmtMoeda(f.seguro_valor ?? 0)] as [string, string],
+          ["Monitoramento", fmtMoeda(f.monitoramento_valor ?? 0)] as [string, string],
+        ]
+      : []),
+    [
+      f.motorista_terceiro
+        ? "Frete líquido (bruto − ICMS − seguro − monitoramento)"
+        : `Frete líquido (ICMS ${icms}%)`,
+      fmtMoeda(frete_liquido),
+    ],
     [comissaoLabel, fmtMoeda(total_comissao)],
     ["Comissão final (comissão + reembolso)", fmtMoeda(comissao_final)],
   ];
@@ -115,6 +140,14 @@ export function gerarPdfComissaoMotorista(opts: {
   y += 5;
   doc.text(`Frete bruto: ${fmtMoeda(resumo.valor_frete)}`, margin, y);
   y += 5;
+  if (resumo.motorista_terceiro) {
+    doc.text(`ICMS total: ${fmtMoeda(resumo.valor_icms)}`, margin, y);
+    y += 5;
+    doc.text(`Seguro total: ${fmtMoeda(resumo.seguro_valor)}`, margin, y);
+    y += 5;
+    doc.text(`Monitoramento total: ${fmtMoeda(resumo.monitoramento_valor)}`, margin, y);
+    y += 5;
+  }
   doc.text(`Frete líquido: ${fmtMoeda(resumo.frete_liquido)}`, margin, y);
   y += 5;
   doc.text(`Total de despesas: ${fmtMoeda(resumo.despesas)}`, margin, y);

@@ -60,7 +60,11 @@ function AcompanhamentoContent() {
 
   const filtradas = useMemo(() => {
     return viagens.filter((v) => {
-      if (filtroStatus && v.status !== filtroStatus) return false;
+      if (filtroStatus) {
+        const statusViagem =
+          v.status === "DESCARREGANDO" ? "DESCARGA EM ANDAMENTO" : v.status;
+        if (statusViagem !== filtroStatus) return false;
+      }
       if (fornecedorSelecionado && !viagemMatchFornecedor(v, fornecedorSelecionado)) {
         return false;
       }

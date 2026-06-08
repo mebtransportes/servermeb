@@ -2,19 +2,35 @@ import { formatarMoeda } from "@/lib/frota-filters";
 
 type Stat = { label: string; value: string | number; sub?: string };
 
-export function StatsCards({ stats }: { stats: Stat[] }) {
+export function StatsCards({
+  stats,
+  compact,
+}: {
+  stats: Stat[];
+  compact?: boolean;
+}) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className={compact ? "grid gap-2 sm:grid-cols-2 lg:grid-cols-4" : "grid gap-4 sm:grid-cols-2 lg:grid-cols-4"}>
       {stats.map((s) => (
         <div
           key={s.label}
-          className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-4"
+          className={
+            compact
+              ? "rounded-lg border border-slate-700/50 bg-slate-800/40 p-2.5"
+              : "rounded-xl border border-slate-700/50 bg-slate-800/40 p-4"
+          }
         >
-          <p className="text-sm text-slate-400">{s.label}</p>
-          <p className="mt-1 text-2xl font-bold text-cyan-400">
+          <p className={compact ? "text-[10px] text-slate-400" : "text-sm text-slate-400"}>
+            {s.label}
+          </p>
+          <p className={compact ? "mt-0.5 text-lg font-bold text-cyan-400" : "mt-1 text-2xl font-bold text-cyan-400"}>
             {typeof s.value === "number" ? s.value : s.value}
           </p>
-          {s.sub && <p className="mt-1 text-xs text-slate-500">{s.sub}</p>}
+          {s.sub && (
+            <p className={compact ? "mt-0.5 text-[10px] text-slate-500" : "mt-1 text-xs text-slate-500"}>
+              {s.sub}
+            </p>
+          )}
         </div>
       ))}
     </div>

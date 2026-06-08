@@ -53,15 +53,17 @@ export interface Motorista {
 }
 
 export type ViagemStatus =
-  | "EM ANDAMENTO"
   | "EM CARREGAMENTO"
   | "EM ROTA"
+  | "EM MANUTENÇÃO"
   | "AGUARDANDO DESCARGA"
-  | "DESCARREGANDO"
-  | "EM ATRASO"
+  | "DESCARGA EM ANDAMENTO"
   | "FINALIZADO"
   | "PAGAMENTO PENDENTE"
   | "ARQUIVADO"
+  | "EM ANDAMENTO"
+  | "DESCARREGANDO"
+  | "EM ATRASO"
   | "CHEGOU AO DESTINO DE ENTREGA"
   | "CHEGOU AO DESTINO FINAL"
   | "PARADO NA ESTRADA";
@@ -72,6 +74,9 @@ export type ViagemRecursoTipo =
   | "manutencao"
   | "reembolso"
   | "pedagio"
+  | "estacionamento"
+  | "seguro"
+  | "monitoramento"
   | "arla"
   | "outro";
 
