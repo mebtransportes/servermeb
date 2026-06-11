@@ -14,6 +14,7 @@ export type ViagemListItem = {
 
 export type ViagemParaEdicao = Viagem & {
   entregas: { local_entrega: string; ordem: number }[];
+  fornecedores: { local_fornecedor: string; ordem: number }[];
   veiculo_ids: string[];
 };
 
@@ -91,6 +92,12 @@ export async function fetchViagemParaEdicao(id: string): Promise<ViagemParaEdica
     .eq("viagem_id", id)
     .order("ordem");
 
+  const { data: fornecedores } = await supabase
+    .from("viagem_fornecedores")
+    .select("local_fornecedor, ordem")
+    .eq("viagem_id", id)
+    .order("ordem");
+
   const { data: vv } = await supabase
     .from("viagem_veiculos")
     .select("veiculo_id, ordem")
@@ -105,9 +112,16 @@ export async function fetchViagemParaEdicao(id: string): Promise<ViagemParaEdica
         ? [viagem.veiculo_id as string]
         : [];
 
+  const fornecedoresLista = fornecedores ?? [];
   return {
     ...(viagem as Viagem),
     entregas: entregas ?? [],
+    fornecedores:
+      fornecedoresLista.length > 0
+        ? fornecedoresLista
+        : viagem.local_saida
+          ? [{ ordem: 1, local_fornecedor: viagem.local_saida as string }]
+          : [],
     veiculo_ids: ids,
   };
 }

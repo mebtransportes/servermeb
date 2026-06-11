@@ -14,12 +14,16 @@ import { cn } from "@/lib/utils";
 
 export function GerarComissaoModal({
   motoristaNome,
+  motoristaDocumento,
+  periodoLabel,
   fechamentos,
   selecionadosInicial,
   onClose,
 }: {
   motoristaId: string;
   motoristaNome: string;
+  motoristaDocumento?: string | null;
+  periodoLabel?: string;
   fechamentos: ViagemFechamento[];
   selecionadosInicial: string[];
   onClose: () => void;
@@ -63,14 +67,15 @@ export function GerarComissaoModal({
     setSelectedIds(new Set());
   }
 
-  function gerar() {
+  async function gerar() {
     if (!selecionados.length) {
       alert("Selecione ao menos uma viagem (finalizada ou pagamento pendente).");
       return;
     }
-    gerarPdfComissaoMotorista({
+    await gerarPdfComissaoMotorista({
       motoristaNome,
-      periodoLabel: `${selecionados.length} viagem(ns) selecionada(s)`,
+      motoristaDocumento,
+      periodoLabel,
       fechamentos: selecionados,
     });
   }
@@ -120,7 +125,7 @@ export function GerarComissaoModal({
                     Resumo agrupado ({resumo.viagens} viagem(ns))
                   </p>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <ResumoItem label="KM total" value={resumo.km_total.toLocaleString("pt-BR")} />
+                    <ResumoItem label="KM rodado" value={resumo.km_rodado.toLocaleString("pt-BR")} />
                     <ResumoItem label="Frete bruto" value={formatarMoeda(resumo.valor_frete)} />
                     <ResumoItem label="Frete líquido" value={formatarMoeda(resumo.frete_liquido)} />
                     <ResumoItem label="Total despesas" value={formatarMoeda(resumo.despesas)} />
@@ -209,7 +214,7 @@ export function GerarComissaoModal({
           </Button>
           <Button type="button" disabled={!selecionados.length} onClick={gerar}>
             <FileText className="mr-2 h-4 w-4" />
-            Gerar PDF ({selectedIds.size})
+            Gerar recibo PDF ({selectedIds.size})
           </Button>
         </div>
       </div>

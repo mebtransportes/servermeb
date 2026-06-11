@@ -13,6 +13,7 @@ import { fetchMotoristasOptions, fetchViagemFechamentos } from "@/lib/fechamento
 import { filtrarPorPeriodoConfig } from "@/lib/custos-operacionais";
 import {
   formatarMoeda,
+  labelPeriodoConfig,
   PERIODO_FILTRO_INICIAL,
   type PeriodoFiltroState,
 } from "@/lib/frota-filters";
@@ -24,7 +25,9 @@ import { cn } from "@/lib/utils";
 
 export default function FechamentoViagensPage() {
   const [fechamentos, setFechamentos] = useState<ViagemFechamento[]>([]);
-  const [motoristas, setMotoristas] = useState<{ id: string; nome_completo: string }[]>([]);
+  const [motoristas, setMotoristas] = useState<
+    { id: string; nome_completo: string; cpf?: string }[]
+  >([]);
   const [motoristaId, setMotoristaId] = useState("");
   const [periodo, setPeriodo] = useState<PeriodoFiltroState>(PERIODO_FILTRO_INICIAL);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -61,8 +64,9 @@ export default function FechamentoViagensPage() {
     [doMotorista, periodo]
   );
 
-  const motoristaNome =
-    motoristas.find((m) => m.id === motoristaId)?.nome_completo ?? "—";
+  const motoristaSelecionado = motoristas.find((m) => m.id === motoristaId);
+  const motoristaNome = motoristaSelecionado?.nome_completo ?? "—";
+  const periodoLabel = labelPeriodoConfig(periodo);
 
   const totalDespesas = filtrados.reduce((s, f) => s + totalDespesasFechamento(f), 0);
   const totalComissao = filtrados.reduce((s, f) => s + (Number(f.comissao_final) || 0), 0);
@@ -243,6 +247,8 @@ export default function FechamentoViagensPage() {
         <GerarComissaoModal
           motoristaId={motoristaId}
           motoristaNome={motoristaNome}
+          motoristaDocumento={motoristaSelecionado?.cpf}
+          periodoLabel={periodoLabel}
           fechamentos={doMotorista}
           selecionadosInicial={[...selectedIds]}
           onClose={() => setShowComissao(false)}

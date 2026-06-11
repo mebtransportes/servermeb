@@ -145,16 +145,16 @@ function LoginPageContent() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#121212] p-4">
-      <div className="w-full max-w-md rounded-2xl border border-slate-300/80 bg-[#e8edf2] p-8 shadow-xl">
+    <div className="flex min-h-screen items-center justify-center bg-[#e8edf2] p-4">
+      <div className="w-full max-w-md rounded-2xl border border-[#2a2f7a] bg-[#33388d] p-8 shadow-xl">
         <div className="mb-8 flex flex-col items-center gap-4">
           <Logo variant="login" />
-          <p className="text-center text-sm text-slate-600">
+          <p className="text-center text-sm text-white/80">
             Gestão de transporte — acesse com seu usuário
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="login-form-light space-y-4">
+        <form onSubmit={handleSubmit} className="login-on-brand space-y-4">
           <Input
             tone="light"
             label="Usuário ou e-mail"

@@ -20,9 +20,9 @@ export default async function AppLayout({
   if (!profile) redirect("/login");
 
   return (
-    <div className="flex min-h-screen bg-[#121212]">
+    <div className="flex min-h-screen bg-[#e8edf2]">
       <Sidebar username={profile.username} role={profile.role} />
-      <main className="flex-1 overflow-auto bg-[#121212] p-6 text-base lg:p-8">
+      <main className="meb-app-main flex-1 overflow-auto p-6 text-base lg:p-8">
         <RoleGuard role={profile.role}>{children}</RoleGuard>
       </main>
     </div>

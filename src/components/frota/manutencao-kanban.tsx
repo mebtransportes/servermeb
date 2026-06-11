@@ -15,6 +15,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { FrotaManutencaoStatus, ManutencaoCard } from "@/types/frota";
 import { formatarMoeda } from "@/lib/frota-filters";
+import { resumoPagamentoManutencao } from "@/lib/manutencao-pagamento";
 import { cn } from "@/lib/utils";
 import { Shield, Route } from "lucide-react";
 import { FrotaAnexosLinks } from "@/components/frota/frota-anexos-links";
@@ -99,6 +100,16 @@ function CardContent({
         <p className="text-xs text-cyan-400/90">KM: {item.km.toLocaleString("pt-BR")}</p>
       )}
       <FrotaAnexosLinks anexos={item} />
+      {item.source === "preventiva" && item.pagamentoModalidade && item.pagamentoForma && (
+        <p className="mt-1 text-xs text-amber-400/90">
+          {resumoPagamentoManutencao({
+            modalidade: item.pagamentoModalidade,
+            forma: item.pagamentoForma,
+            vencimento: item.pagamentoVencimento,
+            parcelas: item.parcelas,
+          })}
+        </p>
+      )}
       <div className="mt-2 flex items-center justify-between text-xs">
         <span className="text-slate-400">
           {item.dataRef}

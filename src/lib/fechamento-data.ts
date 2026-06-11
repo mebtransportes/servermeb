@@ -44,9 +44,9 @@ export async function fetchMotoristasOptions() {
   const supabase = createClient();
   const { data } = await supabase
     .from("motoristas")
-    .select("id, nome_completo")
+    .select("id, nome_completo, cpf")
     .order("nome_completo");
-  return (data ?? []) as { id: string; nome_completo: string }[];
+  return (data ?? []) as { id: string; nome_completo: string; cpf?: string }[];
 }
 
 export async function atualizarFechamentoConfig(opts: {

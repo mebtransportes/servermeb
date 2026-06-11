@@ -66,6 +66,14 @@ export function validarVeiculo(v: Veiculo): ResultadoApto {
     );
   }
 
+  if (isVencido(v.tacografo_vencimento)) {
+    problemas.push(
+      v.tacografo_vencimento
+        ? `Tacógrafo vencido (${v.tacografo_vencimento})`
+        : "Tacógrafo sem vencimento cadastrado"
+    );
+  }
+
   return { apto: problemas.length === 0, problemas };
 }
 

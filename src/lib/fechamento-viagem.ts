@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { formatarVeiculosLabel } from "@/lib/viagem-crud";
 import { fetchLitrosTotaisVeiculo } from "@/lib/litros-frota-veiculo";
+import { calcularKmRodado } from "@/lib/veiculo-km";
 import {
   calcularComissionamento,
   calcularConsumoKmLitro,
@@ -27,6 +28,7 @@ function somarRecursos(recursos: RecursoRow[]) {
   let arla_valor = 0;
   let manutencao_total = 0;
   let pedagio_valor = 0;
+  let outros_valor = 0;
   let seguro_valor = 0;
   let monitoramento_valor = 0;
   let reembolso_valor = 0;
@@ -54,6 +56,9 @@ function somarRecursos(recursos: RecursoRow[]) {
       case "estacionamento":
         pedagio_valor += v;
         break;
+      case "outro":
+        outros_valor += v;
+        break;
       case "seguro":
         seguro_valor += v;
         break;
@@ -72,6 +77,7 @@ function somarRecursos(recursos: RecursoRow[]) {
     arla_valor,
     manutencao_total,
     pedagio_valor,
+    outros_valor,
     seguro_valor,
     monitoramento_valor,
     reembolso_valor,
@@ -94,6 +100,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
       `
       id, status, motorista_id, veiculo_id, saida_em, local_saida, km_total,
       valor_frete, valor_mercadoria, numero_cte,
+      km_odometro_inicial, km_odometro_final,
       motoristas ( nome_completo, vinculo ),
       veiculos ( nome, placa ),
       viagem_veiculos ( ordem, veiculos ( nome, placa ) )
@@ -181,9 +188,15 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
   const litros_abastecimento_viagem = gastos.litros_abastecimento_viagem;
   const abastecimento_litros = litros_tanque_inicial + litros_abastecimento_viagem;
 
-  const kmTotal =
-    viagem.km_total != null ? Number(viagem.km_total) : null;
-  const consumo_km_litro = calcularConsumoKmLitro(kmTotal, abastecimento_litros);
+  const kmOdometroInicial =
+    viagem.km_odometro_inicial != null ? Number(viagem.km_odometro_inicial) : null;
+  const kmOdometroFinal =
+    viagem.km_odometro_final != null ? Number(viagem.km_odometro_final) : null;
+  const kmRodado = calcularKmRodado(kmOdometroInicial, kmOdometroFinal);
+  const consumo_km_litro = calcularConsumoKmLitro(
+    kmRodado,
+    litros_abastecimento_viagem
+  );
 
   const payload = {
     viagem_id: viagemId,
@@ -194,7 +207,10 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     veiculo_label: formatarVeiculosLabel(listaVeiculos),
     numero_cte: viagem.numero_cte ?? null,
     destino,
-    km_total: kmTotal,
+    km_total: kmRodado,
+    km_rodado: kmRodado,
+    km_odometro_inicial: kmOdometroInicial,
+    km_odometro_final: kmOdometroFinal,
     consumo_km_litro,
     litros_tanque_inicial,
     litros_abastecimento_viagem,
@@ -203,6 +219,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     arla_valor: gastos.arla_valor,
     manutencao_total: gastos.manutencao_total,
     pedagio_valor: gastos.pedagio_valor,
+    outros_valor: gastos.outros_valor,
     reembolso_valor: gastos.reembolso_valor,
     motorista_terceiro: motoristaTerceiro,
     valor_carga: valorCarga,

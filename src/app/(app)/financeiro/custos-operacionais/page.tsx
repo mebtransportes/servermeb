@@ -1,8 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ComponentType } from "react";
-import { Truck, Fuel, Wrench, Route, Receipt, Droplets, ParkingCircle } from "lucide-react";
+import {
+  Truck,
+  Fuel,
+  Wrench,
+  Route,
+  Receipt,
+  Droplets,
+  ParkingCircle,
+  FileBarChart,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { PeriodoFilter } from "@/components/frota/periodo-filter";
+import { gerarPdfCustosOperacionais } from "@/lib/custos-operacionais-pdf";
 import { CustosOperacionaisDetalheModal } from "@/components/financeiro/custos-operacionais-detalhe-modal";
 import {
   fetchCustosOperacionais,
@@ -84,7 +95,18 @@ export default function CustosOperacionaisPage() {
             </p>
           </div>
         </div>
-        <PeriodoFilter value={periodo} onChange={setPeriodo} />
+        <div className="flex flex-wrap items-end gap-2">
+          <PeriodoFilter value={periodo} onChange={setPeriodo} />
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={loading || !resumo}
+            onClick={() => resumo && gerarPdfCustosOperacionais(resumo, periodoLabel)}
+          >
+            <FileBarChart className="h-4 w-4" />
+            Gerar relatório PDF
+          </Button>
+        </div>
       </header>
 
       {loading || !resumo ? (

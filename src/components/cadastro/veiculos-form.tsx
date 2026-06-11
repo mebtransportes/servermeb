@@ -37,6 +37,7 @@ export function VeiculosForm({
   const [renavam, setRenavam] = useState(veiculo?.renavam ?? "");
   const [crlvVenc, setCrlvVenc] = useState(veiculo?.crlv_vencimento ?? "");
   const [ipvaVenc, setIpvaVenc] = useState(veiculo?.ipva_vencimento ?? "");
+  const [tacografoVenc, setTacografoVenc] = useState(veiculo?.tacografo_vencimento ?? "");
   const [quitado, setQuitado] = useState(veiculo?.quitado ?? true);
   const [financiado, setFinanciado] = useState(veiculo?.financiado ?? false);
   const [parcelas, setParcelas] = useState(
@@ -81,6 +82,7 @@ export function VeiculosForm({
       renavam: renavam || null,
       crlv_vencimento: ehFrota ? crlvVenc || null : null,
       ipva_vencimento: ehFrota ? ipvaVenc || null : null,
+      tacografo_vencimento: ehFrota ? tacografoVenc || null : null,
       quitado,
       financiado: financiado && !quitado,
       parcelas_restantes:
@@ -156,8 +158,8 @@ export function VeiculosForm({
 
       {!ehFrota && (
         <p className="rounded-lg border border-amber-800/40 bg-amber-950/25 px-4 py-3 text-sm text-amber-200">
-          Veículo de terceiro: mesmo cadastro da frota, exceto vencimento de CRLV e IPVA,
-          que não são controlados nem exigidos em viagens.
+          Veículo de terceiro: mesmo cadastro da frota, exceto vencimento de CRLV, IPVA e
+          tacógrafo, que não são controlados nem exigidos em viagens.
         </p>
       )}
 
@@ -177,6 +179,12 @@ export function VeiculosForm({
           <>
             <Input label="Vencimento CRLV" type="date" value={crlvVenc} onChange={(e) => setCrlvVenc(e.target.value)} />
             <Input label="Vencimento IPVA" type="date" value={ipvaVenc} onChange={(e) => setIpvaVenc(e.target.value)} />
+            <Input
+              label="Vencimento tacógrafo"
+              type="date"
+              value={tacografoVenc}
+              onChange={(e) => setTacografoVenc(e.target.value)}
+            />
           </>
         )}
       </div>

@@ -222,6 +222,17 @@ export async function fetchCustosOperacionais(
           detalhe,
         });
         break;
+      case "outro":
+        resumo.outros += v;
+        linhas.outros.push({
+          id: r.id,
+          data: r.realizado_em,
+          descricao: r.descricao ?? "Outra despesa",
+          valor: v,
+          origem: "Viagem",
+          detalhe,
+        });
+        break;
       case "estacionamento":
       case "seguro":
       case "monitoramento":
@@ -310,5 +321,5 @@ export const CUSTO_CATEGORIA_LABEL: Record<CustoOperacionalCategoria, string> = 
   pedagios: "Pedágios",
   reembolsos: "Reembolsos",
   arla: "Arla",
-  outros: "Estacionamento / Seguro / Monitoramento",
+  outros: "Outras despesas / Estacionamento / Seguro / Monitoramento",
 };

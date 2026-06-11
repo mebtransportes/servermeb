@@ -33,14 +33,10 @@ export function useFechamentoValores(
   const comissaoTipo = overrides?.comissaoTipo ?? ((f.comissao_tipo ?? "PERCENTUAL") as "PERCENTUAL" | "LIQUIDO_TOTAL");
   const comissaoPercent = overrides?.comissaoPercent ?? getComissaoPercent(f);
 
-  const litrosTanque = Number(f.litros_tanque_inicial) || 0;
   const litrosViagem = Number(f.litros_abastecimento_viagem) || 0;
-  const litrosTotal =
-    litrosTanque + litrosViagem > 0
-      ? litrosTanque + litrosViagem
-      : f.abastecimento_litros;
+  const kmRodado = f.km_rodado ?? f.km_total;
   const consumoKmLitro =
-    f.consumo_km_litro ?? calcularConsumoKmLitro(f.km_total, litrosTotal);
+    f.consumo_km_litro ?? calcularConsumoKmLitro(kmRodado, litrosViagem);
   const despesas = totalDespesasFechamento(f);
 
   const valores = useMemo(() => {
@@ -59,9 +55,8 @@ export function useFechamentoValores(
   }, [f, icms, comissaoPercent, comissaoTipo]);
 
   return {
-    litrosTanque,
     litrosViagem,
-    litrosTotal,
+    kmRodado,
     consumoKmLitro,
     despesas,
     comissaoTipo,
@@ -106,38 +101,48 @@ export function FechamentoViagemDetalhe({
       <Linha label="CTE" value={f.numero_cte ?? "—"} />
       <Linha label="Destino" value={f.destino ?? "—"} />
       <Linha
-        label="KM total"
-        value={f.km_total != null ? f.km_total.toLocaleString("pt-BR") : "—"}
-      />
-
-      <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-amber-500">
-        Gastos
-      </p>
-      <Linha
-        label="Litros no tanque (frota)"
+        label="KM inicial (odômetro)"
         value={
-          v.litrosTanque > 0
-            ? v.litrosTanque.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) + " L"
+          f.km_odometro_inicial != null
+            ? f.km_odometro_inicial.toLocaleString("pt-BR")
             : "—"
         }
       />
       <Linha
-        label="Litros na viagem"
+        label="KM final (odômetro)"
+        value={
+          f.km_odometro_final != null
+            ? f.km_odometro_final.toLocaleString("pt-BR")
+            : "—"
+        }
+      />
+      <Linha
+        label="KM rodado"
+        value={v.kmRodado != null ? v.kmRodado.toLocaleString("pt-BR") : "—"}
+      />
+
+      <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-amber-500">
+        Gastos e consumo
+      </p>
+      <Linha
+        label="Litros abastecidos na viagem"
         value={
           v.litrosViagem > 0
             ? v.litrosViagem.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) + " L"
             : "—"
         }
       />
-      <Linha
-        label="Total litros"
-        value={v.litrosTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) + " L"}
-      />
       <Linha label="Consumo médio (km/L)" value={formatConsumoKmLitro(v.consumoKmLitro)} />
+      <p className="mb-2 text-[10px] text-slate-500">
+        Consumo = KM rodado ÷ litros abastecidos nos gastos da viagem.
+      </p>
       <Linha label="Abastecimento (valor)" value={formatarMoeda(f.abastecimento_valor)} />
       <Linha label="Arla" value={formatarMoeda(f.arla_valor)} />
       <Linha label="Manutenção total" value={formatarMoeda(f.manutencao_total)} />
       <Linha label="Pedágio / estacionamento" value={formatarMoeda(f.pedagio_valor)} />
+      {(f.outros_valor ?? 0) > 0 && (
+        <Linha label="Outras despesas" value={formatarMoeda(f.outros_valor ?? 0)} />
+      )}
       {!f.motorista_terceiro && (f.seguro_valor ?? 0) > 0 && (
         <Linha label="Seguro" value={formatarMoeda(f.seguro_valor ?? 0)} />
       )}

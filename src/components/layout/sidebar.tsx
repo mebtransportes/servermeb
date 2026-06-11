@@ -27,6 +27,9 @@ import {
   type NavItem,
 } from "@/lib/nav-config";
 
+const SIDEBAR_BG = "bg-[#33388d]";
+const SIDEBAR_BORDER = "border-[#2a2f7a]";
+
 function NavGroupItem({
   group,
   pathname,
@@ -47,7 +50,9 @@ function NavGroupItem({
         onClick={onToggle}
         className={cn(
           "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition",
-          isActive ? "bg-cyan-100 text-cyan-900" : "text-slate-700 hover:bg-slate-200/70"
+          isActive
+            ? "bg-white/20 text-white"
+            : "text-white/85 hover:bg-white/10 hover:text-white"
         )}
       >
         <group.icon className="h-5 w-5 shrink-0" />
@@ -55,7 +60,7 @@ function NavGroupItem({
         {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
       </button>
       {open && (
-        <div className="ml-3 mt-1 space-y-0.5 border-l border-slate-300 pl-3">
+        <div className="ml-3 mt-1 space-y-0.5 border-l border-white/25 pl-3">
           {group.children.map((child) => {
             const active = pathname === child.href;
             return (
@@ -65,8 +70,8 @@ function NavGroupItem({
                 className={cn(
                   "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition",
                   active
-                    ? "bg-cyan-600 text-white shadow-sm"
-                    : "text-slate-600 hover:bg-slate-200/80 hover:text-slate-900"
+                    ? "bg-white text-[#33388d] shadow-sm font-medium"
+                    : "text-white/80 hover:bg-white/15 hover:text-white"
                 )}
               >
                 <child.icon className="h-4 w-4" />
@@ -108,8 +113,20 @@ export function Sidebar({
   }
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-slate-200/90 bg-[#e8edf2]">
-      <div className="flex items-center justify-center border-b border-slate-300/60 bg-[#e8edf2] px-3 py-5">
+    <aside
+      className={cn(
+        "flex w-64 shrink-0 flex-col border-r",
+        SIDEBAR_BG,
+        SIDEBAR_BORDER
+      )}
+    >
+      <div
+        className={cn(
+          "flex items-center justify-center border-b px-3 py-5",
+          SIDEBAR_BG,
+          SIDEBAR_BORDER
+        )}
+      >
         <Logo variant="sidebar" linked homeHref={homeHref} />
       </div>
 
@@ -135,8 +152,8 @@ export function Sidebar({
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition",
                 active
-                  ? "bg-cyan-600 text-white shadow-sm"
-                  : "text-slate-700 hover:bg-slate-200/70"
+                  ? "bg-white text-[#33388d] shadow-sm"
+                  : "text-white/85 hover:bg-white/10 hover:text-white"
               )}
             >
               <item.icon className="h-5 w-5" />
@@ -146,12 +163,12 @@ export function Sidebar({
         })}
       </nav>
 
-      <div className="space-y-1 border-t border-slate-300/60 bg-[#e8edf2] p-3">
+      <div className={cn("space-y-1 border-t p-3", SIDEBAR_BG, SIDEBAR_BORDER)}>
         <Link
           href="/perfil"
           className={cn(
-            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-200/70",
-            pathname === "/perfil" && "bg-slate-200 text-slate-900"
+            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/85 hover:bg-white/10 hover:text-white",
+            pathname === "/perfil" && "bg-white/20 text-white"
           )}
         >
           <Settings className="h-5 w-5" />
@@ -160,15 +177,15 @@ export function Sidebar({
         <button
           type="button"
           onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-red-200 hover:bg-red-500/20 hover:text-white"
         >
           <LogOut className="h-5 w-5" />
           Sair
         </button>
-        <p className="truncate px-3 pt-1 text-center text-xs text-slate-500/90">
+        <p className="truncate px-3 pt-1 text-center text-xs text-white/60">
           @{username}
         </p>
-        <p className="truncate px-3 pb-1 text-center text-[10px] uppercase tracking-wide text-slate-400">
+        <p className="truncate px-3 pb-1 text-center text-[10px] uppercase tracking-wide text-white/45">
           {ROLE_LABELS[role as ProfileRole]}
         </p>
       </div>

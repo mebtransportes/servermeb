@@ -1,3 +1,9 @@
+import type {
+  ManutencaoPagamentoForma,
+  ManutencaoPagamentoModalidade,
+  ManutencaoParcela,
+} from "@/lib/manutencao-pagamento";
+
 export type FrotaManutencaoStatus = "AGENDADO" | "EM ANDAMENTO" | "FINALIZADO";
 
 export type ManutencaoCard = {
@@ -11,14 +17,20 @@ export type ManutencaoCard = {
   valor: number;
   status: FrotaManutencaoStatus;
   motoristaNome?: string;
+  veiculoId?: string | null;
   veiculoPlaca?: string;
   km?: number | null;
+  dataProximaManutencao?: string | null;
   nota_fiscal_path?: string | null;
   comprovante_path?: string | null;
   nota_fiscal_nome?: string | null;
   comprovante_nome?: string | null;
   viagemRecursoId?: string;
   frotaId?: string;
+  pagamentoModalidade?: ManutencaoPagamentoModalidade | null;
+  pagamentoForma?: ManutencaoPagamentoForma | null;
+  pagamentoVencimento?: string | null;
+  parcelas?: ManutencaoParcela[];
 };
 
 export type AbastecimentoCard = {

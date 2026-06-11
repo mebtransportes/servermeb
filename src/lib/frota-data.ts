@@ -7,11 +7,24 @@ export async function fetchManutencoes(): Promise<ManutencaoCard[]> {
 
   const { data: preventivas } = await supabase
     .from("frota_manutencoes")
-    .select("*, veiculos(nome, placa)")
+    .select(
+      "*, veiculos(nome, placa), frota_manutencao_parcelas(numero, valor, data_vencimento)"
+    )
     .order("data_agendada", { ascending: false });
 
   for (const m of preventivas ?? []) {
     const veic = m.veiculos as { nome: string; placa: string } | null;
+    const parcelasRaw = m.frota_manutencao_parcelas as
+      | { numero: number; valor: number; data_vencimento: string }[]
+      | null;
+    const parcelas = (parcelasRaw ?? [])
+      .slice()
+      .sort((a, b) => a.numero - b.numero)
+      .map((p) => ({
+        numero: p.numero,
+        valor: Number(p.valor) || 0,
+        dataVencimento: p.data_vencimento,
+      }));
     cards.push({
       id: `frota-${m.id}`,
       frotaId: m.id,
@@ -23,12 +36,18 @@ export async function fetchManutencoes(): Promise<ManutencaoCard[]> {
       horaRef: m.hora_agendada,
       valor: Number(m.valor_total),
       status: m.status as FrotaManutencaoStatus,
+      veiculoId: m.veiculo_id ?? null,
       veiculoPlaca: veic ? `${veic.nome} — ${veic.placa}` : undefined,
       km: m.km_veiculo ? Number(m.km_veiculo) : null,
+      dataProximaManutencao: m.data_proxima_manutencao ?? null,
       nota_fiscal_path: m.nota_fiscal_path,
       comprovante_path: m.comprovante_path,
       nota_fiscal_nome: m.nota_fiscal_nome,
       comprovante_nome: m.comprovante_nome,
+      pagamentoModalidade: m.pagamento_modalidade ?? null,
+      pagamentoForma: m.pagamento_forma ?? null,
+      pagamentoVencimento: m.pagamento_vencimento ?? null,
+      parcelas,
     });
   }
 

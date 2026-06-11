@@ -10,6 +10,9 @@ export type ViagemFechamento = {
   numero_cte?: string | null;
   destino?: string | null;
   km_total?: number | null;
+  km_rodado?: number | null;
+  km_odometro_inicial?: number | null;
+  km_odometro_final?: number | null;
   consumo_km_litro?: number | null;
   litros_tanque_inicial?: number | null;
   litros_abastecimento_viagem?: number | null;
@@ -18,6 +21,7 @@ export type ViagemFechamento = {
   arla_valor: number;
   manutencao_total: number;
   pedagio_valor: number;
+  outros_valor?: number;
   reembolso_valor: number;
   valor_frete: number;
   frete_liquido: number;
@@ -45,7 +49,8 @@ export function totalDespesasFechamento(f: ViagemFechamento) {
     (Number(f.abastecimento_valor) || 0) +
     (Number(f.arla_valor) || 0) +
     (Number(f.manutencao_total) || 0) +
-    (Number(f.pedagio_valor) || 0);
+    (Number(f.pedagio_valor) || 0) +
+    (Number(f.outros_valor) || 0);
   if (f.motorista_terceiro) return base;
   return (
     base + (Number(f.seguro_valor) || 0) + (Number(f.monitoramento_valor) || 0)
@@ -153,13 +158,13 @@ export function calcularComissionamento(opts: {
   };
 }
 
-/** Consumo médio: km total da viagem ÷ litros abastecidos (inicial + durante a viagem). */
+/** Consumo médio: km rodado ÷ litros abastecidos na viagem. */
 export function calcularConsumoKmLitro(
-  kmTotal: number | null | undefined,
-  litrosTotal: number
+  kmRodado: number | null | undefined,
+  litrosAbastecidos: number
 ): number | null {
-  const km = Number(kmTotal) || 0;
-  const litros = Number(litrosTotal) || 0;
+  const km = Number(kmRodado) || 0;
+  const litros = Number(litrosAbastecidos) || 0;
   if (km <= 0 || litros <= 0) return null;
   return Math.round((km / litros) * 100) / 100;
 }
@@ -177,6 +182,7 @@ export function formatConsumoKmLitro(kmLitro: number | null | undefined): string
 export type ResumoFechamentosAgrupados = {
   viagens: number;
   km_total: number;
+  km_rodado: number;
   valor_frete: number;
   frete_liquido: number;
   valor_icms: number;
@@ -209,7 +215,8 @@ export function agruparFechamentosComissao(
       });
       return {
         viagens: acc.viagens + 1,
-        km_total: acc.km_total + (Number(f.km_total) || 0),
+        km_total: acc.km_total + (Number(f.km_rodado ?? f.km_total) || 0),
+        km_rodado: acc.km_rodado + (Number(f.km_rodado) || 0),
         valor_frete: acc.valor_frete + (Number(f.valor_frete) || 0),
         frete_liquido: acc.frete_liquido + calc.frete_liquido,
         valor_icms: acc.valor_icms + calc.valor_icms,
@@ -229,6 +236,7 @@ export function agruparFechamentosComissao(
     {
       viagens: 0,
       km_total: 0,
+      km_rodado: 0,
       valor_frete: 0,
       frete_liquido: 0,
       valor_icms: 0,

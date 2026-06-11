@@ -1,4 +1,11 @@
 import { createClient } from "@/lib/supabase/client";
+import { carregarParcelasManutencao } from "@/lib/frota-manutencao-pagamento";
+import type {
+  ManutencaoPagamentoForma,
+  ManutencaoPagamentoModalidade,
+  ManutencaoParcelaInput,
+} from "@/lib/manutencao-pagamento";
+import { rawNumberStringToBrInput } from "@/lib/number-format";
 import type { AbastecimentoCard, ManutencaoCard } from "@/types/frota";
 
 export async function excluirManutencao(item: ManutencaoCard): Promise<string | null> {
@@ -51,6 +58,11 @@ export type ManutencaoEdicao = {
   nota_fiscal_nome?: string | null;
   comprovante_path?: string | null;
   comprovante_nome?: string | null;
+  pagamentoModalidade: ManutencaoPagamentoModalidade | "";
+  pagamentoForma: ManutencaoPagamentoForma | "";
+  pagamentoVencimento: string;
+  parcelas: ManutencaoParcelaInput[];
+  dataProximaManutencao: string;
 };
 
 export async function carregarManutencaoEdicao(
@@ -65,6 +77,12 @@ export async function carregarManutencaoEdicao(
       .eq("id", item.frotaId)
       .single();
     if (!data) return null;
+    const parcelasDb = await carregarParcelasManutencao(data.id);
+    const parcelas: ManutencaoParcelaInput[] = parcelasDb.map((p) => ({
+      numero: p.numero,
+      valor: rawNumberStringToBrInput(String(p.valor), 2),
+      dataVencimento: p.dataVencimento,
+    }));
     return {
       source: "preventiva",
       frotaId: data.id,
@@ -82,6 +100,11 @@ export async function carregarManutencaoEdicao(
       nota_fiscal_nome: data.nota_fiscal_nome,
       comprovante_path: data.comprovante_path,
       comprovante_nome: data.comprovante_nome,
+      pagamentoModalidade: (data.pagamento_modalidade as ManutencaoPagamentoModalidade) ?? "",
+      pagamentoForma: (data.pagamento_forma as ManutencaoPagamentoForma) ?? "",
+      pagamentoVencimento: data.pagamento_vencimento ?? "",
+      parcelas,
+      dataProximaManutencao: data.data_proxima_manutencao ?? "",
     };
   }
 
@@ -112,6 +135,11 @@ export async function carregarManutencaoEdicao(
       nota_fiscal_nome: data.nota_fiscal_nome,
       comprovante_path: data.comprovante_path,
       comprovante_nome: data.comprovante_nome,
+      pagamentoModalidade: "",
+      pagamentoForma: "",
+      pagamentoVencimento: "",
+      parcelas: [],
+      dataProximaManutencao: "",
     };
   }
 

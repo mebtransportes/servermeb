@@ -152,6 +152,7 @@ export function montarAlertas(
       documentos: [
         { documento: "CRLV", data: v.crlv_vencimento },
         { documento: "IPVA", data: v.ipva_vencimento },
+        { documento: "Tacógrafo", data: v.tacografo_vencimento },
       ],
     });
   }

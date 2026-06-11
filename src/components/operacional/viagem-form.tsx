@@ -28,10 +28,15 @@ import { calcularIdade } from "@/lib/utils";
 import { isoParaDatetimeLocal, type ViagemParaEdicao } from "@/lib/viagem-crud";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
 import { statusGeraFechamento } from "@/lib/viagem-status";
+import { formatarLocaisParceiros } from "@/lib/viagem-parceiros-viagem";
 import {
   fetchLitrosTotaisVeiculo,
   type LitrosTanqueVeiculo,
 } from "@/lib/litros-frota-veiculo";
+import {
+  fetchUltimoKmVeiculo,
+  type UltimoKmVeiculo,
+} from "@/lib/veiculo-km";
 import { parseBrNumber, rawNumberStringToBrInput } from "@/lib/number-format";
 import type { Motorista, Veiculo } from "@/types";
 import { Plus, Trash2, FileText, AlertTriangle } from "lucide-react";
@@ -83,7 +88,7 @@ export function ViagemForm({
 
   const [saidaEm, setSaidaEm] = useState("");
   const [chegadaEm, setChegadaEm] = useState("");
-  const [localSaida, setLocalSaida] = useState("");
+  const [fornecedores, setFornecedores] = useState<string[]>([""]);
   const [entregas, setEntregas] = useState<string[]>([""]);
   const [tipoTrajeto, setTipoTrajeto] = useState("ida");
   const [pesoKg, setPesoKg] = useState("");
@@ -91,8 +96,8 @@ export function ViagemForm({
   const [valorFrete, setValorFrete] = useState("");
   const [numeroCte, setNumeroCte] = useState("");
   const [descMercadoria, setDescMercadoria] = useState("");
-  const [kmTotal, setKmTotal] = useState("");
   const [tanqueVeiculo, setTanqueVeiculo] = useState<LitrosTanqueVeiculo | null>(null);
+  const [ultimoKmVeiculo, setUltimoKmVeiculo] = useState<UltimoKmVeiculo | null>(null);
   const [uploads, setUploads] = useState<UploadSlot[]>(
     ANEXOS_VIAGEM_CATEGORIAS_UNICAS.map((c) => ({ categoria: c, file: null }))
   );
@@ -130,7 +135,15 @@ export function ViagemForm({
     setVeiculoIds(viagem.veiculo_ids);
     setSaidaEm(isoParaDatetimeLocal(viagem.saida_em));
     setChegadaEm(isoParaDatetimeLocal(viagem.chegada_prevista_em));
-    setLocalSaida(viagem.local_saida);
+    setFornecedores(
+      viagem.fornecedores.length
+        ? viagem.fornecedores
+            .sort((a, b) => a.ordem - b.ordem)
+            .map((f) => f.local_fornecedor)
+        : viagem.local_saida
+          ? [viagem.local_saida]
+          : [""]
+    );
     setEntregas(
       viagem.entregas.length
         ? viagem.entregas
@@ -144,7 +157,6 @@ export function ViagemForm({
     setValorFrete(rawNumberStringToBrInput(viagem.valor_frete, 2));
     setNumeroCte(viagem.numero_cte ?? "");
     setDescMercadoria(viagem.descricao_mercadoria ?? "");
-    setKmTotal(rawNumberStringToBrInput(viagem.km_total, 0));
     setUploads(ANEXOS_VIAGEM_CATEGORIAS_UNICAS.map((c) => ({ categoria: c, file: null })));
     setUploadsMultiplos({ ROMANEIO: [], NOTAS_FISCAIS: [] });
   }, [viagem]);
@@ -256,6 +268,7 @@ export function ViagemForm({
     }
     const antesDe = saidaEm ? new Date(saidaEm).toISOString() : undefined;
     fetchLitrosTotaisVeiculo(veiculoPrincipalId, antesDe).then(setTanqueVeiculo);
+    fetchUltimoKmVeiculo(veiculoPrincipalId, antesDe).then(setUltimoKmVeiculo);
   }, [veiculoIds, saidaEm]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -269,9 +282,10 @@ export function ViagemForm({
       return;
     }
 
+    const locaisFornecedor = fornecedores.map((l) => l.trim()).filter(Boolean);
     const locaisEntrega = entregas.map((l) => l.trim()).filter(Boolean);
-    if (!localSaida.trim() || locaisEntrega.length === 0) {
-      setError("Informe o local de saída e ao menos um local de entrega.");
+    if (locaisFornecedor.length === 0 || locaisEntrega.length === 0) {
+      setError("Informe ao menos um fornecedor (origem) e um local de entrega.");
       return;
     }
 
@@ -293,20 +307,27 @@ export function ViagemForm({
     } = await supabase.auth.getUser();
 
     const veiculoPrincipalId = veiculoIds[0];
+    const antesDe = new Date(saidaEm).toISOString();
+    const kmInicial =
+      ultimoKmVeiculo?.km ??
+      (await fetchUltimoKmVeiculo(veiculoPrincipalId, antesDe))?.km ??
+      null;
 
     const payloadViagem = {
       motorista_id: motoristaId,
       veiculo_id: veiculoPrincipalId,
-      saida_em: new Date(saidaEm).toISOString(),
+      saida_em: antesDe,
       chegada_prevista_em: new Date(chegadaEm).toISOString(),
-      local_saida: localSaida.trim(),
+      local_saida: formatarLocaisParceiros(
+        locaisFornecedor.map((texto, i) => ({ ordem: i + 1, texto }))
+      ),
       tipo_trajeto: tipoTrajeto,
       peso_kg: parseBrNumber(pesoKg),
       valor_mercadoria: parseBrNumber(valorMercadoria),
       valor_frete: parseBrNumber(valorFrete),
       numero_cte: numeroCte.trim() || null,
       descricao_mercadoria: descMercadoria || null,
-      km_total: parseBrNumber(kmTotal),
+      km_odometro_inicial: kmInicial,
       motorista_apto: true,
       veiculo_apto: true,
     };
@@ -314,9 +335,19 @@ export function ViagemForm({
     let viagemId = viagem?.id;
 
     if (isEdit && viagemId) {
+      const updatePayload = { ...payloadViagem };
+      const veiculoMudou = viagem?.veiculo_ids[0] !== veiculoPrincipalId;
+      if (
+        !veiculoMudou &&
+        viagem?.km_odometro_inicial != null &&
+        Number(viagem.km_odometro_inicial) > 0
+      ) {
+        updatePayload.km_odometro_inicial = Number(viagem.km_odometro_inicial);
+      }
+
       const { error: upErr } = await supabase
         .from("viagens")
-        .update(payloadViagem)
+        .update(updatePayload)
         .eq("id", viagemId);
 
       if (upErr) {
@@ -326,6 +357,7 @@ export function ViagemForm({
       }
 
       await supabase.from("viagem_entregas").delete().eq("viagem_id", viagemId);
+      await supabase.from("viagem_fornecedores").delete().eq("viagem_id", viagemId);
     } else {
       const { data: nova, error: viagemErr } = await supabase
         .from("viagens")
@@ -350,6 +382,14 @@ export function ViagemForm({
       setSaving(false);
       return;
     }
+
+    await supabase.from("viagem_fornecedores").insert(
+      locaisFornecedor.map((local, i) => ({
+        viagem_id: viagemId,
+        ordem: i + 1,
+        local_fornecedor: local,
+      }))
+    );
 
     await supabase.from("viagem_entregas").insert(
       locaisEntrega.map((local, i) => ({
@@ -541,6 +581,7 @@ export function ViagemForm({
                 <>
                   <div>Venc. CRLV: {veiculo.crlv_vencimento ?? "—"}</div>
                   <div>Venc. IPVA: {veiculo.ipva_vencimento ?? "—"}</div>
+                  <div>Venc. tacógrafo: {veiculo.tacografo_vencimento ?? "—"}</div>
                 </>
               )}
               <div>
@@ -610,15 +651,6 @@ export function ViagemForm({
               onChange={(e) => setChegadaEm(e.target.value)}
               required
             />
-            <EntregaAutocomplete
-              label="Local de saída (fornecedor)"
-              value={localSaida}
-              onChange={setLocalSaida}
-              required
-              className="sm:col-span-2"
-              tipoParceiro="fornecedor"
-              placeholder="Digite o nome do fornecedor"
-            />
             <Select
               label="Tipo de viagem"
               value={tipoTrajeto}
@@ -631,6 +663,49 @@ export function ViagemForm({
               onChange={(e) => setNumeroCte(e.target.value)}
               placeholder="Ex: 123456789"
             />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-slate-300">
+                Fornecedores (origem / carregamento)
+              </span>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setFornecedores([...fornecedores, ""])}
+              >
+                <Plus className="h-4 w-4" />
+                Adicionar fornecedor
+              </Button>
+            </div>
+            {fornecedores.map((loc, i) => (
+              <div key={`forn-${i}`} className="flex gap-2">
+                <EntregaAutocomplete
+                  label={`Fornecedor ${i + 1}`}
+                  value={loc}
+                  onChange={(val) => {
+                    const next = [...fornecedores];
+                    next[i] = val;
+                    setFornecedores(next);
+                  }}
+                  className="flex-1"
+                  tipoParceiro="fornecedor"
+                  placeholder="Digite o nome do fornecedor"
+                  required={i === 0}
+                />
+                {fornecedores.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setFornecedores(fornecedores.filter((_, j) => j !== i))}
+                    className="mt-6"
+                  >
+                    <Trash2 className="h-4 w-4 text-red-400" />
+                  </Button>
+                )}
+              </div>
+            ))}
           </div>
 
           <div className="space-y-2">
@@ -696,14 +771,33 @@ export function ViagemForm({
               onChange={setValorFrete}
               placeholder="Valor a ser pago pelo frete"
             />
-            <BrNumberInput
-              label="KM total da viagem"
-              decimalPlaces={0}
-              value={kmTotal}
-              onChange={setKmTotal}
-            />
           </div>
           {veiculoIds.length > 0 && (
+            <div className="grid gap-3 sm:grid-cols-2">
+            <div
+              className={`rounded-lg border px-4 py-3 text-sm ${
+                ultimoKmVeiculo
+                  ? "border-cyan-800/50 bg-cyan-950/20 text-cyan-100"
+                  : "border-amber-800/50 bg-amber-950/20 text-amber-100"
+              }`}
+            >
+              {ultimoKmVeiculo ? (
+                <>
+                  <span className="font-medium">KM atual do veículo (odômetro saída):</span>{" "}
+                  {ultimoKmVeiculo.km.toLocaleString("pt-BR")}
+                  <span className="mt-1 block text-xs opacity-80">
+                    Último abastecimento em{" "}
+                    {new Date(ultimoKmVeiculo.dataHora).toLocaleString("pt-BR")}
+                    {ultimoKmVeiculo.origem === "frota" ? " (Frota)" : " (viagem anterior)"}
+                  </span>
+                </>
+              ) : (
+                <>
+                  Nenhum KM de abastecimento anterior para este veículo. Informe o KM no
+                  primeiro abastecimento desta viagem.
+                </>
+              )}
+            </div>
             <div
               className={`rounded-lg border px-4 py-3 text-sm ${
                 tanqueVeiculo
@@ -731,6 +825,7 @@ export function ViagemForm({
                   principal. Cadastre em Frota → Abastecimentos antes de iniciar a viagem.
                 </>
               )}
+            </div>
             </div>
           )}
           <Textarea

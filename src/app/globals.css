@@ -1,33 +1,32 @@
 @import "tailwindcss";
 
 :root {
-  --meb-bg: #121212;
-  --meb-bg-deep: #0c0c0c;
+  --meb-sidebar: #33388d;
+  --meb-sidebar-dark: #2a2f7a;
+  --meb-content-bg: #e8edf2;
+  --meb-content-bg-deep: #dde4ea;
   --meb-surface: #1a1a1a;
   --meb-border: #2a2a2a;
   --meb-muted: #363636;
-  --foreground: #e8eef4;
+  --foreground: #1e293b;
   --meb-ice: #e8edf2;
 }
 
-/* Cinzas neutros (sem tom azul) na área principal */
 @theme inline {
-  --color-background: var(--meb-bg);
+  --color-background: var(--meb-content-bg);
   --color-foreground: var(--foreground);
-  --color-slate-950: var(--meb-bg-deep);
-  --color-slate-900: var(--meb-bg);
+  --color-slate-950: #0c0c0c;
+  --color-slate-900: #1a1a1a;
   --color-slate-800: var(--meb-surface);
   --color-slate-700: var(--meb-border);
   --color-slate-600: var(--meb-muted);
-  --color-slate-500: #6b6b6b;
-  --color-slate-400: #9ca3af;
-  --color-slate-300: #d1d5db;
-  /* fundos translúcidos “cyan” viram cinza fosco */
+  --color-slate-500: #64748b;
+  --color-slate-400: #94a3b8;
+  --color-slate-300: #cbd5e1;
   --color-cyan-950: #141414;
   --color-cyan-900: #1c1c1c;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  /* Tipografia um pouco maior em todo o sistema */
   --text-xs: 0.8125rem;
   --text-xs--line-height: 1.25rem;
   --text-sm: 0.9375rem;
@@ -43,21 +42,57 @@
 }
 
 body {
-  background-color: var(--meb-bg);
+  background-color: var(--meb-content-bg);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
   font-size: var(--text-base);
   line-height: var(--text-base--line-height);
 }
 
+/* Área principal: fundo cinza gelo; títulos legíveis fora dos cards escuros */
+.meb-app-main {
+  background-color: var(--meb-content-bg);
+  color: #334155;
+}
+
+.meb-app-main h1.text-white,
+.meb-app-main h2.text-white,
+.meb-app-main h3.text-white {
+  color: #0f172a;
+}
+
+.meb-app-main > div > header .text-slate-400,
+.meb-app-main > div > header .text-slate-500,
+.meb-app-main > div > p.text-slate-400:first-child,
+.meb-app-main > div > p.text-slate-500 {
+  color: #64748b;
+}
+
+.meb-app-main [class*="bg-slate-8"] .text-white,
+.meb-app-main [class*="bg-slate-9"] .text-white,
+.meb-app-main [class*="bg-slate-8"] h1,
+.meb-app-main [class*="bg-slate-9"] h1,
+.meb-app-main [class*="bg-cyan-9"] .text-white {
+  color: #f8fafc;
+}
+
 input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0);
+}
+
+[class*="bg-slate-8"] input[type="date"]::-webkit-calendar-picker-indicator,
+[class*="bg-slate-9"] input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(1);
 }
 
-/* Login (card cinza gelo) — autofill sem fundo amarelo */
-.login-form-light input:-webkit-autofill,
-.login-form-light input:-webkit-autofill:hover,
-.login-form-light input:-webkit-autofill:focus {
+/* Login — card roxo institucional */
+.login-on-brand label {
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+
+.login-on-brand input:-webkit-autofill,
+.login-on-brand input:-webkit-autofill:hover,
+.login-on-brand input:-webkit-autofill:focus {
   -webkit-text-fill-color: #0f172a;
   -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
   caret-color: #0f172a;

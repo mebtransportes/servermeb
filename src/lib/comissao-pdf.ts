@@ -1,207 +1,312 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import { LOGO_SRC } from "@/components/brand/logo";
 import type { ViagemFechamento } from "@/types/fechamento";
 import {
-  totalDespesasFechamento,
+  agruparFechamentosComissao,
   calcularComissionamento,
-  calcularConsumoKmLitro,
-  formatConsumoKmLitro,
   getComissaoPercent,
   getIcmsPercent,
-  agruparFechamentosComissao,
 } from "@/types/fechamento";
-import { formatarMoeda, formatarDataBr } from "@/lib/frota-filters";
+import { formatarDataBr, formatarMoeda } from "@/lib/frota-filters";
 
-function fmtMoeda(v: number) {
-  return formatarMoeda(v);
+const COR_PRIMARIA: [number, number, number] = [0, 120, 140];
+const COR_FUNDO: [number, number, number] = [240, 249, 250];
+const MARGIN = 14;
+const PAGE_W = 210;
+
+async function carregarImagemBase64(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () =>
+        resolve(typeof reader.result === "string" ? reader.result : null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
 }
 
-function linhasFechamento(f: ViagemFechamento): [string, string][] {
-  const icms = getIcmsPercent(f);
-  const comissaoTipo = (f.comissao_tipo ?? "PERCENTUAL") as "PERCENTUAL" | "LIQUIDO_TOTAL";
-  const comissaoPercent = getComissaoPercent(f);
-  const litrosTanque = Number(f.litros_tanque_inicial) || 0;
-  const litrosViagem = Number(f.litros_abastecimento_viagem) || 0;
-  const litrosTotal =
-    litrosTanque + litrosViagem > 0
-      ? litrosTanque + litrosViagem
-      : f.abastecimento_litros;
-  const consumo =
-    f.consumo_km_litro ?? calcularConsumoKmLitro(f.km_total, litrosTotal);
-  const despesas = totalDespesasFechamento(f);
-  const { frete_liquido, total_comissao, comissao_final, valor_icms } =
-    calcularComissionamento({
+function periodoDasViagens(fechamentos: ViagemFechamento[]): string {
+  if (!fechamentos.length) return "—";
+  const datas = fechamentos
+    .map((f) => f.data_embarque.split("T")[0])
+    .sort();
+  const de = datas[0];
+  const ate = datas[datas.length - 1];
+  if (de === ate) return formatarDataBr(de);
+  return `${formatarDataBr(de)} a ${formatarDataBr(ate)}`;
+}
+
+function encurtar(texto: string, max = 36): string {
+  const t = texto.trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1)}…`;
+}
+
+function calcularComissaoSemReembolso(fechamentos: ViagemFechamento[]): number {
+  return fechamentos.reduce((s, f) => {
+    const calc = calcularComissionamento({
       valorFrete: Number(f.valor_frete) || 0,
-      icmsPercent: icms,
-      comissaoPercent,
-      comissaoTipo,
-      reembolso: Number(f.reembolso_valor) || 0,
+      icmsPercent: getIcmsPercent(f),
+      comissaoPercent: getComissaoPercent(f),
+      comissaoTipo: (f.comissao_tipo ?? "PERCENTUAL") as "PERCENTUAL" | "LIQUIDO_TOTAL",
+      reembolso: 0,
       motoristaTerceiro: !!f.motorista_terceiro,
       seguroValor: f.seguro_valor,
       monitoramentoValor: f.monitoramento_valor,
     });
-
-  const fmtLitros = (n: number) =>
-    n > 0 ? n.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) + " L" : "—";
-
-  const comissaoLabel =
-    comissaoTipo === "LIQUIDO_TOTAL"
-      ? "Comissão (frete líquido total)"
-      : `Comissão (${comissaoPercent}% do líquido)`;
-
-  return [
-    ["Local do embarque", f.local_embarque],
-    ["Veículo", f.veiculo_label],
-    ["CTE", f.numero_cte ?? "—"],
-    ["Destino", f.destino ?? "—"],
-    ["KM total", f.km_total != null ? f.km_total.toLocaleString("pt-BR") : "—"],
-    ["Litros no tanque (frota)", fmtLitros(litrosTanque)],
-    ["Litros na viagem", fmtLitros(litrosViagem)],
-    ["Total litros", litrosTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) + " L"],
-    ["Consumo médio (km/L)", formatConsumoKmLitro(consumo)],
-    ["Abastecimento (valor)", fmtMoeda(f.abastecimento_valor)],
-    ["Arla", fmtMoeda(f.arla_valor)],
-    ["Manutenção total", fmtMoeda(f.manutencao_total)],
-    ["Pedágio / estacionamento", fmtMoeda(f.pedagio_valor)],
-    ...(!f.motorista_terceiro && (f.seguro_valor ?? 0) > 0
-      ? [["Seguro", fmtMoeda(f.seguro_valor ?? 0)] as [string, string]]
-      : []),
-    ...(!f.motorista_terceiro && (f.monitoramento_valor ?? 0) > 0
-      ? [["Monitoramento", fmtMoeda(f.monitoramento_valor ?? 0)] as [string, string]]
-      : []),
-    ["Total gastos", fmtMoeda(despesas)],
-    ["Reembolso ao motorista", fmtMoeda(f.reembolso_valor)],
-    ...(f.motorista_terceiro
-      ? [["Valor da carga", fmtMoeda(f.valor_carga ?? 0)] as [string, string]]
-      : []),
-    ["Frete bruto", fmtMoeda(f.valor_frete)],
-    [`ICMS (${icms}%)`, fmtMoeda(valor_icms)],
-    ...(f.motorista_terceiro
-      ? [
-          ["Seguro (0,09% da carga)", fmtMoeda(f.seguro_valor ?? 0)] as [string, string],
-          ["Monitoramento", fmtMoeda(f.monitoramento_valor ?? 0)] as [string, string],
-        ]
-      : []),
-    [
-      f.motorista_terceiro
-        ? "Frete líquido (bruto − ICMS − seguro − monitoramento)"
-        : `Frete líquido (ICMS ${icms}%)`,
-      fmtMoeda(frete_liquido),
-    ],
-    [comissaoLabel, fmtMoeda(total_comissao)],
-    ["Comissão final (comissão + reembolso)", fmtMoeda(comissao_final)],
-  ];
+    return s + calc.total_comissao;
+  }, 0);
 }
 
-export function gerarPdfComissaoMotorista(opts: {
+function desenharCaixa(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  titulo: string,
+  linhas: string[]
+) {
+  doc.setDrawColor(210, 218, 226);
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(x, y, w, h, 2, 2, "FD");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  doc.setTextColor(100, 116, 139);
+  doc.text(titulo.toUpperCase(), x + 4, y + 6);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(30, 41, 59);
+  let ly = y + 12;
+  for (const linha of linhas) {
+    doc.text(linha, x + 4, ly);
+    ly += 5;
+  }
+}
+
+export async function gerarPdfComissaoMotorista(opts: {
   motoristaNome: string;
-  periodoLabel: string;
+  motoristaDocumento?: string | null;
+  periodoLabel?: string;
   fechamentos: ViagemFechamento[];
 }) {
-  const { motoristaNome, periodoLabel, fechamentos } = opts;
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const pageH = doc.internal.pageSize.getHeight();
-  const margin = 14;
-  let y = 18;
-
+  const { motoristaNome, motoristaDocumento, fechamentos } = opts;
   const resumo = agruparFechamentosComissao(fechamentos);
+  const comissaoSemReembolso = calcularComissaoSemReembolso(fechamentos);
+  const valorPagar = resumo.comissao_final;
+  const periodoViagens = opts.periodoLabel ?? periodoDasViagens(fechamentos);
   const geradoEm = new Date().toLocaleString("pt-BR");
+  const reciboNum = `RC-${Date.now().toString(36).toUpperCase()}`;
 
-  function novaPaginaSePreciso(altura: number) {
-    if (y + altura > pageH - 20) {
-      doc.addPage();
-      y = 18;
-    }
+  const arlaTotal = fechamentos.reduce((s, f) => s + (Number(f.arla_valor) || 0), 0);
+  const manutTotal = fechamentos.reduce(
+    (s, f) => s + (Number(f.manutencao_total) || 0),
+    0
+  );
+  const pedagioTotal = fechamentos.reduce(
+    (s, f) => s + (Number(f.pedagio_valor) || 0),
+    0
+  );
+
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const contentW = PAGE_W - MARGIN * 2;
+  let y = MARGIN;
+
+  const logo = await carregarImagemBase64(LOGO_SRC);
+
+  doc.setFillColor(...COR_FUNDO);
+  doc.rect(0, 0, PAGE_W, 42, "F");
+  doc.setDrawColor(...COR_PRIMARIA);
+  doc.setLineWidth(0.6);
+  doc.line(MARGIN, 42, PAGE_W - MARGIN, 42);
+
+  if (logo) {
+    doc.addImage(logo, "PNG", MARGIN, y, 38, 14);
   }
 
+  const tituloX = PAGE_W - MARGIN;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.setTextColor(0, 100, 120);
-  doc.text("MEB Gestão de Transporte", margin, y);
-  y += 10;
+  doc.setFontSize(15);
+  doc.setTextColor(...COR_PRIMARIA);
+  doc.text("RECIBO DE PAGAMENTO", tituloX, y + 5, { align: "right" });
+  doc.setFontSize(9);
+  doc.setTextColor(71, 85, 105);
+  doc.text("Prestação de serviço de transporte rodoviário", tituloX, y + 11, {
+    align: "right",
+  });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text(`Nº ${reciboNum}`, tituloX, y + 17, { align: "right" });
+  doc.text(`Emissão: ${geradoEm}`, tituloX, y + 22, { align: "right" });
 
-  doc.setFontSize(14);
-  doc.setTextColor(30, 30, 30);
-  doc.text("Relatório de Comissão", margin, y);
+  y = 48;
+
+  const boxW = (contentW - 4) / 2;
+  const beneficiarioLinhas = [
+    motoristaNome,
+    motoristaDocumento
+      ? `CPF/CNPJ: ${motoristaDocumento}`
+      : "CPF/CNPJ: —",
+    resumo.motorista_terceiro ? "Pessoa jurídica / terceiro" : "Frota própria",
+  ];
+  desenharCaixa(doc, MARGIN, y, boxW, 24, "Pagador", [
+    "MEB Transportes",
+    "Gestão de Transporte Rodoviário",
+  ]);
+  desenharCaixa(doc, MARGIN + boxW + 4, y, boxW, 24, "Beneficiário", beneficiarioLinhas);
+
+  y += 30;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(71, 85, 105);
+  doc.text(`Referência: ${periodoViagens}`, MARGIN, y);
+  doc.text(
+    `${resumo.viagens} viagem(ns) · ${resumo.km_rodado.toLocaleString("pt-BR")} km rodados`,
+    PAGE_W - MARGIN,
+    y,
+    { align: "right" }
+  );
   y += 8;
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.setTextColor(80);
-  doc.text(`Motorista: ${motoristaNome}`, margin, y);
-  y += 5;
-  doc.text(`Período: ${periodoLabel}`, margin, y);
-  y += 5;
-  doc.text(`Gerado em: ${geradoEm}`, margin, y);
-  y += 5;
-  doc.text(`Viagens selecionadas: ${resumo.viagens}`, margin, y);
-  y += 5;
-  doc.text(`KM total: ${resumo.km_total.toLocaleString("pt-BR")}`, margin, y);
-  y += 5;
-  doc.text(`Frete bruto: ${fmtMoeda(resumo.valor_frete)}`, margin, y);
-  y += 5;
+  const linhasPagamento: (string | { content: string; styles?: object })[][] = [
+    ["Frete bruto total", formatarMoeda(resumo.valor_frete)],
+    ["(−) ICMS", formatarMoeda(resumo.valor_icms)],
+  ];
+
   if (resumo.motorista_terceiro) {
-    doc.text(`ICMS total: ${fmtMoeda(resumo.valor_icms)}`, margin, y);
-    y += 5;
-    doc.text(`Seguro total: ${fmtMoeda(resumo.seguro_valor)}`, margin, y);
-    y += 5;
-    doc.text(`Monitoramento total: ${fmtMoeda(resumo.monitoramento_valor)}`, margin, y);
-    y += 5;
-  }
-  doc.text(`Frete líquido: ${fmtMoeda(resumo.frete_liquido)}`, margin, y);
-  y += 5;
-  doc.text(`Total de despesas: ${fmtMoeda(resumo.despesas)}`, margin, y);
-  y += 5;
-  doc.text(`Reembolso: ${fmtMoeda(resumo.reembolso_valor)}`, margin, y);
-  y += 5;
-  doc.text(`Total de comissão: ${fmtMoeda(resumo.comissao_final)}`, margin, y);
-  y += 10;
-
-  for (let i = 0; i < fechamentos.length; i++) {
-    const f = fechamentos[i];
-    const titulo = `Viagem ${i + 1} — ${formatarDataBr(f.data_embarque.split("T")[0])}`;
-    novaPaginaSePreciso(50);
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(0, 120, 140);
-    doc.text(titulo, margin, y);
-    y += 4;
-
-    autoTable(doc, {
-      startY: y,
-      head: [["Campo", "Valor"]],
-      body: linhasFechamento(f),
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [0, 120, 140], fontSize: 8 },
-      columnStyles: {
-        0: { cellWidth: 62, fontStyle: "bold", textColor: [80, 80, 80] },
-        1: { cellWidth: "auto" },
-      },
-      margin: { left: margin, right: margin },
-      theme: "grid",
-    });
-
-    const docWithTable = doc as unknown as { lastAutoTable?: { finalY: number } };
-    y = (docWithTable.lastAutoTable?.finalY ?? y) + 8;
+    linhasPagamento.push(
+      ["(−) Seguro (0,09% da carga)", formatarMoeda(resumo.seguro_valor)],
+      ["(−) Monitoramento", formatarMoeda(resumo.monitoramento_valor)]
+    );
   }
 
-  novaPaginaSePreciso(40);
+  linhasPagamento.push(
+    ["Frete líquido", formatarMoeda(resumo.frete_liquido)],
+    ["Comissão sobre frete líquido", formatarMoeda(comissaoSemReembolso)]
+  );
+
+  if (resumo.reembolso_valor > 0) {
+    linhasPagamento.push([
+      "(+) Reembolsos",
+      formatarMoeda(resumo.reembolso_valor),
+    ]);
+  }
+
+  linhasPagamento.push([
+    {
+      content: "VALOR LÍQUIDO A PAGAR",
+      styles: { fontStyle: "bold", fillColor: COR_PRIMARIA, textColor: 255 },
+    },
+    {
+      content: formatarMoeda(valorPagar),
+      styles: { fontStyle: "bold", fillColor: COR_PRIMARIA, textColor: 255, halign: "right" },
+    },
+  ]);
+
+  autoTable(doc, {
+    startY: y,
+    head: [["Descrição", "Valor (R$)"]],
+    body: linhasPagamento,
+    styles: { fontSize: 9, cellPadding: 2.5 },
+    headStyles: { fillColor: COR_PRIMARIA, textColor: 255, fontStyle: "bold" },
+    columnStyles: {
+      0: { cellWidth: 118 },
+      1: { halign: "right", cellWidth: "auto" },
+    },
+    margin: { left: MARGIN, right: MARGIN },
+    theme: "striped",
+  });
+
+  const docTable = doc as jsPDF & { lastAutoTable?: { finalY: number } };
+  y = (docTable.lastAutoTable?.finalY ?? y) + 6;
+
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
-  doc.setTextColor(30, 30, 30);
-  doc.text(`Total de comissão (viagens selecionadas): ${fmtMoeda(resumo.comissao_final)}`, margin, y);
-  y += 16;
+  doc.setFontSize(9);
+  doc.setTextColor(...COR_PRIMARIA);
+  doc.text("Viagens incluídas neste pagamento", MARGIN, y);
+  y += 3;
+
+  const qtdViagens = fechamentos.length;
+  const fonteViagens = qtdViagens > 12 ? 6.5 : qtdViagens > 8 ? 7 : 7.5;
+  const padViagens = qtdViagens > 12 ? 1.2 : 1.6;
+
+  autoTable(doc, {
+    startY: y + 2,
+    head: [["Data", "CTE", "Trajeto", "Veículo", "Comissão"]],
+    body: fechamentos
+      .slice()
+      .sort(
+        (a, b) =>
+          new Date(a.data_embarque).getTime() - new Date(b.data_embarque).getTime()
+      )
+      .map((f) => [
+        formatarDataBr(f.data_embarque.split("T")[0]),
+        f.numero_cte ?? "—",
+        encurtar(`${f.local_embarque} → ${f.destino ?? "—"}`, qtdViagens > 10 ? 34 : 42),
+        encurtar(f.veiculo_label, qtdViagens > 10 ? 18 : 22),
+        formatarMoeda(f.comissao_final),
+      ]),
+    styles: { fontSize: fonteViagens, cellPadding: padViagens },
+    headStyles: { fillColor: [51, 65, 85], fontSize: fonteViagens },
+    columnStyles: {
+      0: { cellWidth: 22 },
+      1: { cellWidth: 20 },
+      2: { cellWidth: "auto" },
+      3: { cellWidth: 32 },
+      4: { halign: "right", cellWidth: 24 },
+    },
+    margin: { left: MARGIN, right: MARGIN },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+  });
+
+  y = (docTable.lastAutoTable?.finalY ?? y) + 4;
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.text(motoristaNome, margin, y);
-  doc.line(margin, y + 2, 120, y + 2);
-  doc.setFontSize(9);
-  doc.setTextColor(100);
-  doc.text("Assinatura do motorista", margin, y + 7);
+  doc.setFontSize(7);
+  doc.setTextColor(100, 116, 139);
+  const infoDespesas = [
+    `Abast. ${formatarMoeda(resumo.abastecimento_valor)}`,
+    `Arla ${formatarMoeda(arlaTotal)}`,
+    `Manut. ${formatarMoeda(manutTotal)}`,
+    `Pedágio ${formatarMoeda(pedagioTotal)}`,
+    `Total ${formatarMoeda(resumo.despesas)}`,
+  ].join(" · ");
+  doc.text(`Despesas (informativo): ${infoDespesas}`, MARGIN, y, { maxWidth: contentW });
 
-  doc.save(
-    `comissao-${motoristaNome.replace(/\s+/g, "_")}_${periodoLabel.replace(/\s+/g, "_")}.pdf`
+  y += 7;
+  doc.setFontSize(6.5);
+  doc.setTextColor(148, 163, 184);
+  doc.text(
+    "Comprovante de pagamento de comissão de frete — valores consolidados das viagens acima.",
+    MARGIN,
+    y,
+    { maxWidth: contentW }
   );
+
+  const assinY = Math.min(Math.max(y + 10, 252), 272);
+  const assinW = 75;
+  doc.setDrawColor(180, 190, 200);
+  doc.line(MARGIN, assinY, MARGIN + assinW, assinY);
+  doc.line(PAGE_W - MARGIN - assinW, assinY, PAGE_W - MARGIN, assinY);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(71, 85, 105);
+  doc.text("MEB Transportes", MARGIN, assinY + 5);
+  doc.text("Assinatura do pagador", MARGIN, assinY + 9);
+  doc.text(motoristaNome, PAGE_W - MARGIN - assinW, assinY + 5);
+  doc.text("Assinatura do beneficiário", PAGE_W - MARGIN - assinW, assinY + 9);
+
+  const slug = motoristaNome
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .replace(/^_|_$/g, "");
+  doc.save(`recibo-comissao_${slug || "motorista"}.pdf`);
 }

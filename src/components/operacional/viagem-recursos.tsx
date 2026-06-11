@@ -42,6 +42,7 @@ type Recurso = {
   nota_fiscal_nome?: string | null;
   comprovante_path?: string | null;
   comprovante_nome?: string | null;
+  recurso_par_id?: string | null;
   postos?: { nome: string } | null;
   oficinas?: { nome: string } | null;
 };
@@ -53,7 +54,13 @@ type Anexo = {
   storage_path: string;
 };
 
-export function ViagemRecursos({ viagemId }: { viagemId: string }) {
+export function ViagemRecursos({
+  viagemId,
+  onRecursosChanged,
+}: {
+  viagemId: string;
+  onRecursosChanged?: () => void;
+}) {
   const [recursos, setRecursos] = useState<Recurso[]>([]);
   const [postos, setPostos] = useState<{ id: string; nome: string }[]>([]);
   const [oficinas, setOficinas] = useState<{ id: string; nome: string }[]>([]);
@@ -76,6 +83,8 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
   const [valorCarga, setValorCarga] = useState<number | null>(null);
   const [motoristaTerceiro, setMotoristaTerceiro] = useState(false);
+  const [kmOdometroInicial, setKmOdometroInicial] = useState<number | null>(null);
+  const [motoristaAdiantou, setMotoristaAdiantou] = useState(false);
 
   const load = async () => {
     const supabase = createClient();
@@ -97,7 +106,7 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
       supabase.from("oficinas").select("id, nome").order("nome"),
       supabase
         .from("viagens")
-        .select("valor_mercadoria, motoristas(vinculo)")
+        .select("valor_mercadoria, km_odometro_inicial, motoristas(vinculo)")
         .eq("id", viagemId)
         .single(),
     ]).then(([p, o, v]) => {
@@ -107,6 +116,8 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
       if (viagem) {
         const carga = Number(viagem.valor_mercadoria);
         setValorCarga(Number.isFinite(carga) && carga > 0 ? carga : null);
+        const kmIni = Number(viagem.km_odometro_inicial);
+        setKmOdometroInicial(Number.isFinite(kmIni) && kmIni > 0 ? kmIni : null);
         const mRaw = viagem.motoristas as
           | { vinculo?: string }
           | { vinculo?: string }[]
@@ -116,6 +127,21 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
       }
     });
   }, [viagemId]);
+
+  useEffect(() => {
+    if (tipo !== "abastecimento" || kmVeiculo) return;
+    const ultimoNaViagem = recursos
+      .filter((r) => r.tipo === "abastecimento" && r.km_abastecimento != null)
+      .sort(
+        (a, b) =>
+          new Date(b.realizado_em).getTime() - new Date(a.realizado_em).getTime()
+      )[0];
+    const km =
+      ultimoNaViagem?.km_abastecimento ?? kmOdometroInicial;
+    if (km != null) {
+      setKmVeiculo(String(km));
+    }
+  }, [tipo, recursos, kmOdometroInicial]);
 
   useEffect(() => {
     if (!motoristaTerceiro) return;
@@ -131,11 +157,47 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
   const recursosGastos = recursos.filter((r) => r.tipo !== "reembolso");
   const recursosReembolso = recursos.filter((r) => r.tipo === "reembolso");
 
+  function limparFormulario() {
+    setValor("");
+    setDescricao("");
+    setPostoId("");
+    setOficinaId("");
+    setRealizadoEm("");
+    setKmVeiculo("");
+    setLitros("");
+    setCombustivelTipo("");
+    setNotaFiscal(null);
+    setComprovante(null);
+    setFiles([]);
+    setMotoristaAdiantou(false);
+  }
+
   async function handleAdd(e: React.FormEvent, tipoFixo?: "reembolso") {
     e.preventDefault();
+    const tipoLancamento = tipoFixo ?? tipo;
+
+    if (tipoLancamento === "outro" && !descricao.trim()) {
+      alert("Informe o nome da despesa (ex.: Lavagem do veículo).");
+      return;
+    }
+
+    if (tipoLancamento === "abastecimento") {
+      if (!parseBrNumber(kmVeiculo)) {
+        alert("Informe a quilometragem atual do veículo no abastecimento.");
+        return;
+      }
+      if (!parseBrNumber(litros)) {
+        alert("Informe os litros abastecidos.");
+        return;
+      }
+      if (!combustivelTipo) {
+        alert("Selecione o tipo de combustível.");
+        return;
+      }
+    }
+
     setSaving(true);
     const supabase = createClient();
-    const tipoLancamento = tipoFixo ?? tipo;
 
     const payload: Record<string, unknown> = {
       viagem_id: viagemId,
@@ -177,6 +239,24 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
       await supabase.from("viagem_recursos").update(anexos).eq("id", recurso.id);
     }
 
+    if (tipoLancamento === "outro" && motoristaAdiantou) {
+      const valorNum = parseBrNumber(valor) ?? 0;
+      const nomeDespesa = descricao.trim();
+      const { error: errReembolso } = await supabase.from("viagem_recursos").insert({
+        viagem_id: viagemId,
+        tipo: "reembolso",
+        valor: valorNum,
+        descricao: `Reembolso — ${nomeDespesa}`,
+        realizado_em: new Date(realizadoEm).toISOString(),
+        recurso_par_id: recurso.id,
+      });
+      if (errReembolso) {
+        alert(errReembolso.message);
+        setSaving(false);
+        return;
+      }
+    }
+
     for (const file of files) {
       const up = await uploadFile(file, `viagens/${viagemId}/recursos/${recurso.id}`);
       if (up) {
@@ -195,32 +275,37 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
 
     setShowFormGasto(false);
     setShowFormReembolso(false);
-    setValor("");
-    setDescricao("");
-    setPostoId("");
-    setOficinaId("");
-    setRealizadoEm("");
-    setKmVeiculo("");
-    setLitros("");
-    setCombustivelTipo("");
-    setNotaFiscal(null);
-    setComprovante(null);
-    setFiles([]);
+    limparFormulario();
     await syncFechamentoViagem(viagemId);
     setSaving(false);
-    load();
+    await load();
+    onRecursosChanged?.();
   }
 
-  async function handleExcluir(recursoId: string) {
-    if (
-      !confirm(
-        "Excluir este lançamento? Os anexos vinculados também serão removidos."
-      )
-    ) {
-      return;
-    }
+  async function handleExcluir(recursoId: string, recurso?: Recurso) {
+    const vinculados =
+      recurso?.tipo === "outro"
+        ? recursos.filter((r) => r.recurso_par_id === recursoId)
+        : [];
+    const msg =
+      vinculados.length > 0
+        ? `Excluir esta despesa e o reembolso vinculado (${vinculados.length})?`
+        : "Excluir este lançamento? Os anexos vinculados também serão removidos.";
+    if (!confirm(msg)) return;
+
     setExcluindoId(recursoId);
     const supabase = createClient();
+
+    if (vinculados.length) {
+      await supabase
+        .from("viagem_recursos")
+        .delete()
+        .in(
+          "id",
+          vinculados.map((r) => r.id)
+        );
+    }
+
     const { error } = await supabase
       .from("viagem_recursos")
       .delete()
@@ -234,7 +319,8 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
 
     await syncFechamentoViagem(viagemId);
     setExcluindoId(null);
-    load();
+    await load();
+    onRecursosChanged?.();
   }
 
   return (
@@ -270,6 +356,7 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
                 setLitros("");
                 setCombustivelTipo("");
               }
+              if (t !== "outro") setMotoristaAdiantou(false);
             }}
             options={[
               { value: "abastecimento", label: "Abastecimento" },
@@ -278,8 +365,15 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
               { value: "estacionamento", label: "Estacionamento" },
               { value: "seguro", label: "Seguro" },
               { value: "monitoramento", label: "Monitoramento" },
+              { value: "outro", label: "Outros (despesa personalizada)" },
             ]}
           />
+          {tipo === "outro" && (
+            <div className="rounded-lg border border-amber-800/40 bg-amber-950/25 px-3 py-3 text-xs text-amber-100/90">
+              Registre o custo para o financeiro. Se o motorista pagou do bolso, marque a opção
+              abaixo para gerar o reembolso automaticamente com o mesmo valor.
+            </div>
+          )}
           {motoristaTerceiro && tipo === "seguro" && !valorCarga && (
             <p className="text-xs text-amber-400">
               Cadastre o valor da carga na viagem para calcular o seguro (0,09%).
@@ -313,11 +407,16 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
           </div>
           {(tipo === "abastecimento" || tipo === "manutencao") && (
             <BrNumberInput
-              label="Quilometragem do veículo (opcional)"
+              label={
+                tipo === "abastecimento"
+                  ? "Quilometragem atual do veículo"
+                  : "Quilometragem do veículo (opcional)"
+              }
               decimalPlaces={0}
               value={kmVeiculo}
               onChange={setKmVeiculo}
               placeholder="Ex: 125.430"
+              required={tipo === "abastecimento"}
             />
           )}
           {tipo === "abastecimento" && (
@@ -341,11 +440,12 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
                 ]}
               />
               <BrNumberInput
-                label="Litros abastecidos (opcional)"
+                label="Litros abastecidos"
                 decimalPlaces={2}
                 value={litros}
                 onChange={setLitros}
                 placeholder="Ex: 150,50"
+                required
               />
             </>
           )}
@@ -360,22 +460,50 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
               ]}
             />
           )}
-          <Textarea
-            label="Descrição"
-            value={descricao}
-            onChange={(e) => setDescricao(e.target.value)}
-            placeholder={
-              tipo === "pedagio"
-                ? "Ex: praça de pedágio, rota, etc."
-                : tipo === "estacionamento"
-                  ? "Ex: local, período, etc."
-                  : tipo === "seguro"
-                    ? "Ex: apólice, cobertura, etc."
-                    : tipo === "monitoramento"
-                      ? "Ex: rastreador, mensalidade, etc."
-                      : ""
-            }
-          />
+          {tipo === "outro" ? (
+            <>
+              <Input
+                label="Nome da despesa"
+                value={descricao}
+                onChange={(e) => setDescricao(e.target.value)}
+                placeholder="Ex: Lavagem do veículo, borracharia, alimentação..."
+                required
+              />
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-violet-800/40 bg-violet-950/20 px-3 py-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={motoristaAdiantou}
+                  onChange={(e) => setMotoristaAdiantou(e.target.checked)}
+                  className="mt-0.5 rounded border-slate-600"
+                />
+                <span>
+                  <span className="font-medium text-violet-200">
+                    Motorista pagou do bolso
+                  </span>
+                  <span className="mt-0.5 block text-xs text-slate-400">
+                    Gera automaticamente um reembolso com o mesmo valor para devolver ao motorista.
+                  </span>
+                </span>
+              </label>
+            </>
+          ) : (
+            <Textarea
+              label="Descrição"
+              value={descricao}
+              onChange={(e) => setDescricao(e.target.value)}
+              placeholder={
+                tipo === "pedagio"
+                  ? "Ex: praça de pedágio, rota, etc."
+                  : tipo === "estacionamento"
+                    ? "Ex: local, período, etc."
+                    : tipo === "seguro"
+                      ? "Ex: apólice, cobertura, etc."
+                      : tipo === "monitoramento"
+                        ? "Ex: rastreador, mensalidade, etc."
+                        : ""
+              }
+            />
+          )}
           <AnexosFrotaCampos
             notaFiscal={notaFiscal}
             comprovante={comprovante}
@@ -407,9 +535,12 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
               key={r.id}
               recurso={r}
               viagemId={viagemId}
-              onExcluir={() => handleExcluir(r.id)}
+              onExcluir={() => handleExcluir(r.id, r)}
               excluindo={excluindoId === r.id}
               onAnexoAlterado={load}
+              reembolsosVinculados={recursosReembolso.filter(
+                (rb) => rb.recurso_par_id === r.id
+              )}
             />
           ))}
         </ul>
@@ -421,7 +552,8 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
           <div>
             <h3 className="font-semibold text-violet-300">Reembolso ao motorista</h3>
             <p className="text-xs text-slate-500">
-              Valores pagos pelo motorista — não entram no total de gastos
+              Valores a devolver ao motorista. Despesas &quot;Outros&quot; com adiantamento geram
+              reembolso automático vinculado.
             </p>
           </div>
           <Button
@@ -495,9 +627,14 @@ export function ViagemRecursos({ viagemId }: { viagemId: string }) {
                 key={r.id}
                 recurso={r}
                 viagemId={viagemId}
-                onExcluir={() => handleExcluir(r.id)}
+                onExcluir={() => handleExcluir(r.id, r)}
                 excluindo={excluindoId === r.id}
                 onAnexoAlterado={load}
+                despesaVinculada={
+                  r.recurso_par_id
+                    ? recursosGastos.find((g) => g.id === r.recurso_par_id)
+                    : undefined
+                }
               />
             ))}
           </ul>
@@ -513,12 +650,16 @@ function RecursoItem({
   onExcluir,
   excluindo,
   onAnexoAlterado,
+  reembolsosVinculados,
+  despesaVinculada,
 }: {
   recurso: Recurso;
   viagemId: string;
   onExcluir: () => void;
   excluindo: boolean;
   onAnexoAlterado: () => void;
+  reembolsosVinculados?: Recurso[];
+  despesaVinculada?: Recurso;
 }) {
   const [anexos, setAnexos] = useState<Anexo[]>([]);
   const [anexosInline, setAnexosInline] = useState({
@@ -585,7 +726,11 @@ function RecursoItem({
                   ? "Monitoramento"
                   : recurso.tipo === "arla"
                     ? "Arla"
-                    : "Outro";
+                    : recurso.tipo === "outro"
+                      ? recurso.descricao
+                        ? `Outros — ${recurso.descricao}`
+                        : "Outros"
+                      : "Outro";
 
   const local =
     recurso.postos?.nome ?? recurso.oficinas?.nome ?? null;
@@ -619,7 +764,25 @@ function RecursoItem({
           <> · KM {Number(recurso.km_abastecimento).toLocaleString("pt-BR")}</>
         )}
       </p>
-      {recurso.descricao && <p className="mt-1 text-slate-300">{recurso.descricao}</p>}
+      {recurso.descricao && recurso.tipo !== "outro" && (
+        <p className="mt-1 text-slate-300">{recurso.descricao}</p>
+      )}
+      {recurso.tipo === "outro" && reembolsosVinculados && reembolsosVinculados.length > 0 && (
+        <p className="mt-1 text-xs text-violet-300/90">
+          Reembolso vinculado:{" "}
+          {reembolsosVinculados
+            .map((r) =>
+              r.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+            )
+            .join(" · ")}
+        </p>
+      )}
+      {recurso.tipo === "reembolso" && despesaVinculada && (
+        <p className="mt-1 text-xs text-violet-300/90">
+          Referente à despesa:{" "}
+          <span className="text-violet-200">{despesaVinculada.descricao ?? "Outros"}</span>
+        </p>
+      )}
       {(anexosInline.nota_fiscal_path || anexosInline.comprovante_path) && (
         <div className="mt-2">
           <FrotaAnexosLinks

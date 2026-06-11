@@ -13,7 +13,8 @@ import {
   type AcompanhamentoViagemItem,
 } from "@/lib/acompanhamento-data";
 import type { ParceiroSugestao } from "@/lib/parceiros";
-import { VIAGEM_STATUS_FILTRO_ACOMPANHAMENTO } from "@/lib/viagem-validation";
+import { isFrota, VINCULO_OPCOES, VIAGEM_STATUS_FILTRO_ACOMPANHAMENTO } from "@/lib/viagem-validation";
+import type { RecursoVinculo } from "@/types";
 import { VIAGEM_STATUS_LABEL } from "@/lib/viagem-status";
 
 export default function AcompanhamentoPage() {
@@ -31,6 +32,7 @@ function AcompanhamentoContent() {
   const [viagens, setViagens] = useState<AcompanhamentoViagemItem[]>([]);
   const [fornecedores, setFornecedores] = useState<ParceiroSugestao[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filtroVinculo, setFiltroVinculo] = useState<"" | RecursoVinculo>("");
   const [filtroStatus, setFiltroStatus] = useState(statusUrl);
   const [filtroFornecedorId, setFiltroFornecedorId] = useState("");
 
@@ -60,6 +62,11 @@ function AcompanhamentoContent() {
 
   const filtradas = useMemo(() => {
     return viagens.filter((v) => {
+      if (filtroVinculo) {
+        const frota = isFrota(v.motorista_vinculo);
+        if (filtroVinculo === "frota" && !frota) return false;
+        if (filtroVinculo === "terceiro" && frota) return false;
+      }
       if (filtroStatus) {
         const statusViagem =
           v.status === "DESCARREGANDO" ? "DESCARGA EM ANDAMENTO" : v.status;
@@ -70,9 +77,10 @@ function AcompanhamentoContent() {
       }
       return true;
     });
-  }, [viagens, filtroStatus, fornecedorSelecionado]);
+  }, [viagens, filtroVinculo, filtroStatus, fornecedorSelecionado]);
 
-  const excluirArquivadas = filtroStatus === "" && !filtroFornecedorId;
+  const excluirArquivadas =
+    filtroVinculo === "" && filtroStatus === "" && !filtroFornecedorId;
 
   const visiveis = useMemo(() => {
     if (!excluirArquivadas) return filtradas;
@@ -98,6 +106,16 @@ function AcompanhamentoContent() {
       </header>
 
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-700/50 bg-slate-800/20 p-4 print:hidden">
+        <Select
+          label="Vínculo"
+          value={filtroVinculo}
+          onChange={(e) => setFiltroVinculo(e.target.value as "" | RecursoVinculo)}
+          options={[
+            { value: "", label: "Todos (frota e terceiro)" },
+            ...VINCULO_OPCOES.map((o) => ({ value: o.value, label: o.label })),
+          ]}
+          className="min-w-[220px]"
+        />
         <Select
           label="Status"
           value={filtroStatus}
@@ -128,8 +146,9 @@ function AcompanhamentoContent() {
 
       {fornecedorSelecionado && (
         <p className="rounded-lg border border-cyan-800/40 bg-cyan-950/20 px-4 py-3 text-sm text-cyan-100 print:border-gray-400 print:bg-gray-50 print:text-black">
-          Exibindo viagens com saída em <strong>{fornecedorSelecionado.nome}</strong> (fornecedor).
-          Todos os cards abaixo podem ser capturados em print para enviar à empresa.
+          Exibindo viagens que incluem <strong>{fornecedorSelecionado.nome}</strong> como
+          fornecedor (origem). Nos cards com vários fornecedores ou entregas, selecione qual
+          parada está ativa antes de copiar para o WhatsApp ou tirar print.
         </p>
       )}
 
@@ -140,15 +159,15 @@ function AcompanhamentoContent() {
       ) : (
         <>
           <p className="text-sm text-slate-400 print:text-gray-600">
-            {visiveis.length} viagem(ns) · <strong>Editar</strong> abre página completa ·{" "}
-            <strong>Copiar p/ WhatsApp</strong> ou imprima a tela
+            {visiveis.length} viagem(ns) · selecione fornecedor/entrega atuais quando houver
+            mais de um · <strong>Copiar p/ WhatsApp</strong> ou imprima a tela
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 print:grid-cols-2">
             {visiveis.map((v) => (
               <ViagemAcompanhamentoCard
                 key={v.id}
                 viagem={v}
-                onEntregaAtualizada={load}
+                onAtualizado={load}
               />
             ))}
           </div>

@@ -71,7 +71,9 @@ export function DocumentacaoAvisos() {
         .order("nome_completo"),
       supabase
         .from("veiculos")
-        .select("id, nome, placa, vinculo, crlv_vencimento, ipva_vencimento")
+        .select(
+          "id, nome, placa, vinculo, crlv_vencimento, ipva_vencimento, tacografo_vencimento"
+        )
         .order("nome"),
     ]).then(([m, v]) => {
       setAlertas(

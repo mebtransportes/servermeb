@@ -6,7 +6,11 @@ import { Button } from "@/components/ui/button";
 import { PeriodoFilter } from "@/components/frota/periodo-filter";
 import { StatsCards, buildManutencaoStats } from "@/components/frota/stats-cards";
 import { ManutencaoKanban } from "@/components/frota/manutencao-kanban";
-import { ManutencaoForm } from "@/components/frota/manutencao-form";
+import { ManutencaoAlertas } from "@/components/frota/manutencao-alertas";
+import {
+  ManutencaoForm,
+  type ManutencaoFormPrefill,
+} from "@/components/frota/manutencao-form";
 import { FrotaRelatorioModal } from "@/components/frota/frota-relatorio-modal";
 import { fetchManutencoes } from "@/lib/frota-data";
 import { excluirManutencao } from "@/lib/frota-crud";
@@ -26,6 +30,7 @@ export default function FrotaManutencaoPage() {
   const [editingItem, setEditingItem] = useState<ManutencaoCard | null>(null);
   const [statusForm, setStatusForm] = useState<FrotaManutencaoStatus>("AGENDADO");
   const [showRelatorio, setShowRelatorio] = useState(false);
+  const [formPrefill, setFormPrefill] = useState<ManutencaoFormPrefill | undefined>();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -53,14 +58,16 @@ export default function FrotaManutencaoPage() {
     periodoLabel
   );
 
-  function abrirNovo() {
+  function abrirNovo(prefill?: ManutencaoFormPrefill) {
     setEditingItem(null);
     setStatusForm("AGENDADO");
+    setFormPrefill(prefill);
     setShowForm(true);
   }
 
   function abrirEdicao(item: ManutencaoCard) {
     setEditingItem(item);
+    setFormPrefill(undefined);
     setShowForm(true);
   }
 
@@ -96,12 +103,16 @@ export default function FrotaManutencaoPage() {
             <FileBarChart className="h-4 w-4" />
             Relatórios
           </Button>
-          <Button variant="secondary" onClick={abrirNovo}>
+          <Button variant="secondary" onClick={() => abrirNovo()}>
             <Plus className="h-4 w-4" />
             Nova manutenção
           </Button>
         </div>
       </header>
+
+      {!loading && (
+        <ManutencaoAlertas itens={items} onAgendar={(p) => abrirNovo(p)} />
+      )}
 
       <PeriodoFilter value={periodo} onChange={setPeriodo} />
       <StatsCards stats={stats} />
@@ -109,15 +120,18 @@ export default function FrotaManutencaoPage() {
       {showForm && (
         <ManutencaoForm
           item={editingItem ?? undefined}
+          prefill={editingItem ? undefined : formPrefill}
           statusInicial={editingItem?.status ?? statusForm}
           onSaved={() => {
             setShowForm(false);
             setEditingItem(null);
+            setFormPrefill(undefined);
             load();
           }}
           onCancel={() => {
             setShowForm(false);
             setEditingItem(null);
+            setFormPrefill(undefined);
           }}
         />
       )}

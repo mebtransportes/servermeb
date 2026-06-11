@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { ViagemRecursos } from "@/components/operacional/viagem-recursos";
+import { ViagemKmOdometro } from "@/components/operacional/viagem-km-odometro";
 import { VIAGEM_STATUS } from "@/lib/viagem-validation";
 import { excluirAnexoTabela } from "@/lib/anexos-crud";
 import { AnexoArquivoRow } from "@/components/shared/anexo-arquivo-row";
@@ -35,13 +36,18 @@ export function ViagemDetail({
   const [veiculosViagem, setVeiculosViagem] = useState<
     { nome: string; placa: string; tipo?: Veiculo["tipo"] }[]
   >([]);
+  const [fornecedores, setFornecedores] = useState<
+    { local_fornecedor: string; ordem: number }[]
+  >([]);
   const [entregas, setEntregas] = useState<{ local_entrega: string; ordem: number }[]>([]);
   const [anexos, setAnexos] = useState<
     { id: string; categoria: string; file_name: string; storage_path: string }[]
   >([]);
   const [status, setStatus] = useState<ViagemStatus>("EM CARREGAMENTO");
+  const [fornecedorAtualOrdem, setFornecedorAtualOrdem] = useState("");
   const [entregaAtualOrdem, setEntregaAtualOrdem] = useState("");
   const [saving, setSaving] = useState(false);
+  const [refreshKm, setRefreshKm] = useState(0);
 
   const load = async () => {
     const supabase = createClient();
@@ -55,6 +61,9 @@ export function ViagemDetail({
     if (v) {
       setViagem(v as Viagem);
       setStatus(v.status);
+      setFornecedorAtualOrdem(
+        v.fornecedor_atual_ordem != null ? String(v.fornecedor_atual_ordem) : ""
+      );
       setEntregaAtualOrdem(
         v.entrega_atual_ordem != null ? String(v.entrega_atual_ordem) : ""
       );
@@ -95,11 +104,26 @@ export function ViagemDetail({
       );
     }
 
+    const { data: f } = await supabase
+      .from("viagem_fornecedores")
+      .select("local_fornecedor, ordem")
+      .eq("viagem_id", viagemId)
+      .order("ordem");
+
     const { data: e } = await supabase
       .from("viagem_entregas")
       .select("local_entrega, ordem")
       .eq("viagem_id", viagemId)
       .order("ordem");
+
+    const listaForn = f ?? [];
+    setFornecedores(
+      listaForn.length > 0
+        ? listaForn
+        : v?.local_saida
+          ? [{ ordem: 1, local_fornecedor: v.local_saida }]
+          : []
+    );
     setEntregas(e ?? []);
 
     const { data: a } = await supabase
@@ -108,6 +132,7 @@ export function ViagemDetail({
       .eq("viagem_id", viagemId)
       .is("recurso_id", null);
     setAnexos(a ?? []);
+    setRefreshKm((n) => n + 1);
   };
 
   useEffect(() => {
@@ -117,12 +142,20 @@ export function ViagemDetail({
   async function saveStatus() {
     setSaving(true);
     const supabase = createClient();
+    const fornecedorOrdem =
+      fornecedores.length > 1 && fornecedorAtualOrdem
+        ? Number(fornecedorAtualOrdem)
+        : null;
     const entregaOrdem =
       entregas.length > 1 && entregaAtualOrdem ? Number(entregaAtualOrdem) : null;
 
     await supabase
       .from("viagens")
-      .update({ status, entrega_atual_ordem: entregaOrdem })
+      .update({
+        status,
+        fornecedor_atual_ordem: fornecedorOrdem,
+        entrega_atual_ordem: entregaOrdem,
+      })
       .eq("id", viagemId);
     if (statusGeraFechamento(status)) {
       const err = await syncFechamentoViagem(viagemId);
@@ -175,6 +208,20 @@ export function ViagemDetail({
               label: VIAGEM_STATUS_LABEL[s] ?? s,
             }))}
           />
+          {fornecedores.length > 1 && (
+            <Select
+              label="Fornecedor atual (origem)"
+              value={fornecedorAtualOrdem}
+              onChange={(e) => setFornecedorAtualOrdem(e.target.value)}
+              options={[
+                { value: "", label: "Selecione o fornecedor atual..." },
+                ...fornecedores.map((f) => ({
+                  value: String(f.ordem),
+                  label: `Fornecedor ${f.ordem} — ${f.local_fornecedor}`,
+                })),
+              ]}
+            />
+          )}
           {entregas.length > 1 && (
             <Select
               label="Entrega atual (em qual parada está)"
@@ -195,6 +242,7 @@ export function ViagemDetail({
             disabled={
               saving ||
               (status === viagem.status &&
+                String(viagem.fornecedor_atual_ordem ?? "") === fornecedorAtualOrdem &&
                 String(viagem.entrega_atual_ordem ?? "") === entregaAtualOrdem)
             }
             className="self-end"
@@ -202,10 +250,20 @@ export function ViagemDetail({
             {saving ? "Salvando..." : "Salvar status"}
           </Button>
         </div>
-        {entregas.length > 1 && (
+        {(fornecedores.length > 1 || entregas.length > 1) && (
           <p className="mt-2 text-xs text-amber-200/90">
-            Esta viagem tem <strong>{entregas.length} entregas</strong>. Informe em qual parada o
-            caminhão está para o painel de acompanhamento exibir corretamente.
+            {fornecedores.length > 1 && (
+              <>
+                Esta viagem tem <strong>{fornecedores.length} fornecedores</strong>.{" "}
+              </>
+            )}
+            {entregas.length > 1 && (
+              <>
+                Esta viagem tem <strong>{entregas.length} entregas</strong>.{" "}
+              </>
+            )}
+            Informe fornecedor e entrega atuais para o acompanhamento e o texto do WhatsApp
+            ficarem corretos.
           </p>
         )}
         <p className="mt-2 text-xs text-slate-500">
@@ -249,10 +307,6 @@ export function ViagemDetail({
           </dd>
         </div>
         <div>
-          <dt className="text-slate-500">KM total</dt>
-          <dd>{viagem.km_total ?? "—"}</dd>
-        </div>
-        <div>
           <dt className="text-slate-500">Peso / Valor mercadoria</dt>
           <dd>
             {viagem.peso_kg ? `${viagem.peso_kg} kg` : "—"} /{" "}
@@ -278,13 +332,31 @@ export function ViagemDetail({
       </dl>
 
       <div>
+        {fornecedores.length > 0 && (
+          <>
+            <p className="mb-1 text-sm font-medium text-slate-300">Fornecedores (origem)</p>
+            <ul className="mb-3 ml-5 list-disc text-sm text-slate-400">
+              {fornecedores.map((f) => (
+                <li key={f.ordem}>
+                  Fornecedor {f.ordem}: {f.local_fornecedor}
+                  {viagem.fornecedor_atual_ordem === f.ordem && (
+                    <span className="ml-1 text-violet-400">(atual)</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
         <p className="mb-1 flex items-center gap-1 text-sm font-medium text-slate-300">
-          <MapPin className="h-4 w-4" /> Saída: {viagem.local_saida}
+          <MapPin className="h-4 w-4" /> Entregas
         </p>
         <ul className="ml-5 list-disc text-sm text-slate-400">
           {entregas.map((e) => (
             <li key={e.ordem}>
               Entrega {e.ordem}: {e.local_entrega}
+              {viagem.entrega_atual_ordem === e.ordem && (
+                <span className="ml-1 text-orange-400">(atual)</span>
+              )}
             </li>
           ))}
         </ul>
@@ -317,7 +389,15 @@ export function ViagemDetail({
         <ViagemComprovantesDescarga viagemId={viagemId} />
       </div>
 
-      <ViagemRecursos viagemId={viagemId} />
+      <ViagemRecursos viagemId={viagemId} onRecursosChanged={load} />
+
+      <ViagemKmOdometro
+        viagemId={viagemId}
+        kmInicial={viagem.km_odometro_inicial}
+        kmFinalInicial={viagem.km_odometro_final}
+        refreshKey={refreshKm}
+        onSaved={load}
+      />
     </div>
   );
 }

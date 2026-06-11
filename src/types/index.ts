@@ -24,6 +24,7 @@ export interface Veiculo {
   renavam?: string | null;
   crlv_vencimento?: string | null;
   ipva_vencimento?: string | null;
+  tacografo_vencimento?: string | null;
   quitado: boolean;
   financiado: boolean;
   parcelas_restantes?: number | null;
@@ -94,8 +95,11 @@ export interface Viagem {
   numero_cte?: string | null;
   descricao_mercadoria?: string | null;
   km_total?: number | null;
+  km_odometro_inicial?: number | null;
+  km_odometro_final?: number | null;
   status: ViagemStatus;
   entrega_atual_ordem?: number | null;
+  fornecedor_atual_ordem?: number | null;
   motorista_apto: boolean;
   veiculo_apto: boolean;
   motoristas?: Pick<Motorista, "nome_completo" | "cpf" | "telefone"> & Partial<Motorista>;

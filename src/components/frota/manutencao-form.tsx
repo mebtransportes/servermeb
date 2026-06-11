@@ -11,16 +11,37 @@ import { Select } from "@/components/ui/select";
 import { AnexosFrotaCampos } from "@/components/frota/anexos-campos";
 import { salvarAnexosFrota } from "@/lib/frota-anexos";
 import { carregarManutencaoEdicao } from "@/lib/frota-crud";
+import {
+  montarPayloadPagamento,
+  salvarParcelasManutencao,
+} from "@/lib/frota-manutencao-pagamento";
+import {
+  criarParcelasVazias,
+  PAGAMENTO_FORMA_OPCOES,
+  PAGAMENTO_MODALIDADE_OPCOES,
+  validarPagamentoManutencao,
+  type ManutencaoPagamentoForma,
+  type ManutencaoPagamentoModalidade,
+  type ManutencaoParcelaInput,
+} from "@/lib/manutencao-pagamento";
 import type { FrotaManutencaoStatus, ManutencaoCard } from "@/types/frota";
+
+export type ManutencaoFormPrefill = {
+  nome?: string;
+  veiculoId?: string;
+  data?: string;
+};
 
 export function ManutencaoForm({
   item,
   statusInicial = "AGENDADO",
+  prefill,
   onSaved,
   onCancel,
 }: {
   item?: ManutencaoCard;
   statusInicial?: FrotaManutencaoStatus;
+  prefill?: ManutencaoFormPrefill;
   onSaved: () => void;
   onCancel: () => void;
 }) {
@@ -48,9 +69,27 @@ export function ManutencaoForm({
   const [frotaId, setFrotaId] = useState<string>();
   const [viagemRecursoId, setViagemRecursoId] = useState<string>();
   const [source, setSource] = useState<"preventiva" | "viagem">("preventiva");
+  const [pagamentoModalidade, setPagamentoModalidade] = useState<
+    ManutencaoPagamentoModalidade | ""
+  >("");
+  const [pagamentoForma, setPagamentoForma] = useState<ManutencaoPagamentoForma | "">("");
+  const [pagamentoVencimento, setPagamentoVencimento] = useState("");
+  const [qtdParcelas, setQtdParcelas] = useState("1");
+  const [parcelas, setParcelas] = useState<ManutencaoParcelaInput[]>([]);
+  const [dataProximaManutencao, setDataProximaManutencao] = useState("");
   const [loading, setLoading] = useState(!!item);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const mostrarPagamento = source === "preventiva";
+
+  useEffect(() => {
+    if (item || !prefill) return;
+    if (prefill.nome) setNome(prefill.nome);
+    if (prefill.veiculoId) setVeiculoId(prefill.veiculoId);
+    if (prefill.data) setData(prefill.data);
+    setStatus("AGENDADO");
+  }, [item, prefill]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -86,9 +125,43 @@ export function ManutencaoForm({
         nota_fiscal_nome: d.nota_fiscal_nome,
         comprovante_nome: d.comprovante_nome,
       });
+      if (d.source === "preventiva") {
+        setPagamentoModalidade(d.pagamentoModalidade);
+        setPagamentoForma(d.pagamentoForma);
+        setPagamentoVencimento(d.pagamentoVencimento);
+        setParcelas(d.parcelas);
+        setQtdParcelas(String(d.parcelas.length || 1));
+        setDataProximaManutencao(d.dataProximaManutencao);
+      }
       setLoading(false);
     });
   }, [item]);
+
+  function atualizarQtdParcelas(novaQtd: string) {
+    const n = Math.max(1, Math.min(48, parseInt(novaQtd, 10) || 1));
+    setQtdParcelas(String(n));
+    const total = parseBrNumber(valor) ?? 0;
+    setParcelas((atual) => {
+      const datas = atual.map((p) => p.dataVencimento);
+      const novas = criarParcelasVazias(n, total);
+      return novas.map((p, i) => ({
+        ...p,
+        dataVencimento: datas[i] ?? p.dataVencimento,
+      }));
+    });
+  }
+
+  function redistribuirParcelas() {
+    const total = parseBrNumber(valor) ?? 0;
+    setParcelas((atual) => {
+      const datas = atual.map((p) => p.dataVencimento);
+      const novas = criarParcelasVazias(atual.length || 1, total);
+      return novas.map((p, i) => ({
+        ...p,
+        dataVencimento: datas[i] ?? p.dataVencimento,
+      }));
+    });
+  }
 
   useEffect(() => {
     if (oficinaId) {
@@ -102,6 +175,32 @@ export function ManutencaoForm({
     setSaving(true);
     setError("");
     const supabase = createClient();
+    const valorNumerico = parseBrNumber(valor) ?? 0;
+
+    if (mostrarPagamento) {
+      const erroPag = validarPagamentoManutencao({
+        modalidade: pagamentoModalidade,
+        forma: pagamentoForma,
+        vencimentoAvista: pagamentoVencimento,
+        parcelas,
+        valorTotal: valorNumerico,
+        parseValor: parseBrNumber,
+      });
+      if (erroPag) {
+        setSaving(false);
+        setError(erroPag);
+        return;
+      }
+    }
+
+    const payloadPagamento =
+      mostrarPagamento && pagamentoModalidade && pagamentoForma
+        ? montarPayloadPagamento({
+            modalidade: pagamentoModalidade,
+            forma: pagamentoForma,
+            vencimentoAvista: pagamentoVencimento,
+          })
+        : {};
 
     const anexosNovos =
       notaFiscal || comprovante
@@ -135,16 +234,29 @@ export function ManutencaoForm({
           km_veiculo: parseBrNumber(kmVeiculo),
           data_agendada: data,
           hora_agendada: hora || null,
-          valor_total: parseBrNumber(valor) ?? 0,
+          valor_total: valorNumerico,
           status,
+          data_proxima_manutencao: dataProximaManutencao || null,
           ...anexosPayload,
+          ...payloadPagamento,
         })
         .eq("id", frotaId);
-      setSaving(false);
       if (err) {
+        setSaving(false);
         setError(err.message);
         return;
       }
+      try {
+        await salvarParcelasManutencao(
+          frotaId,
+          pagamentoModalidade === "A_PRAZO" ? parcelas : []
+        );
+      } catch (parcelaErr) {
+        setSaving(false);
+        setError(parcelaErr instanceof Error ? parcelaErr.message : "Erro ao salvar parcelas");
+        return;
+      }
+      setSaving(false);
       onSaved();
       return;
     }
@@ -189,10 +301,12 @@ export function ManutencaoForm({
         km_veiculo: parseBrNumber(kmVeiculo),
         data_agendada: data,
         hora_agendada: hora || null,
-        valor_total: parseBrNumber(valor) ?? 0,
+        valor_total: valorNumerico,
         status,
         origem: "preventiva",
         created_by: user?.id,
+        data_proxima_manutencao: dataProximaManutencao || null,
+        ...payloadPagamento,
       })
       .select("id")
       .single();
@@ -200,6 +314,17 @@ export function ManutencaoForm({
     if (err || !row) {
       setSaving(false);
       setError(err?.message ?? "Erro ao salvar");
+      return;
+    }
+
+    try {
+      await salvarParcelasManutencao(
+        row.id,
+        pagamentoModalidade === "A_PRAZO" ? parcelas : []
+      );
+    } catch (parcelaErr) {
+      setSaving(false);
+      setError(parcelaErr instanceof Error ? parcelaErr.message : "Erro ao salvar parcelas");
       return;
     }
 
@@ -292,7 +417,134 @@ export function ManutencaoForm({
           onChange={setValor}
           required
         />
+        {mostrarPagamento && (
+          <Input
+            label="Próxima manutenção prevista (opcional)"
+            type="date"
+            value={dataProximaManutencao}
+            onChange={(e) => setDataProximaManutencao(e.target.value)}
+            min={data || undefined}
+          />
+        )}
       </div>
+      {mostrarPagamento && (
+        <p className="-mt-2 text-xs text-slate-500">
+          Informe quando este serviço deve ser repetido no veículo (ex.: próxima troca de óleo).
+          O sistema alerta 1 dia antes e no dia previsto.
+        </p>
+      )}
+
+      {mostrarPagamento && (
+        <div className="space-y-4 rounded-lg border border-slate-700/60 bg-slate-950/40 p-4">
+          <h4 className="text-sm font-semibold text-cyan-400">Pagamento</h4>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Select
+              label="Modalidade"
+              value={pagamentoModalidade}
+              onChange={(e) => {
+                const mod = e.target.value as ManutencaoPagamentoModalidade | "";
+                setPagamentoModalidade(mod);
+                if (mod === "A_PRAZO" && !parcelas.length) {
+                  atualizarQtdParcelas(qtdParcelas);
+                }
+              }}
+              options={[
+                { value: "", label: "Selecione..." },
+                ...PAGAMENTO_MODALIDADE_OPCOES,
+              ]}
+              required
+            />
+            <Select
+              label="Forma de pagamento"
+              value={pagamentoForma}
+              onChange={(e) =>
+                setPagamentoForma(e.target.value as ManutencaoPagamentoForma | "")
+              }
+              options={[
+                { value: "", label: "Selecione..." },
+                ...PAGAMENTO_FORMA_OPCOES,
+              ]}
+              required
+            />
+          </div>
+
+          {pagamentoModalidade === "A_VISTA" && (
+            <Input
+              label="Data de pagamento"
+              type="date"
+              value={pagamentoVencimento}
+              onChange={(e) => setPagamentoVencimento(e.target.value)}
+              required
+            />
+          )}
+
+          {pagamentoModalidade === "A_PRAZO" && (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="w-32">
+                  <Input
+                    label="Nº de parcelas"
+                    type="number"
+                    min={1}
+                    max={48}
+                    value={qtdParcelas}
+                    onChange={(e) => atualizarQtdParcelas(e.target.value)}
+                    required
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="px-3 py-2 text-sm"
+                  onClick={redistribuirParcelas}
+                >
+                  Redistribuir valores
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {parcelas.map((p, idx) => (
+                  <div
+                    key={p.numero}
+                    className="grid gap-2 rounded-md border border-slate-700/50 bg-slate-900/60 p-3 sm:grid-cols-[auto_1fr_1fr]"
+                  >
+                    <span className="self-center text-xs font-semibold text-slate-400">
+                      {p.numero}ª
+                    </span>
+                    <BrNumberInput
+                      label="Valor (R$)"
+                      decimalPlaces={2}
+                      value={p.valor}
+                      onChange={(v) =>
+                        setParcelas((prev) =>
+                          prev.map((x, i) => (i === idx ? { ...x, valor: v } : x))
+                        )
+                      }
+                      required
+                    />
+                    <Input
+                      label="Vencimento"
+                      type="date"
+                      value={p.dataVencimento}
+                      onChange={(e) =>
+                        setParcelas((prev) =>
+                          prev.map((x, i) =>
+                            i === idx ? { ...x, dataVencimento: e.target.value } : x
+                          )
+                        )
+                      }
+                      required
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-slate-500">
+                Cada parcela pode ter data de vencimento diferente. A soma dos valores deve
+                corresponder ao valor total da manutenção.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       <AnexosFrotaCampos
         notaFiscal={notaFiscal}

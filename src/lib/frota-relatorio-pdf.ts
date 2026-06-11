@@ -2,6 +2,11 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { ManutencaoCard, AbastecimentoCard } from "@/types/frota";
 import { formatarMoeda, formatarDataBr, formatarDataHoraBr } from "@/lib/frota-filters";
+import {
+  labelPagamentoForma,
+  labelPagamentoModalidade,
+  textoParcelasManutencao,
+} from "@/lib/manutencao-pagamento";
 
 function textoAnexo(sim: boolean) {
   return sim ? "Sim" : "—";
@@ -92,6 +97,18 @@ export function gerarPdfManutencao(
     const dataHora = i.horaRef
       ? `${formatarDataBr(i.dataRef)} ${i.horaRef.slice(0, 5)}`
       : formatarDataBr(i.dataRef);
+    const pagamento =
+      i.source === "preventiva" && i.pagamentoModalidade && i.pagamentoForma
+        ? `${labelPagamentoForma(i.pagamentoForma)} · ${labelPagamentoModalidade(i.pagamentoModalidade)}`
+        : "—";
+    const vencimento =
+      i.source === "preventiva"
+        ? i.pagamentoModalidade === "A_VISTA" && i.pagamentoVencimento
+          ? formatarDataBr(i.pagamentoVencimento)
+          : i.pagamentoModalidade === "A_PRAZO" && i.parcelas?.length
+            ? textoParcelasManutencao(i.parcelas)
+            : "—"
+        : "—";
     return [
       dataHora,
       i.nome,
@@ -103,6 +120,8 @@ export function gerarPdfManutencao(
       i.status,
       i.source === "preventiva" ? "Preventiva" : "Viagem",
       formatarMoeda(i.valor),
+      pagamento,
+      vencimento,
       textoAnexo(!!i.nota_fiscal_path),
       textoAnexo(!!i.comprovante_path),
     ];
@@ -122,11 +141,15 @@ export function gerarPdfManutencao(
         "Status",
         "Origem",
         "Valor",
+        "Pagamento",
+        "Vencimento / Parcelas",
         "NF",
         "Comp.",
       ],
     ],
-    body: body.length ? body : [["—", "Nenhum registro no período", "", "", "", "", "", "", "", "", "", ""]],
+    body: body.length
+      ? body
+      : [["—", "Nenhum registro no período", "", "", "", "", "", "", "", "", "", "", "", ""]],
     styles: { fontSize: 7, cellPadding: 1.5 },
     headStyles: { fillColor: [0, 120, 140], textColor: 255 },
     alternateRowStyles: { fillColor: [245, 248, 250] },
