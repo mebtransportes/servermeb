@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Pencil, Plus, Users, X } from "lucide-react";
+import { MebModal, MebModalFooter, MebModalHeader } from "@/components/ui/modal";
+import { Pencil, Plus, Users } from "lucide-react";
 import {
   atualizarUsuario,
   criarUsuario,
@@ -203,31 +204,26 @@ export function UsuariosAdminPanel() {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-md rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">
-                {modal === "create" ? "Novo usuário" : "Editar usuário"}
-              </h2>
-              <button
-                type="button"
-                onClick={closeModal}
-                className="rounded-lg p-1 text-slate-400 hover:bg-[#262626] hover:text-white"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+        <MebModal open onClose={closeModal} aria-labelledby="usuario-modal-titulo">
+          <form onSubmit={handleSubmit} className="p-6">
+            <MebModalHeader
+              id="usuario-modal-titulo"
+              title={modal === "create" ? "Novo usuário" : "Editar usuário"}
+              onClose={closeModal}
+            />
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="mt-4 space-y-4">
               <Input
                 label="E-mail de acesso"
                 type="email"
+                tone="light"
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                 required
               />
               <Input
                 label="Nome de usuário"
+                tone="light"
                 value={form.username}
                 onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
                 required
@@ -236,6 +232,7 @@ export function UsuariosAdminPanel() {
               <Input
                 label={modal === "create" ? "Senha" : "Nova senha (opcional)"}
                 type="password"
+                tone="light"
                 value={form.password}
                 onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
                 required={modal === "create"}
@@ -243,6 +240,7 @@ export function UsuariosAdminPanel() {
               />
               <Select
                 label="Tipo de usuário"
+                tone="light"
                 value={form.role}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, role: e.target.value as ProfileRole }))
@@ -259,17 +257,17 @@ export function UsuariosAdminPanel() {
                 <p className="text-sm text-red-400">{error}</p>
               )}
 
-              <div className="flex gap-2 pt-2">
-                <Button type="submit" disabled={saving}>
+              <MebModalFooter className="pt-2">
+                <Button type="submit" variant="modal" disabled={saving}>
                   {saving ? "Salvando…" : modal === "create" ? "Cadastrar" : "Salvar"}
                 </Button>
-                <Button type="button" variant="ghost" onClick={closeModal}>
+                <Button type="button" variant="secondary" onClick={closeModal}>
                   Cancelar
                 </Button>
-              </div>
-            </form>
-          </div>
-        </div>
+              </MebModalFooter>
+            </div>
+          </form>
+        </MebModal>
       )}
     </div>
   );

@@ -3,14 +3,14 @@ import { cn } from "@/lib/utils";
 type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
   label?: string;
   error?: string;
-  /** Fundo claro (ex.: card de login cinza gelo). */
+  /** Fundo escuro (ex.: modais). */
   tone?: "dark" | "light";
 };
 
 export function Input({
   label,
   error,
-  tone = "dark",
+  tone = "light",
   className,
   id,
   ...props
@@ -24,7 +24,7 @@ export function Input({
           htmlFor={inputId}
           className={cn(
             "text-sm font-medium",
-            isLight ? "text-slate-700" : "text-slate-300"
+            isLight ? "text-slate-600" : "text-slate-300"
           )}
         >
           {label}
@@ -33,17 +33,17 @@ export function Input({
       <input
         id={inputId}
         className={cn(
-          "rounded-lg border px-3 py-2.5 text-base focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500",
+          "rounded-lg border px-3 py-2.5 text-base focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400",
           isLight
-            ? "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
+            ? "border-slate-200 bg-white/80 text-slate-900 placeholder:text-slate-400"
             : "border-slate-600 bg-slate-800/80 text-white placeholder:text-slate-500",
-          error && "border-red-500",
+          error && "border-red-400",
           className
         )}
         {...props}
       />
       {error && (
-        <span className={cn("text-xs", isLight ? "text-red-600" : "text-red-400")}>
+        <span className={cn("text-xs", isLight ? "text-slate-600" : "text-red-400")}>
           {error}
         </span>
       )}

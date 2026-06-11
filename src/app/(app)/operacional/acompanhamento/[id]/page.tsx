@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, MapPinned } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ViagemDetail } from "@/components/operacional/viagem-detail";
+import { mebFormSection } from "@/lib/utils";
 
 export default function AcompanhamentoViagemPage() {
   const params = useParams();
@@ -14,7 +15,7 @@ export default function AcompanhamentoViagemPage() {
   if (!viagemId) {
     return (
       <div className="space-y-4">
-        <p className="text-slate-400">Viagem não encontrada.</p>
+        <p className="text-slate-500">Viagem não encontrada.</p>
         <Link href="/operacional/acompanhamento">
           <Button type="button" variant="secondary">
             Voltar ao acompanhamento
@@ -38,10 +39,10 @@ export default function AcompanhamentoViagemPage() {
             Voltar
           </Button>
           <div className="flex items-center gap-2">
-            <MapPinned className="h-7 w-7 text-cyan-400" />
+            <MapPinned className="h-7 w-7 text-slate-400" />
             <div>
-              <h1 className="text-xl font-bold text-white">Editar viagem</h1>
-              <p className="text-sm text-slate-400">
+              <h1 className="text-xl font-bold text-slate-900">Editar viagem</h1>
+              <p className="text-sm text-slate-500">
                 Status, canhotos, recursos e demais informações
               </p>
             </div>
@@ -49,7 +50,7 @@ export default function AcompanhamentoViagemPage() {
         </div>
       </header>
 
-      <section className="rounded-xl border border-slate-700/50 bg-slate-800/20 p-6">
+      <section className={mebFormSection}>
         <ViagemDetail
           viagemId={viagemId}
           onUpdated={() => router.refresh()}

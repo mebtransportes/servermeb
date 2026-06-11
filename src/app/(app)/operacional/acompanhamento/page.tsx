@@ -16,6 +16,7 @@ import type { ParceiroSugestao } from "@/lib/parceiros";
 import { isFrota, VINCULO_OPCOES, VIAGEM_STATUS_FILTRO_ACOMPANHAMENTO } from "@/lib/viagem-validation";
 import type { RecursoVinculo } from "@/types";
 import { VIAGEM_STATUS_LABEL } from "@/lib/viagem-status";
+import { mebCard } from "@/lib/utils";
 
 export default function AcompanhamentoPage() {
   return (
@@ -105,7 +106,7 @@ function AcompanhamentoContent() {
         </Button>
       </header>
 
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-700/50 bg-slate-800/20 p-4 print:hidden">
+      <div className={`flex flex-wrap items-end gap-3 p-4 print:hidden ${mebCard}`}>
         <Select
           label="Vínculo"
           value={filtroVinculo}
@@ -145,7 +146,7 @@ function AcompanhamentoContent() {
       </div>
 
       {fornecedorSelecionado && (
-        <p className="rounded-lg border border-cyan-800/40 bg-cyan-950/20 px-4 py-3 text-sm text-cyan-100 print:border-gray-400 print:bg-gray-50 print:text-black">
+        <p className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 print:border-gray-400 print:bg-gray-50 print:text-black">
           Exibindo viagens que incluem <strong>{fornecedorSelecionado.nome}</strong> como
           fornecedor (origem). Nos cards com vários fornecedores ou entregas, selecione qual
           parada está ativa antes de copiar para o WhatsApp ou tirar print.

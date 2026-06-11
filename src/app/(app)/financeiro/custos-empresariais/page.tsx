@@ -34,6 +34,7 @@ import {
 } from "@/lib/frota-filters";
 import type { DespesaEmpresarial } from "@/types/custos-empresariais";
 import { Trash2 } from "lucide-react";
+import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 
 type ModalDetalhe =
   | "motorista"
@@ -67,11 +68,18 @@ function CardEmpresarial({
 
   async function handleExcluirCard(id: string) {
     if (!onExcluirDespesa) return;
-    if (!confirm("Excluir este lançamento?")) return;
+    if (
+      !(await mebConfirm("Excluir este lançamento?", {
+        variant: "danger",
+        confirmLabel: "Excluir",
+      }))
+    ) {
+      return;
+    }
     setExcluindoId(id);
     const err = await onExcluirDespesa(id);
     setExcluindoId(null);
-    if (err) alert(err);
+    if (err) await mebAlert(err);
   }
 
   return (

@@ -15,6 +15,8 @@ import { VinculoSelector } from "@/components/cadastro/vinculo-selector";
 import { isFrota, VEICULO_TIPO_OPCOES } from "@/lib/viagem-validation";
 import { Plus, Trash2 } from "lucide-react";
 import { FileUploadField } from "@/components/ui/file-upload";
+import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
+import { cn, mebFormSubsection } from "@/lib/utils";
 
 type Anexo = { id?: string; nome: string; storage_path: string; file_name: string };
 
@@ -157,7 +159,7 @@ export function VeiculosForm({
       />
 
       {!ehFrota && (
-        <p className="rounded-lg border border-amber-800/40 bg-amber-950/25 px-4 py-3 text-sm text-amber-200">
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Veículo de terceiro: mesmo cadastro da frota, exceto vencimento de CRLV, IPVA e
           tacógrafo, que não são controlados nem exigidos em viagens.
         </p>
@@ -190,22 +192,22 @@ export function VeiculosForm({
       </div>
 
       <div className="flex flex-wrap gap-6">
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm text-slate-700">
           <input
             type="checkbox"
             checked={quitado}
             onChange={(e) => setQuitado(e.target.checked)}
-            className="rounded border-slate-600"
+            className="rounded border-slate-300"
           />
           Veículo quitado
         </label>
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm text-slate-700">
           <input
             type="checkbox"
             checked={financiado}
             disabled={quitado}
             onChange={(e) => setFinanciado(e.target.checked)}
-            className="rounded border-slate-600"
+            className="rounded border-slate-300"
           />
           Financiado
         </label>
@@ -228,9 +230,9 @@ export function VeiculosForm({
         </div>
       )}
 
-      <div className="space-y-3 rounded-xl border border-slate-700/60 p-4">
+      <div className={cn(mebFormSubsection, "space-y-3")}>
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-cyan-400">Campos personalizados</h3>
+          <h3 className="text-sm font-semibold text-slate-800">Campos personalizados</h3>
           <Button type="button" variant="secondary" onClick={addCampoCustom}>
             <Plus className="h-4 w-4" />
             Cadastre outra opção
@@ -263,14 +265,14 @@ export function VeiculosForm({
               variant="ghost"
               onClick={() => setCamposCustom(camposCustom.filter((_, j) => j !== i))}
             >
-              <Trash2 className="h-4 w-4 text-red-400" />
+              <Trash2 className="h-4 w-4 text-red-600" />
             </Button>
           </div>
         ))}
       </div>
 
-      <div className="space-y-3 rounded-xl border border-slate-700/60 p-4">
-        <h3 className="text-sm font-semibold text-cyan-400">Anexos PDF</h3>
+      <div className={cn(mebFormSubsection, "space-y-3")}>
+        <h3 className="text-sm font-semibold text-slate-800">Anexos PDF</h3>
         {anexos.map((a) => (
           <AnexoRow
             key={a.id ?? a.storage_path}
@@ -290,10 +292,10 @@ export function VeiculosForm({
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="flex gap-3">
-        <Button type="submit" disabled={saving}>
+        <Button type="submit" variant="success" disabled={saving}>
           {saving ? "Salvando..." : veiculo ? "Atualizar" : "Cadastrar veículo"}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel}>
@@ -318,12 +320,19 @@ function AnexoRow({
       onExcluido();
       return;
     }
-    if (!confirm(`Excluir o documento "${anexo.nome}"?`)) return;
+    if (
+      !(await mebConfirm(`Excluir o documento "${anexo.nome}"?`, {
+        variant: "danger",
+        confirmLabel: "Excluir",
+      }))
+    ) {
+      return;
+    }
     setExcluindo(true);
     const err = await excluirAnexoTabela("veiculo_anexos", anexo.id, anexo.storage_path);
     setExcluindo(false);
     if (err) {
-      alert(err);
+      await mebAlert(err);
       return;
     }
     onExcluido();

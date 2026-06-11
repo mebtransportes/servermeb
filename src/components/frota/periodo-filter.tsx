@@ -6,7 +6,7 @@ import {
   type PeriodoPreset,
 } from "@/lib/frota-filters";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { cn, mebFilterActive, mebFilterInactive } from "@/lib/utils";
 
 export function PeriodoFilter({
   value,
@@ -35,9 +35,7 @@ export function PeriodoFilter({
             onClick={() => setPreset(p.value)}
             className={cn(
               "rounded-lg px-3.5 py-2 text-sm font-medium transition",
-              value.preset === p.value
-                ? "bg-[#33388d] text-white shadow-sm"
-                : "border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50"
+              value.preset === p.value ? mebFilterActive : mebFilterInactive
             )}
           >
             {p.label}
@@ -48,9 +46,7 @@ export function PeriodoFilter({
           onClick={() => setPreset("custom")}
           className={cn(
             "rounded-lg px-3.5 py-2 text-sm font-medium transition",
-            isCustom
-              ? "bg-[#33388d] text-white shadow-sm"
-              : "border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50"
+            isCustom ? mebFilterActive : mebFilterInactive
           )}
         >
           Datas específicas

@@ -13,20 +13,8 @@ import {
 } from "@/lib/viagem-crud";
 import { formatarMoeda, formatarDataHoraBr } from "@/lib/frota-filters";
 import { cn } from "@/lib/utils";
-
-const statusCor: Record<string, string> = {
-  "EM CARREGAMENTO": "bg-sky-900/50 text-sky-300",
-  "EM ROTA": "bg-blue-900/50 text-blue-300",
-  "EM MANUTENÇÃO": "bg-rose-900/50 text-rose-300",
-  "AGUARDANDO DESCARGA": "bg-violet-900/50 text-violet-300",
-  "DESCARGA EM ANDAMENTO": "bg-orange-900/50 text-orange-300",
-  DESCARREGANDO: "bg-orange-900/50 text-orange-300",
-  FINALIZADO: "bg-emerald-900/50 text-emerald-300",
-  "PAGAMENTO PENDENTE": "bg-amber-900/50 text-amber-300",
-  ARQUIVADO: "bg-slate-700/50 text-slate-400",
-  "EM ANDAMENTO": "bg-blue-900/50 text-blue-300",
-  "EM ATRASO": "bg-red-900/50 text-red-300",
-};
+import { VIAGEM_STATUS_CORES } from "@/lib/viagem-status";
+import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 
 export default function CadastroViagensPage() {
   const [lista, setLista] = useState<ViagemListItem[]>([]);
@@ -54,7 +42,7 @@ export default function CadastroViagensPage() {
   async function abrirEdicao(item: ViagemListItem) {
     const dados = await fetchViagemParaEdicao(item.id);
     if (!dados) {
-      alert("Não foi possível carregar a viagem.");
+      await mebAlert("Não foi possível carregar a viagem.");
       return;
     }
     setEditing(dados);
@@ -64,15 +52,16 @@ export default function CadastroViagensPage() {
 
   async function handleExcluir(item: ViagemListItem) {
     if (
-      !confirm(
-        `Excluir a viagem de ${item.motorista_nome} (${formatarDataHoraBr(item.saida_em)})? Todos os recursos e anexos vinculados serão removidos.`
-      )
+      !(await mebConfirm(
+        `Excluir a viagem de ${item.motorista_nome} (${formatarDataHoraBr(item.saida_em)})? Todos os recursos e anexos vinculados serão removidos.`,
+        { variant: "danger", confirmLabel: "Excluir" }
+      ))
     ) {
       return;
     }
     const err = await excluirViagem(item.id);
     if (err) {
-      alert(err);
+      await mebAlert(err);
       return;
     }
     if (editing?.id === item.id) {
@@ -140,7 +129,7 @@ export default function CadastroViagensPage() {
             </p>
           </div>
         </div>
-        <Button onClick={abrirNova}>
+        <Button variant="success" onClick={abrirNova}>
           <Plus className="h-4 w-4" />
           Nova viagem
         </Button>
@@ -157,9 +146,9 @@ export default function CadastroViagensPage() {
       ) : lista.length === 0 ? (
         <p className="text-slate-500">Nenhuma viagem cadastrada.</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-700/50">
+        <div className="overflow-x-auto rounded-xl border border-slate-200/80 bg-white/60">
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-800/80 text-slate-400">
+            <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
               <tr>
                 <th className="px-4 py-3">Saída</th>
                 <th className="px-4 py-3">Motorista</th>
@@ -173,7 +162,7 @@ export default function CadastroViagensPage() {
             </thead>
             <tbody>
               {lista.map((v) => (
-                <tr key={v.id} className="border-t border-slate-700/50">
+                <tr key={v.id} className="border-t border-slate-100 hover:bg-white/50">
                   <td className="px-4 py-3 whitespace-nowrap">
                     {formatarDataHoraBr(v.saida_em)}
                   </td>
@@ -187,8 +176,8 @@ export default function CadastroViagensPage() {
                   <td className="px-4 py-3">
                     <span
                       className={cn(
-                        "rounded px-2 py-0.5 text-xs font-medium",
-                        statusCor[v.status] ?? "bg-slate-700 text-slate-300"
+                        "meb-status-badge rounded-full px-2 py-0.5 text-xs font-medium",
+                        VIAGEM_STATUS_CORES[v.status] ?? "bg-slate-100 text-slate-600"
                       )}
                     >
                       {v.status}

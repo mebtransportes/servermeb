@@ -10,6 +10,9 @@ import { cn } from "@/lib/utils";
 
 const MIN_CHARS = 2;
 
+const inputClass =
+  "rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400";
+
 type EntregaAutocompleteProps = {
   label: string;
   value: string;
@@ -17,7 +20,6 @@ type EntregaAutocompleteProps = {
   className?: string;
   placeholder?: string;
   required?: boolean;
-  /** Restringe sugestões a clientes, fornecedores ou ambos. */
   tipoParceiro?: "cliente" | "fornecedor" | "todos";
 };
 
@@ -90,7 +92,7 @@ export function EntregaAutocomplete({
 
   return (
     <div ref={containerRef} className={cn("relative flex flex-col gap-1", className)}>
-      <label className="text-sm font-medium text-slate-300">{label}</label>
+      <label className="text-sm font-medium text-slate-600">{label}</label>
       <input
         type="text"
         value={value}
@@ -103,12 +105,12 @@ export function EntregaAutocomplete({
         placeholder={placeholder}
         required={required}
         autoComplete="off"
-        className="rounded-lg border border-slate-600 bg-slate-800/80 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+        className={inputClass}
       />
 
       {mostrarLista && (
         <ul
-          className="absolute top-full z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-slate-600 bg-slate-900 py-1 shadow-xl"
+          className="absolute top-full z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
           role="listbox"
         >
           {sugestoes.map((item, index) => (
@@ -120,23 +122,23 @@ export function EntregaAutocomplete({
                 onMouseEnter={() => setDestaque(index)}
                 className={cn(
                   "flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm transition",
-                  index === destaque ? "bg-cyan-600/30" : "hover:bg-slate-800"
+                  index === destaque ? "bg-emerald-50" : "hover:bg-slate-50"
                 )}
               >
-                <span className="flex items-center gap-2 font-medium text-white">
+                <span className="flex items-center gap-2 font-medium text-slate-900">
                   {item.nome}
                   <span
                     className={cn(
                       "rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase",
                       item.tipo === "cliente"
-                        ? "bg-cyan-900/60 text-cyan-300"
-                        : "bg-violet-900/60 text-violet-300"
+                        ? "bg-sky-100 text-sky-700"
+                        : "bg-violet-100 text-violet-700"
                     )}
                   >
                     {item.tipo === "cliente" ? "Cliente" : "Fornecedor"}
                   </span>
                 </span>
-                <span className="text-xs text-slate-400">{item.enderecoLinha}</span>
+                <span className="text-xs text-slate-500">{item.enderecoLinha}</span>
               </button>
             </li>
           ))}
@@ -144,7 +146,7 @@ export function EntregaAutocomplete({
       )}
 
       {aberto && queryOk && sugestoes.length === 0 && parceirosFiltrados.length > 0 && (
-        <p className="absolute top-full z-40 mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-500 shadow-lg">
+        <p className="absolute top-full z-40 mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500 shadow-lg">
           Nenhum cadastro encontrado — continue digitando o local manualmente.
         </p>
       )}

@@ -10,7 +10,7 @@ import {
   type AlertaManutencaoPreventiva,
 } from "@/lib/manutencao-alertas";
 import { formatarDataBr } from "@/lib/frota-filters";
-import { cn } from "@/lib/utils";
+import { cn, mebCard, mebCardSm } from "@/lib/utils";
 import type { ManutencaoCard } from "@/types/frota";
 
 export type ManutencaoPrefill = {
@@ -20,18 +20,8 @@ export type ManutencaoPrefill = {
 };
 
 function StatusBadge({ alerta }: { alerta: AlertaManutencaoPreventiva }) {
-  const tones = {
-    atrasado: "bg-red-100 text-red-800",
-    hoje: "bg-amber-100 text-amber-900",
-    amanha: "bg-amber-50 text-amber-800",
-  };
   return (
-    <span
-      className={cn(
-        "rounded-full px-2.5 py-0.5 text-xs font-semibold",
-        tones[alerta.status]
-      )}
-    >
+    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
       {labelStatusAlertaManutencao(alerta.status)}
       {alerta.status === "atrasado" &&
         ` há ${Math.abs(alerta.diasRestantes)} dia(s)`}
@@ -52,31 +42,31 @@ export function ManutencaoAlertas({
   if (!alertas.length) return null;
 
   return (
-    <div className="space-y-4 rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+    <div className={cn(mebCard, "space-y-4 p-4")}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-amber-900">
-            <AlertTriangle className="h-4 w-4" />
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+            <AlertTriangle className="h-4 w-4 text-slate-500" />
             Manutenções preventivas pendentes
           </h2>
-          <p className="mt-1 text-xs text-slate-600">
+          <p className="mt-1 text-xs text-slate-500">
             Alerta 1 dia antes e no dia previsto. Manutenções em atraso permanecem
             visíveis até registrar uma nova do mesmo tipo no veículo.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 text-xs">
           {resumo.atrasados > 0 && (
-            <span className="rounded-full bg-red-100 px-2.5 py-1 font-medium text-red-800">
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-600">
               {resumo.atrasados} em atraso
             </span>
           )}
           {resumo.hoje > 0 && (
-            <span className="rounded-full bg-amber-100 px-2.5 py-1 font-medium text-amber-900">
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-600">
               {resumo.hoje} para hoje
             </span>
           )}
           {resumo.amanha > 0 && (
-            <span className="rounded-full bg-amber-50 px-2.5 py-1 font-medium text-amber-800 ring-1 ring-amber-200">
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-600">
               {resumo.amanha} para amanhã
             </span>
           )}
@@ -88,23 +78,21 @@ export function ManutencaoAlertas({
           <div
             key={a.id}
             className={cn(
-              "flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-white px-4 py-3 shadow-sm",
-              a.status === "atrasado"
-                ? "border-red-200"
-                : "border-amber-200"
+              mebCardSm,
+              "flex flex-wrap items-center justify-between gap-3 px-4 py-3"
             )}
           >
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <Wrench className="h-4 w-4 shrink-0 text-[#33388d]" />
+                <Wrench className="h-4 w-4 shrink-0 text-slate-400" />
                 <p className="font-medium text-slate-900">{a.nome}</p>
                 <StatusBadge alerta={a} />
               </div>
-              <p className="mt-1 text-xs text-slate-600">
+              <p className="mt-1 text-xs text-slate-500">
                 {a.veiculoPlaca ? `Veículo: ${a.veiculoPlaca}` : "Veículo não informado"}
                 {" · "}
                 Prevista:{" "}
-                <span className="font-medium text-slate-800">{formatarDataBr(a.dataPrevista)}</span>
+                <span className="text-slate-700">{formatarDataBr(a.dataPrevista)}</span>
                 {" · "}
                 Última: {formatarDataBr(a.dataUltimaManutencao)}
               </p>

@@ -12,6 +12,7 @@ import { AnexosFrotaCampos } from "@/components/frota/anexos-campos";
 import { salvarAnexosFrota } from "@/lib/frota-anexos";
 import { carregarAbastecimentoEdicao } from "@/lib/frota-crud";
 import type { AbastecimentoCard } from "@/types/frota";
+import { mebFormSection } from "@/lib/utils";
 
 export function AbastecimentoForm({
   item,
@@ -201,15 +202,12 @@ export function AbastecimentoForm({
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-4 rounded-xl border border-slate-700/50 bg-slate-900/80 p-5"
-    >
-      <h3 className="font-semibold text-cyan-400">
+    <form onSubmit={handleSubmit} className={mebFormSection}>
+      <h3 className="font-semibold text-slate-800">
         {editando ? "Editar abastecimento" : "Novo abastecimento manual"}
       </h3>
       {editando && source === "viagem" && (
-        <p className="text-xs text-cyan-400/80">
+        <p className="text-xs text-slate-500">
           Registro originado de viagem — veículo vinculado à viagem original.
         </p>
       )}
@@ -294,9 +292,9 @@ export function AbastecimentoForm({
         onAnexoExcluido={setAnexosExistentes}
       />
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex gap-2">
-        <Button type="submit" disabled={saving}>
+        <Button type="submit" variant="success" disabled={saving}>
           {saving ? "Salvando..." : editando ? "Salvar alterações" : "Cadastrar"}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel}>

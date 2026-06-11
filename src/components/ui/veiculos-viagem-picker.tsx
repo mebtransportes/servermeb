@@ -8,6 +8,9 @@ import { X } from "lucide-react";
 
 const MIN_CHARS = 2;
 
+const inputClass =
+  "rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-sm uppercase text-slate-900 placeholder:normal-case placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400";
+
 function normalizarPlaca(placa: string) {
   return placa.replace(/[\s-]/g, "").toUpperCase();
 }
@@ -104,7 +107,7 @@ export function VeiculosViagemPicker({
   return (
     <div className="space-y-3">
       <div ref={containerRef} className="relative flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-300">
+        <label className="text-sm font-medium text-slate-600">
           Veículos da viagem (digite a placa)
         </label>
         <p className="text-xs text-slate-500">
@@ -117,12 +120,12 @@ export function VeiculosViagemPicker({
           onKeyDown={handleKeyDown}
           placeholder="Ex: SCC2J60"
           autoComplete="off"
-          className="rounded-lg border border-slate-600 bg-slate-800/80 px-3 py-2 text-sm uppercase text-white placeholder:normal-case placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+          className={inputClass}
         />
 
         {mostrarLista && (
           <ul
-            className="absolute top-full z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-slate-600 bg-slate-900 py-1 shadow-xl"
+            className="absolute top-full z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
             role="listbox"
           >
             {sugestoes.map((v, index) => {
@@ -136,11 +139,11 @@ export function VeiculosViagemPicker({
                     onMouseEnter={() => setDestaque(index)}
                     className={cn(
                       "flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm transition",
-                      index === destaque ? "bg-cyan-600/30" : "hover:bg-slate-800"
+                      index === destaque ? "bg-emerald-50" : "hover:bg-slate-50"
                     )}
                   >
-                    <span className="font-mono font-medium text-white">{v.placa}</span>
-                    <span className="text-xs text-slate-400">
+                    <span className="font-mono font-medium text-slate-900">{v.placa}</span>
+                    <span className="text-xs text-slate-500">
                       {v.nome}
                       {tipoLabel ? ` · ${tipoLabel}` : ""} · {labelVinculo(v.vinculo)}
                     </span>
@@ -152,7 +155,7 @@ export function VeiculosViagemPicker({
         )}
 
         {aberto && queryOk && sugestoes.length === 0 && disponiveis.length > 0 && (
-          <p className="absolute top-full z-40 mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-500 shadow-lg">
+          <p className="absolute top-full z-40 mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500 shadow-lg">
             Nenhuma placa encontrada no cadastro.
           </p>
         )}
@@ -165,11 +168,11 @@ export function VeiculosViagemPicker({
             return (
               <li
                 key={v.id}
-                className="flex items-center justify-between gap-3 rounded-lg border border-cyan-600/40 bg-cyan-950/25 px-3 py-2"
+                className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2"
               >
                 <div className="min-w-0 text-sm">
-                  <span className="font-mono font-semibold text-cyan-200">{v.placa}</span>
-                  <span className="ml-2 text-slate-300">{v.nome}</span>
+                  <span className="font-mono font-semibold text-slate-900">{v.placa}</span>
+                  <span className="ml-2 text-slate-700">{v.nome}</span>
                   <span className="ml-2 text-xs text-slate-500">
                     ({labelVinculo(v.vinculo)}
                     {tipoLabel ? ` · ${tipoLabel}` : ""}
@@ -180,7 +183,7 @@ export function VeiculosViagemPicker({
                   type="button"
                   onClick={() => remover(v.id)}
                   title="Remover veículo"
-                  className="shrink-0 rounded-md p-1.5 text-red-400 transition hover:bg-red-950/50"
+                  className="shrink-0 rounded-md p-1.5 text-red-500 transition hover:bg-red-50"
                 >
                   <X className="h-4 w-4" />
                 </button>

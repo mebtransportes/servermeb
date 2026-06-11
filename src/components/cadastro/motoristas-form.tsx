@@ -7,11 +7,12 @@ import { Button } from "@/components/ui/button";
 import { uploadPdf } from "@/lib/storage";
 import { excluirAnexoTabela } from "@/lib/anexos-crud";
 import { AnexoArquivoRow } from "@/components/shared/anexo-arquivo-row";
-import { calcularIdade } from "@/lib/utils";
+import { calcularIdade, cn, mebFormSubsection } from "@/lib/utils";
 import type { Motorista, RecursoVinculo } from "@/types";
 import { VinculoSelector } from "@/components/cadastro/vinculo-selector";
 import { isFrota } from "@/lib/viagem-validation";
 import { FileUploadField } from "@/components/ui/file-upload";
+import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 
 type Anexo = { id?: string; nome: string; storage_path: string; file_name: string };
 
@@ -120,7 +121,7 @@ export function MotoristasForm({
       />
 
       {!ehFrota && (
-        <p className="rounded-lg border border-amber-800/40 bg-amber-950/25 px-4 py-3 text-sm text-amber-200">
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Motorista terceiro: cadastre os dados básicos para viagens e fechamento.
           CNH e toxicológico são opcionais e não bloqueiam novas viagens.
         </p>
@@ -141,8 +142,8 @@ export function MotoristasForm({
         <Input label="Contato de emergência" value={emergencia} onChange={(e) => setEmergencia(e.target.value)} className="sm:col-span-2" />
       </div>
 
-      <div className="space-y-4 rounded-xl border border-slate-700/60 p-4">
-        <h3 className="text-sm font-semibold text-cyan-400">
+      <div className={cn(mebFormSubsection, "space-y-4")}>
+        <h3 className="text-sm font-semibold text-slate-800">
           {ehFrota ? "Documentação" : "Documentação (opcional)"}
         </h3>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -155,8 +156,8 @@ export function MotoristasForm({
         </div>
       </div>
 
-      <div className="space-y-3 rounded-xl border border-slate-700/60 p-4">
-        <h3 className="text-sm font-semibold text-cyan-400">
+      <div className={cn(mebFormSubsection, "space-y-3")}>
+        <h3 className="text-sm font-semibold text-slate-800">
           {ehFrota ? "Anexos PDF" : "Anexos PDF (opcional)"}
         </h3>
         {anexos.map((a) => (
@@ -178,9 +179,9 @@ export function MotoristasForm({
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex gap-3">
-        <Button type="submit" disabled={saving}>{saving ? "Salvando..." : motorista ? "Atualizar" : "Cadastrar motorista"}</Button>
+        <Button type="submit" variant="success" disabled={saving}>{saving ? "Salvando..." : motorista ? "Atualizar" : "Cadastrar motorista"}</Button>
         <Button type="button" variant="secondary" onClick={onCancel}>Cancelar</Button>
       </div>
     </form>
@@ -201,12 +202,19 @@ function AnexoItem({
       onExcluido();
       return;
     }
-    if (!confirm(`Excluir o documento "${anexo.nome}"?`)) return;
+    if (
+      !(await mebConfirm(`Excluir o documento "${anexo.nome}"?`, {
+        variant: "danger",
+        confirmLabel: "Excluir",
+      }))
+    ) {
+      return;
+    }
     setExcluindo(true);
     const err = await excluirAnexoTabela("motorista_anexos", anexo.id, anexo.storage_path);
     setExcluindo(false);
     if (err) {
-      alert(err);
+      await mebAlert(err);
       return;
     }
     onExcluido();

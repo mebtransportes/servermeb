@@ -25,6 +25,7 @@ import {
   type ManutencaoParcelaInput,
 } from "@/lib/manutencao-pagamento";
 import type { FrotaManutencaoStatus, ManutencaoCard } from "@/types/frota";
+import { cn, mebFormSection, mebFormSubsection } from "@/lib/utils";
 
 export type ManutencaoFormPrefill = {
   nome?: string;
@@ -346,12 +347,12 @@ export function ManutencaoForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-slate-700/50 bg-slate-900/80 p-5">
-      <h3 className="font-semibold text-cyan-400">
+    <form onSubmit={handleSubmit} className={mebFormSection}>
+      <h3 className="font-semibold text-slate-800">
         {editando ? "Editar manutenção" : "Nova manutenção preventiva"}
       </h3>
       {editando && source === "viagem" && (
-        <p className="text-xs text-cyan-400/80">Registro originado de viagem — alguns campos usam o cadastro da viagem.</p>
+        <p className="text-xs text-slate-500">Registro originado de viagem — alguns campos usam o cadastro da viagem.</p>
       )}
       <div className="grid gap-4 sm:grid-cols-2">
         <Input label="Nome da manutenção" value={nome} onChange={(e) => setNome(e.target.value)} required />
@@ -435,8 +436,8 @@ export function ManutencaoForm({
       )}
 
       {mostrarPagamento && (
-        <div className="space-y-4 rounded-lg border border-slate-700/60 bg-slate-950/40 p-4">
-          <h4 className="text-sm font-semibold text-cyan-400">Pagamento</h4>
+        <div className={cn(mebFormSubsection, "space-y-4")}>
+          <h4 className="text-sm font-semibold text-slate-800">Pagamento</h4>
           <div className="grid gap-4 sm:grid-cols-2">
             <Select
               label="Modalidade"
@@ -505,7 +506,7 @@ export function ManutencaoForm({
                 {parcelas.map((p, idx) => (
                   <div
                     key={p.numero}
-                    className="grid gap-2 rounded-md border border-slate-700/50 bg-slate-900/60 p-3 sm:grid-cols-[auto_1fr_1fr]"
+                    className="grid gap-2 rounded-md border border-slate-200 bg-white/70 p-3 sm:grid-cols-[auto_1fr_1fr]"
                   >
                     <span className="self-center text-xs font-semibold text-slate-400">
                       {p.numero}ª
@@ -562,9 +563,9 @@ export function ManutencaoForm({
         onAnexoExcluido={setAnexosExistentes}
       />
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex gap-2">
-        <Button type="submit" disabled={saving}>
+        <Button type="submit" variant="success" disabled={saving}>
           {saving ? "Salvando..." : editando ? "Salvar alterações" : "Cadastrar"}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel}>

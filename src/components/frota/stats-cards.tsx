@@ -1,4 +1,5 @@
 import { formatarMoeda } from "@/lib/frota-filters";
+import { cn, mebCard, mebCardSm } from "@/lib/utils";
 
 type Stat = { label: string; value: string | number; sub?: string };
 
@@ -14,16 +15,12 @@ export function StatsCards({
       {stats.map((s) => (
         <div
           key={s.label}
-          className={
-            compact
-              ? "rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm"
-              : "rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-          }
+          className={cn(compact ? cn(mebCardSm, "p-2.5") : cn(mebCard, "p-4"))}
         >
           <p className={compact ? "text-[10px] text-slate-500" : "text-sm text-slate-500"}>
             {s.label}
           </p>
-          <p className={compact ? "mt-0.5 text-lg font-bold text-[#33388d]" : "mt-1 text-2xl font-bold text-[#33388d]"}>
+          <p className={compact ? "mt-0.5 text-lg font-bold text-slate-900" : "mt-1 text-2xl font-bold text-slate-900"}>
             {typeof s.value === "number" ? s.value : s.value}
           </p>
           {s.sub && (

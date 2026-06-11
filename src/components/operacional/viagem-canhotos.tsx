@@ -10,6 +10,8 @@ import {
   uploadCanhotos,
 } from "@/lib/canhoto-crud";
 import type { ViagemCanhoto } from "@/types/recebimento";
+import { cn, mebFormSubsection } from "@/lib/utils";
+import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 
 export function ViagemCanhotos({
   viagemId,
@@ -40,7 +42,7 @@ export function ViagemCanhotos({
     const err = await uploadCanhotos(viagemId, arquivos);
     setEnviando(false);
     if (err) {
-      alert(err);
+      await mebAlert(err);
       return;
     }
     setArquivos([]);
@@ -48,8 +50,8 @@ export function ViagemCanhotos({
   }
 
   return (
-    <div className={compact ? "space-y-2" : "rounded-xl border border-slate-700/50 p-4"}>
-      <h3 className={compact ? "text-xs font-semibold text-slate-400" : "mb-3 font-semibold text-cyan-400"}>
+    <div className={compact ? "space-y-2" : cn(mebFormSubsection, "space-y-3")}>
+      <h3 className={compact ? "text-xs font-semibold text-slate-600" : "font-semibold text-slate-800"}>
         Canhotos {canhotos.length > 0 && `(${canhotos.length})`}
       </h3>
 
@@ -78,6 +80,7 @@ export function ViagemCanhotos({
       {arquivos.length > 0 && (
         <Button
           type="button"
+          variant="success"
           className="mt-2 h-8 text-xs"
           disabled={enviando}
           onClick={enviar}
@@ -99,12 +102,19 @@ function CanhotoRow({
   const [excluindo, setExcluindo] = useState(false);
 
   async function handleExcluir() {
-    if (!confirm(`Excluir canhoto "${canhoto.file_name}"?`)) return;
+    if (
+      !(await mebConfirm(`Excluir canhoto "${canhoto.file_name}"?`, {
+        variant: "danger",
+        confirmLabel: "Excluir",
+      }))
+    ) {
+      return;
+    }
     setExcluindo(true);
     const err = await excluirCanhoto(canhoto.id, canhoto.storage_path);
     setExcluindo(false);
     if (err) {
-      alert(err);
+      await mebAlert(err);
       return;
     }
     onExcluido();

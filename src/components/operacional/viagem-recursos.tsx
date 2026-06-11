@@ -25,6 +25,8 @@ import { FileUploadMultiple } from "@/components/ui/file-upload";
 import { AnexosFrotaCampos } from "@/components/frota/anexos-campos";
 import { salvarAnexosFrota } from "@/lib/frota-anexos";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
+import { cn, mebFormSubsection } from "@/lib/utils";
+import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 
 type Recurso = {
   id: string;
@@ -177,21 +179,21 @@ export function ViagemRecursos({
     const tipoLancamento = tipoFixo ?? tipo;
 
     if (tipoLancamento === "outro" && !descricao.trim()) {
-      alert("Informe o nome da despesa (ex.: Lavagem do veículo).");
+      await mebAlert("Informe o nome da despesa (ex.: Lavagem do veículo).");
       return;
     }
 
     if (tipoLancamento === "abastecimento") {
       if (!parseBrNumber(kmVeiculo)) {
-        alert("Informe a quilometragem atual do veículo no abastecimento.");
+        await mebAlert("Informe a quilometragem atual do veículo no abastecimento.");
         return;
       }
       if (!parseBrNumber(litros)) {
-        alert("Informe os litros abastecidos.");
+        await mebAlert("Informe os litros abastecidos.");
         return;
       }
       if (!combustivelTipo) {
-        alert("Selecione o tipo de combustível.");
+        await mebAlert("Selecione o tipo de combustível.");
         return;
       }
     }
@@ -251,7 +253,7 @@ export function ViagemRecursos({
         recurso_par_id: recurso.id,
       });
       if (errReembolso) {
-        alert(errReembolso.message);
+        await mebAlert(errReembolso.message);
         setSaving(false);
         return;
       }
@@ -291,7 +293,11 @@ export function ViagemRecursos({
       vinculados.length > 0
         ? `Excluir esta despesa e o reembolso vinculado (${vinculados.length})?`
         : "Excluir este lançamento? Os anexos vinculados também serão removidos.";
-    if (!confirm(msg)) return;
+    if (
+      !(await mebConfirm(msg, { variant: "danger", confirmLabel: "Excluir" }))
+    ) {
+      return;
+    }
 
     setExcluindoId(recursoId);
     const supabase = createClient();
@@ -312,7 +318,7 @@ export function ViagemRecursos({
       .eq("id", recursoId);
 
     if (error) {
-      alert(error.message);
+      await mebAlert(error.message);
       setExcluindoId(null);
       return;
     }
@@ -327,7 +333,7 @@ export function ViagemRecursos({
     <div className="space-y-6">
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-white">Gastos da viagem</h3>
+          <h3 className="font-semibold text-slate-800">Gastos da viagem</h3>
           <Button
             type="button"
             variant="secondary"
@@ -344,10 +350,11 @@ export function ViagemRecursos({
       {showFormGasto && (
         <form
           onSubmit={(e) => handleAdd(e)}
-          className="space-y-3 rounded-lg border border-amber-900/30 bg-amber-950/10 p-4"
+          className={cn(mebFormSubsection, "space-y-3")}
         >
           <Select
             label="Tipo de gasto"
+            tone="light"
             value={tipo}
             onChange={(e) => {
               const t = e.target.value as ViagemRecursoTipo;
@@ -369,23 +376,23 @@ export function ViagemRecursos({
             ]}
           />
           {tipo === "outro" && (
-            <div className="rounded-lg border border-amber-800/40 bg-amber-950/25 px-3 py-3 text-xs text-amber-100/90">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-800">
               Registre o custo para o financeiro. Se o motorista pagou do bolso, marque a opção
               abaixo para gerar o reembolso automaticamente com o mesmo valor.
             </div>
           )}
           {motoristaTerceiro && tipo === "seguro" && !valorCarga && (
-            <p className="text-xs text-amber-400">
+            <p className="text-xs text-amber-700">
               Cadastre o valor da carga na viagem para calcular o seguro (0,09%).
             </p>
           )}
           {motoristaTerceiro && tipo === "seguro" && valorCarga && (
-            <p className="text-xs text-cyan-400/90">
+            <p className="text-xs text-slate-600">
               Seguro calculado: 0,09% sobre {valorCarga.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
             </p>
           )}
           {motoristaTerceiro && tipo === "monitoramento" && (
-            <p className="text-xs text-cyan-400/90">
+            <p className="text-xs text-slate-600">
               Valor fixo de monitoramento: R$ {MONITORAMENTO_VALOR_FIXO.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
             </p>
           )}
@@ -423,6 +430,7 @@ export function ViagemRecursos({
             <>
               <Select
                 label="Tipo de combustível"
+                tone="light"
                 value={combustivelTipo}
                 onChange={(e) => setCombustivelTipo(e.target.value)}
                 options={[
@@ -432,6 +440,7 @@ export function ViagemRecursos({
               />
               <Select
                 label="Posto"
+                tone="light"
                 value={postoId}
                 onChange={(e) => setPostoId(e.target.value)}
                 options={[
@@ -452,6 +461,7 @@ export function ViagemRecursos({
           {tipo === "manutencao" && (
             <Select
               label="Oficina"
+              tone="light"
               value={oficinaId}
               onChange={(e) => setOficinaId(e.target.value)}
               options={[
@@ -469,18 +479,18 @@ export function ViagemRecursos({
                 placeholder="Ex: Lavagem do veículo, borracharia, alimentação..."
                 required
               />
-              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-violet-800/40 bg-violet-950/20 px-3 py-3 text-sm">
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-violet-200 bg-violet-50 px-3 py-3 text-sm">
                 <input
                   type="checkbox"
                   checked={motoristaAdiantou}
                   onChange={(e) => setMotoristaAdiantou(e.target.checked)}
-                  className="mt-0.5 rounded border-slate-600"
+                  className="mt-0.5 rounded border-slate-300"
                 />
                 <span>
-                  <span className="font-medium text-violet-200">
+                  <span className="font-medium text-violet-800">
                     Motorista pagou do bolso
                   </span>
-                  <span className="mt-0.5 block text-xs text-slate-400">
+                  <span className="mt-0.5 block text-xs text-slate-600">
                     Gera automaticamente um reembolso com o mesmo valor para devolver ao motorista.
                   </span>
                 </span>
@@ -516,10 +526,10 @@ export function ViagemRecursos({
             onChange={setFiles}
           />
           <div className="flex gap-2">
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" variant="success" disabled={saving}>
               Salvar gasto
             </Button>
-            <Button type="button" variant="ghost" onClick={() => setShowFormGasto(false)}>
+            <Button type="button" variant="secondary" onClick={() => setShowFormGasto(false)}>
               Cancelar
             </Button>
           </div>
@@ -547,10 +557,10 @@ export function ViagemRecursos({
       )}
       </section>
 
-      <section className="space-y-4 border-t border-slate-700/50 pt-6">
+      <section className="space-y-4 border-t border-slate-200 pt-6">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="font-semibold text-violet-300">Reembolso ao motorista</h3>
+            <h3 className="font-semibold text-slate-800">Reembolso ao motorista</h3>
             <p className="text-xs text-slate-500">
               Valores a devolver ao motorista. Despesas &quot;Outros&quot; com adiantamento geram
               reembolso automático vinculado.
@@ -572,7 +582,7 @@ export function ViagemRecursos({
         {showFormReembolso && (
           <form
             onSubmit={(e) => handleAdd(e, "reembolso")}
-            className="space-y-3 rounded-lg border border-violet-900/30 bg-violet-950/10 p-4"
+            className={cn(mebFormSubsection, "space-y-3")}
           >
             <div className="grid gap-3 sm:grid-cols-2">
               <BrNumberInput
@@ -608,10 +618,10 @@ export function ViagemRecursos({
               onChange={setFiles}
             />
             <div className="flex gap-2">
-              <Button type="submit" disabled={saving}>
+              <Button type="submit" variant="success" disabled={saving}>
                 Salvar reembolso
               </Button>
-              <Button type="button" variant="ghost" onClick={() => setShowFormReembolso(false)}>
+              <Button type="button" variant="secondary" onClick={() => setShowFormReembolso(false)}>
                 Cancelar
               </Button>
             </div>
@@ -689,7 +699,14 @@ function RecursoItem({
   }, [recurso.id]);
 
   async function excluirAnexoInline(campo: CampoAnexoFrota, path: string) {
-    if (!confirm("Excluir este documento?")) return;
+    if (
+      !(await mebConfirm("Excluir este documento?", {
+        variant: "danger",
+        confirmLabel: "Excluir",
+      }))
+    ) {
+      return;
+    }
     setExcluindoCampo(campo);
     const err = await excluirAnexoFrotaInline(
       "viagem_recursos",
@@ -698,7 +715,7 @@ function RecursoItem({
       path
     );
     if (err) {
-      alert(err);
+      await mebAlert(err);
       setExcluindoCampo(null);
       return;
     }
@@ -736,11 +753,11 @@ function RecursoItem({
     recurso.postos?.nome ?? recurso.oficinas?.nome ?? null;
 
   return (
-    <li className="rounded-lg border border-slate-700/40 bg-slate-800/30 p-3 text-sm">
+    <li className={cn(mebFormSubsection, "text-sm")}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="font-medium text-cyan-300">{tipoLabel}</span>
+        <span className="font-medium text-slate-800">{tipoLabel}</span>
         <div className="flex items-center gap-2">
-          <span className="text-emerald-400">
+          <span className="font-medium text-slate-900">
             R$ {Number(recurso.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
           </span>
           <button
@@ -748,13 +765,13 @@ function RecursoItem({
             onClick={onExcluir}
             disabled={excluindo}
             title="Excluir"
-            className="rounded-md p-1.5 text-red-400 transition hover:bg-red-950/50 disabled:opacity-50"
+            className="rounded-md p-1.5 text-red-600 transition hover:bg-red-50 disabled:opacity-50"
           >
             <Trash2 className="h-4 w-4" />
           </button>
         </div>
       </div>
-      <p className="text-slate-400">
+      <p className="text-slate-600">
         {new Date(recurso.realizado_em).toLocaleString("pt-BR")}
         {local && ` · ${local}`}
         {recurso.tipo === "abastecimento" && recurso.litros != null && (
@@ -765,10 +782,10 @@ function RecursoItem({
         )}
       </p>
       {recurso.descricao && recurso.tipo !== "outro" && (
-        <p className="mt-1 text-slate-300">{recurso.descricao}</p>
+        <p className="mt-1 text-slate-700">{recurso.descricao}</p>
       )}
       {recurso.tipo === "outro" && reembolsosVinculados && reembolsosVinculados.length > 0 && (
-        <p className="mt-1 text-xs text-violet-300/90">
+        <p className="mt-1 text-xs text-violet-700">
           Reembolso vinculado:{" "}
           {reembolsosVinculados
             .map((r) =>
@@ -778,9 +795,9 @@ function RecursoItem({
         </p>
       )}
       {recurso.tipo === "reembolso" && despesaVinculada && (
-        <p className="mt-1 text-xs text-violet-300/90">
+        <p className="mt-1 text-xs text-violet-700">
           Referente à despesa:{" "}
-          <span className="text-violet-200">{despesaVinculada.descricao ?? "Outros"}</span>
+          <span className="font-medium text-violet-800">{despesaVinculada.descricao ?? "Outros"}</span>
         </p>
       )}
       {(anexosInline.nota_fiscal_path || anexosInline.comprovante_path) && (
@@ -820,12 +837,19 @@ function AnexoLink({
   const [excluindo, setExcluindo] = useState(false);
 
   async function handleExcluir() {
-    if (!confirm(`Excluir o anexo "${anexo.file_name}"?`)) return;
+    if (
+      !(await mebConfirm(`Excluir o anexo "${anexo.file_name}"?`, {
+        variant: "danger",
+        confirmLabel: "Excluir",
+      }))
+    ) {
+      return;
+    }
     setExcluindo(true);
     const err = await excluirAnexoTabela("viagem_anexos", anexo.id, anexo.storage_path);
     setExcluindo(false);
     if (err) {
-      alert(err);
+      await mebAlert(err);
       return;
     }
     onExcluido();

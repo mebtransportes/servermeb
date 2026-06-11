@@ -21,6 +21,7 @@ import {
   type PeriodoFiltroState,
 } from "@/lib/frota-filters";
 import type { FrotaManutencaoStatus, ManutencaoCard } from "@/types/frota";
+import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 
 export default function FrotaManutencaoPage() {
   const [items, setItems] = useState<ManutencaoCard[]>([]);
@@ -73,10 +74,17 @@ export default function FrotaManutencaoPage() {
 
   async function handleExcluir(item: ManutencaoCard) {
     const label = item.source === "viagem" ? "registro da viagem" : "manutenção preventiva";
-    if (!confirm(`Excluir esta ${label}? Esta ação não pode ser desfeita.`)) return;
+    if (
+      !(await mebConfirm(`Excluir esta ${label}? Esta ação não pode ser desfeita.`, {
+        variant: "danger",
+        confirmLabel: "Excluir",
+      }))
+    ) {
+      return;
+    }
     const err = await excluirManutencao(item);
     if (err) {
-      alert(err);
+      await mebAlert(err);
       return;
     }
     if (editingItem?.id === item.id) {
@@ -103,7 +111,7 @@ export default function FrotaManutencaoPage() {
             <FileBarChart className="h-4 w-4" />
             Relatórios
           </Button>
-          <Button variant="secondary" onClick={() => abrirNovo()}>
+          <Button variant="success" onClick={() => abrirNovo()}>
             <Plus className="h-4 w-4" />
             Nova manutenção
           </Button>

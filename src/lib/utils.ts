@@ -5,6 +5,25 @@ export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
 }
 
+/** Card padrão: branco semitransparente, borda neutra */
+export const mebCard =
+  "rounded-xl border border-slate-200/70 bg-white/60 shadow-sm backdrop-blur-sm";
+
+export const mebCardSm =
+  "rounded-lg border border-slate-200/70 bg-white/60 shadow-sm backdrop-blur-sm";
+
+export const mebFilterActive =
+  "border border-emerald-200 bg-emerald-50 text-emerald-800";
+
+export const mebFilterInactive =
+  "border border-slate-200/70 bg-white/60 text-slate-600 hover:border-slate-300 hover:bg-white/90";
+
+export const mebFormSection =
+  "space-y-4 rounded-xl border border-slate-200/80 bg-white/70 p-5 shadow-sm backdrop-blur-sm";
+
+export const mebFormSubsection =
+  "rounded-lg border border-slate-200/80 bg-slate-50/80 p-4";
+
 export function calcularIdade(dataNascimento: string): number | null {
   if (!dataNascimento) return null;
   const data = parseISO(dataNascimento);

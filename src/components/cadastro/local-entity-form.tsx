@@ -173,10 +173,10 @@ export function LocalEntityForm({
         />
       )}
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="flex gap-3">
-        <Button type="submit" disabled={saving}>
+        <Button type="submit" variant="success" disabled={saving}>
           {saving ? "Salvando..." : entity ? "Atualizar" : "Cadastrar"}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel}>

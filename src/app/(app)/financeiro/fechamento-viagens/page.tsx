@@ -22,6 +22,7 @@ import type { ViagemFechamento } from "@/types/fechamento";
 import { statusElegivelComissao } from "@/lib/viagem-status";
 import { VIAGEM_STATUS_LABEL } from "@/lib/viagem-status";
 import { cn } from "@/lib/utils";
+import { mebAlert } from "@/lib/meb-dialog";
 
 export default function FechamentoViagensPage() {
   const [fechamentos, setFechamentos] = useState<ViagemFechamento[]>([]);
@@ -101,9 +102,9 @@ export default function FechamentoViagensPage() {
     );
   }
 
-  function abrirComissao() {
+  async function abrirComissao() {
     if (!selectedIds.size) {
-      alert("Selecione ao menos uma viagem para gerar a comissão.");
+      await mebAlert("Selecione ao menos uma viagem para gerar a comissão.");
       return;
     }
     setShowComissao(true);

@@ -12,6 +12,8 @@ import {
 } from "@/types/fechamento";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
 import { Gauge } from "lucide-react";
+import { mebFormSubsection } from "@/lib/utils";
+import { mebAlert } from "@/lib/meb-dialog";
 
 function isArlaCombustivel(tipo?: string | null) {
   return (tipo ?? "").trim().toLowerCase() === "arla";
@@ -72,11 +74,11 @@ export function ViagemKmOdometro({
   async function handleSalvar() {
     const final = parseBrNumber(kmFinal);
     if (final == null || final <= 0) {
-      alert("Informe o odômetro final da rota.");
+      await mebAlert("Informe o odômetro final da rota.");
       return;
     }
     if (kmInicial != null && final < kmInicial) {
-      alert("O KM final não pode ser menor que o KM inicial da viagem.");
+      await mebAlert("O KM final não pode ser menor que o KM inicial da viagem.");
       return;
     }
 
@@ -88,7 +90,7 @@ export function ViagemKmOdometro({
       .eq("id", viagemId);
 
     if (error) {
-      alert(error.message);
+      await mebAlert(error.message);
       setSaving(false);
       return;
     }
@@ -101,12 +103,12 @@ export function ViagemKmOdometro({
   }
 
   return (
-    <section className="rounded-xl border border-cyan-800/40 bg-cyan-950/10 p-4">
+    <section className={mebFormSubsection}>
       <div className="mb-3 flex items-center gap-2">
-        <Gauge className="h-5 w-5 text-cyan-400" />
-        <h3 className="font-semibold text-white">Quilometragem da rota</h3>
+        <Gauge className="h-5 w-5 text-slate-400" />
+        <h3 className="font-semibold text-slate-800">Quilometragem da rota</h3>
       </div>
-      <p className="mb-4 text-xs text-slate-400">
+      <p className="mb-4 text-xs text-slate-500">
         Informe o odômetro ao final da rota. O consumo é calculado: KM rodado ÷ litros
         abastecidos nos gastos da viagem.
       </p>
@@ -114,13 +116,13 @@ export function ViagemKmOdometro({
       <dl className="mb-4 grid gap-2 text-sm sm:grid-cols-2">
         <div>
           <dt className="text-slate-500">KM inicial (odômetro saída)</dt>
-          <dd className="font-medium text-slate-200">
+          <dd className="font-medium text-slate-800">
             {kmInicial != null ? kmInicial.toLocaleString("pt-BR") : "—"}
           </dd>
         </div>
         <div>
           <dt className="text-slate-500">Litros abastecidos na viagem</dt>
-          <dd className="font-medium text-slate-200">
+          <dd className="font-medium text-slate-800">
             {litrosAbastecidos > 0
               ? `${litrosAbastecidos.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} L`
               : "—"}
@@ -128,13 +130,13 @@ export function ViagemKmOdometro({
         </div>
         <div>
           <dt className="text-slate-500">KM rodado</dt>
-          <dd className="font-medium text-cyan-300">
+          <dd className="font-medium text-slate-800">
             {kmRodado != null ? kmRodado.toLocaleString("pt-BR") : "—"}
           </dd>
         </div>
         <div>
           <dt className="text-slate-500">Consumo médio</dt>
-          <dd className="font-medium text-emerald-400">{formatConsumoKmLitro(consumo)}</dd>
+          <dd className="font-medium text-slate-800">{formatConsumoKmLitro(consumo)}</dd>
         </div>
       </dl>
 
@@ -146,10 +148,10 @@ export function ViagemKmOdometro({
           onChange={setKmFinal}
           placeholder="Ex: 125.880"
         />
-        <Button type="button" onClick={handleSalvar} disabled={saving}>
+        <Button type="button" variant="success" onClick={handleSalvar} disabled={saving}>
           {saving ? "Salvando..." : "Salvar KM final"}
         </Button>
-        {salvo && <span className="text-sm text-emerald-400">Salvo!</span>}
+        {salvo && <span className="text-sm text-emerald-600">Salvo!</span>}
       </div>
     </section>
   );

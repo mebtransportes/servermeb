@@ -10,6 +10,8 @@ import {
   uploadComprovantesDescarga,
   type ViagemComprovanteDescarga,
 } from "@/lib/comprovante-descarga-crud";
+import { cn, mebFormSubsection } from "@/lib/utils";
+import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 
 export function ViagemComprovantesDescarga({
   viagemId,
@@ -40,7 +42,7 @@ export function ViagemComprovantesDescarga({
     const err = await uploadComprovantesDescarga(viagemId, arquivos);
     setEnviando(false);
     if (err) {
-      alert(err);
+      await mebAlert(err);
       return;
     }
     setArquivos([]);
@@ -48,10 +50,10 @@ export function ViagemComprovantesDescarga({
   }
 
   return (
-    <div className={compact ? "space-y-2" : "rounded-xl border border-slate-700/50 p-4"}>
+    <div className={compact ? "space-y-2" : cn(mebFormSubsection, "space-y-3")}>
       <h3
         className={
-          compact ? "text-xs font-semibold text-slate-400" : "mb-3 font-semibold text-cyan-400"
+          compact ? "text-xs font-semibold text-slate-600" : "font-semibold text-slate-800"
         }
       >
         Comprovantes de descarga {itens.length > 0 && `(${itens.length})`}
@@ -82,6 +84,7 @@ export function ViagemComprovantesDescarga({
       {arquivos.length > 0 && (
         <Button
           type="button"
+          variant="success"
           className="mt-2 h-8 text-xs"
           disabled={enviando}
           onClick={enviar}
@@ -103,12 +106,19 @@ function ComprovanteRow({
   const [excluindo, setExcluindo] = useState(false);
 
   async function handleExcluir() {
-    if (!confirm(`Excluir comprovante "${item.file_name}"?`)) return;
+    if (
+      !(await mebConfirm(`Excluir comprovante "${item.file_name}"?`, {
+        variant: "danger",
+        confirmLabel: "Excluir",
+      }))
+    ) {
+      return;
+    }
     setExcluindo(true);
     const err = await excluirComprovanteDescarga(item.id, item.storage_path);
     setExcluindo(false);
     if (err) {
-      alert(err);
+      await mebAlert(err);
       return;
     }
     onExcluido();

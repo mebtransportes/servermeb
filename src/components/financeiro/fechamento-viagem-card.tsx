@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { parseBrNumber } from "@/lib/number-format";
 import { atualizarFechamentoConfig } from "@/lib/fechamento-data";
 import { cn } from "@/lib/utils";
+import { mebAlert } from "@/lib/meb-dialog";
 
 export function FechamentoViagemCard({
   f,
@@ -61,7 +62,7 @@ export function FechamentoViagemCard({
     });
     setSaving(false);
     if (result.error) {
-      alert(result.error);
+      await mebAlert(result.error);
       return;
     }
     if (result.data) {

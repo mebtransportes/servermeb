@@ -11,7 +11,8 @@ import { excluirAnexoTabela } from "@/lib/anexos-crud";
 import { AnexoArquivoRow } from "@/components/shared/anexo-arquivo-row";
 import type { Viagem, ViagemStatus } from "@/types";
 import { MapPin } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, mebFormSubsection } from "@/lib/utils";
+import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
 import { syncRecebimentoViagem } from "@/lib/recebimento-viagem";
 import { ViagemCanhotos } from "@/components/operacional/viagem-canhotos";
@@ -170,7 +171,7 @@ export function ViagemDetail({
     load();
   }
 
-  if (!viagem) return <p className="text-slate-400">Carregando...</p>;
+  if (!viagem) return <p className="text-slate-500">Carregando...</p>;
 
   const m = viagem.motoristas;
   const veiculosLabel = formatarVeiculosLabel(veiculosViagem);
@@ -179,28 +180,29 @@ export function ViagemDetail({
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold text-white">
+          <h2 className="text-xl font-bold text-slate-900">
             {m?.nome_completo ?? "Motorista"} · {veiculosLabel}
           </h2>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-slate-500">
             Saída: {new Date(viagem.saida_em).toLocaleString("pt-BR")}
           </p>
         </div>
         <span
           className={cn(
-            "rounded-full px-3 py-1 text-xs font-semibold",
-            VIAGEM_STATUS_CORES[viagem.status] ?? "bg-slate-800 text-slate-300"
+            "meb-status-badge rounded-full px-3 py-1 text-xs font-semibold",
+            VIAGEM_STATUS_CORES[viagem.status] ?? "bg-slate-100 text-slate-600"
           )}
         >
           {VIAGEM_STATUS_LABEL[viagem.status] ?? viagem.status}
         </span>
       </div>
 
-      <div className="rounded-xl border border-slate-700/50 p-4">
-        <h3 className="mb-3 font-semibold text-cyan-400">Atualizar status</h3>
+      <div className={cn(mebFormSubsection, "space-y-3")}>
+        <h3 className="font-semibold text-slate-800">Atualizar status</h3>
         <div className="flex flex-wrap gap-3">
           <Select
             label="Status da viagem"
+            tone="light"
             value={status}
             onChange={(e) => setStatus(e.target.value as ViagemStatus)}
             options={VIAGEM_STATUS.map((s) => ({
@@ -211,6 +213,7 @@ export function ViagemDetail({
           {fornecedores.length > 1 && (
             <Select
               label="Fornecedor atual (origem)"
+              tone="light"
               value={fornecedorAtualOrdem}
               onChange={(e) => setFornecedorAtualOrdem(e.target.value)}
               options={[
@@ -225,6 +228,7 @@ export function ViagemDetail({
           {entregas.length > 1 && (
             <Select
               label="Entrega atual (em qual parada está)"
+              tone="light"
               value={entregaAtualOrdem}
               onChange={(e) => setEntregaAtualOrdem(e.target.value)}
               options={[
@@ -238,6 +242,7 @@ export function ViagemDetail({
           )}
           <Button
             type="button"
+            variant="success"
             onClick={saveStatus}
             disabled={
               saving ||
@@ -251,7 +256,7 @@ export function ViagemDetail({
           </Button>
         </div>
         {(fornecedores.length > 1 || entregas.length > 1) && (
-          <p className="mt-2 text-xs text-amber-200/90">
+          <p className="mt-2 text-xs text-amber-800">
             {fornecedores.length > 1 && (
               <>
                 Esta viagem tem <strong>{fornecedores.length} fornecedores</strong>.{" "}
@@ -267,17 +272,17 @@ export function ViagemDetail({
           </p>
         )}
         <p className="mt-2 text-xs text-slate-500">
-          <strong className="text-slate-400">Finalizado</strong> e{" "}
-          <strong className="text-slate-400">Pagamento pendente</strong> aparecem no Fechamento de
-          viagens.           <strong className="text-slate-400">Arquivado</strong> remove do fechamento
-          (comissão já paga) e envia para <strong className="text-slate-400">Recebimentos</strong>.
+          <strong className="text-slate-600">Finalizado</strong> e{" "}
+          <strong className="text-slate-600">Pagamento pendente</strong> aparecem no Fechamento de
+          viagens. <strong className="text-slate-600">Arquivado</strong> remove do fechamento
+          (comissão já paga) e envia para <strong className="text-slate-600">Recebimentos</strong>.
         </p>
       </div>
 
       {veiculosViagem.length > 0 && (
         <div>
-          <h3 className="mb-2 text-sm font-semibold text-slate-300">Veículos</h3>
-          <ul className="space-y-1 text-sm text-slate-400">
+          <h3 className="mb-2 text-sm font-semibold text-slate-700">Veículos</h3>
+          <ul className="space-y-1 text-sm text-slate-600">
             {veiculosViagem.map((ve) => {
               const tipoLabel = VEICULO_TIPO_OPCOES.find((o) => o.value === ve.tipo)?.label;
               return (
@@ -294,11 +299,11 @@ export function ViagemDetail({
       <dl className="grid gap-2 text-sm sm:grid-cols-2">
         <div>
           <dt className="text-slate-500">Chegada prevista</dt>
-          <dd>{new Date(viagem.chegada_prevista_em).toLocaleString("pt-BR")}</dd>
+          <dd className="text-slate-800">{new Date(viagem.chegada_prevista_em).toLocaleString("pt-BR")}</dd>
         </div>
         <div>
           <dt className="text-slate-500">Tipo</dt>
-          <dd>
+          <dd className="text-slate-800">
             {viagem.tipo_trajeto === "ida"
               ? "Somente ida"
               : viagem.tipo_trajeto === "volta"
@@ -308,7 +313,7 @@ export function ViagemDetail({
         </div>
         <div>
           <dt className="text-slate-500">Peso / Valor mercadoria</dt>
-          <dd>
+          <dd className="text-slate-800">
             {viagem.peso_kg ? `${viagem.peso_kg} kg` : "—"} /{" "}
             {viagem.valor_mercadoria
               ? `R$ ${Number(viagem.valor_mercadoria).toLocaleString("pt-BR")}`
@@ -317,7 +322,7 @@ export function ViagemDetail({
         </div>
         <div>
           <dt className="text-slate-500">Valor do frete</dt>
-          <dd className="font-medium text-emerald-400">
+          <dd className="font-medium text-slate-900">
             {viagem.valor_frete != null
               ? `R$ ${Number(viagem.valor_frete).toLocaleString("pt-BR", {
                   minimumFractionDigits: 2,
@@ -327,35 +332,35 @@ export function ViagemDetail({
         </div>
         <div>
           <dt className="text-slate-500">Número do CTE</dt>
-          <dd className="font-mono text-cyan-300">{viagem.numero_cte ?? "—"}</dd>
+          <dd className="font-mono text-slate-800">{viagem.numero_cte ?? "—"}</dd>
         </div>
       </dl>
 
       <div>
         {fornecedores.length > 0 && (
           <>
-            <p className="mb-1 text-sm font-medium text-slate-300">Fornecedores (origem)</p>
-            <ul className="mb-3 ml-5 list-disc text-sm text-slate-400">
+            <p className="mb-1 text-sm font-medium text-slate-700">Fornecedores (origem)</p>
+            <ul className="mb-3 ml-5 list-disc text-sm text-slate-600">
               {fornecedores.map((f) => (
                 <li key={f.ordem}>
                   Fornecedor {f.ordem}: {f.local_fornecedor}
                   {viagem.fornecedor_atual_ordem === f.ordem && (
-                    <span className="ml-1 text-violet-400">(atual)</span>
+                    <span className="ml-1 font-medium text-violet-700">(atual)</span>
                   )}
                 </li>
               ))}
             </ul>
           </>
         )}
-        <p className="mb-1 flex items-center gap-1 text-sm font-medium text-slate-300">
+        <p className="mb-1 flex items-center gap-1 text-sm font-medium text-slate-700">
           <MapPin className="h-4 w-4" /> Entregas
         </p>
-        <ul className="ml-5 list-disc text-sm text-slate-400">
+        <ul className="ml-5 list-disc text-sm text-slate-600">
           {entregas.map((e) => (
             <li key={e.ordem}>
               Entrega {e.ordem}: {e.local_entrega}
               {viagem.entrega_atual_ordem === e.ordem && (
-                <span className="ml-1 text-orange-400">(atual)</span>
+                <span className="ml-1 font-medium text-orange-700">(atual)</span>
               )}
             </li>
           ))}
@@ -363,7 +368,7 @@ export function ViagemDetail({
       </div>
 
       {viagem.descricao_mercadoria && (
-        <p className="text-sm text-slate-300">
+        <p className="text-sm text-slate-600">
           <span className="text-slate-500">Mercadoria: </span>
           {viagem.descricao_mercadoria}
         </p>
@@ -371,7 +376,7 @@ export function ViagemDetail({
 
       {anexos.length > 0 && (
         <div>
-          <h3 className="mb-2 text-sm font-semibold text-slate-300">Anexos</h3>
+          <h3 className="mb-2 text-sm font-semibold text-slate-700">Anexos</h3>
           <ul className="space-y-1">
             {anexos.map((a) => (
               <AnexoRow
@@ -412,12 +417,19 @@ function AnexoRow({
   const [excluindo, setExcluindo] = useState(false);
 
   async function handleExcluir() {
-    if (!confirm(`Excluir o anexo "${anexo.file_name}"?`)) return;
+    if (
+      !(await mebConfirm(`Excluir o anexo "${anexo.file_name}"?`, {
+        variant: "danger",
+        confirmLabel: "Excluir",
+      }))
+    ) {
+      return;
+    }
     setExcluindo(true);
     const err = await excluirAnexoTabela("viagem_anexos", anexo.id, anexo.storage_path);
     setExcluindo(false);
     if (err) {
-      alert(err);
+      await mebAlert(err);
       return;
     }
     onExcluido();

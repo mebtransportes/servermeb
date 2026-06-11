@@ -7,6 +7,9 @@ import { cn } from "@/lib/utils";
 
 const MIN_CHARS = 2;
 
+const inputClass =
+  "rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400";
+
 type MotoristaAutocompleteProps = {
   label: string;
   motoristas: Motorista[];
@@ -92,7 +95,7 @@ export function MotoristaAutocomplete({
 
   return (
     <div ref={containerRef} className={cn("relative flex flex-col gap-1", className)}>
-      <label className="text-sm font-medium text-slate-300">{label}</label>
+      <label className="text-sm font-medium text-slate-600">{label}</label>
       <input
         type="text"
         value={texto}
@@ -101,12 +104,12 @@ export function MotoristaAutocomplete({
         placeholder="Digite o nome do motorista"
         required={required}
         autoComplete="off"
-        className="rounded-lg border border-slate-600 bg-slate-800/80 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+        className={inputClass}
       />
 
       {mostrarLista && (
         <ul
-          className="absolute top-full z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-slate-600 bg-slate-900 py-1 shadow-xl"
+          className="absolute top-full z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
           role="listbox"
         >
           {sugestoes.map((m, index) => (
@@ -118,11 +121,11 @@ export function MotoristaAutocomplete({
                 onMouseEnter={() => setDestaque(index)}
                 className={cn(
                   "flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm transition",
-                  index === destaque ? "bg-cyan-600/30" : "hover:bg-slate-800"
+                  index === destaque ? "bg-emerald-50" : "hover:bg-slate-50"
                 )}
               >
-                <span className="font-medium text-white">{m.nome_completo}</span>
-                <span className="text-xs text-slate-400">{labelVinculo(m.vinculo)}</span>
+                <span className="font-medium text-slate-900">{m.nome_completo}</span>
+                <span className="text-xs text-slate-500">{labelVinculo(m.vinculo)}</span>
               </button>
             </li>
           ))}

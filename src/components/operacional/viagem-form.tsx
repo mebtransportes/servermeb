@@ -24,7 +24,7 @@ import {
   TIPOS_TRAJETO,
 } from "@/lib/viagem-validation";
 import { uploadFile } from "@/lib/storage";
-import { calcularIdade } from "@/lib/utils";
+import { calcularIdade, cn, mebFormSection, mebFormSubsection } from "@/lib/utils";
 import { isoParaDatetimeLocal, type ViagemParaEdicao } from "@/lib/viagem-crud";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
 import { statusGeraFechamento } from "@/lib/viagem-status";
@@ -480,8 +480,8 @@ export function ViagemForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
-      <section className="space-y-4 rounded-xl border border-slate-700/60 p-5">
-        <h2 className="text-lg font-semibold text-cyan-400">1. Motorista e veículos</h2>
+      <section className={mebFormSection}>
+        <h2 className="text-lg font-semibold text-slate-800">1. Motorista e veículos</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <MotoristaAutocomplete
             label="Motorista"
@@ -504,7 +504,10 @@ export function ViagemForm({
 
         {motorista && valMotorista && (
           <div
-            className={`rounded-lg border p-4 ${valMotorista.apto ? "border-emerald-800/50 bg-emerald-950/20" : "border-red-800/50 bg-red-950/20"}`}
+            className={cn(
+              mebFormSubsection,
+              valMotorista.apto ? "border-emerald-200 bg-emerald-50/60" : "border-red-200 bg-red-50/60"
+            )}
           >
             <div className="mb-2 flex items-center justify-between">
               <h3 className="font-medium">
@@ -518,7 +521,7 @@ export function ViagemForm({
                 label={isFrota(motorista.vinculo) ? undefined : "Terceiro"}
               />
             </div>
-            <dl className="grid gap-1 text-sm text-slate-300 sm:grid-cols-2">
+            <dl className="grid gap-1 text-sm text-slate-600 sm:grid-cols-2">
               <div>CPF: {motorista.cpf}</div>
               <div>
                 Idade:{" "}
@@ -540,13 +543,13 @@ export function ViagemForm({
               )}
             </dl>
             {!valMotorista.apto && isFrota(motorista.vinculo) && (
-              <div className="mt-3 flex items-start gap-2 text-sm text-red-300">
+              <div className="mt-3 flex items-start gap-2 text-sm text-red-700">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 <div>
                   {valMotorista.problemas.map((p) => (
                     <p key={p}>{p}</p>
                   ))}
-                  <Link href="/cadastro/motoristas" className="mt-1 inline-block text-cyan-400 underline">
+                  <Link href="/cadastro/motoristas" className="mt-1 inline-block text-emerald-700 underline">
                     Corrigir no cadastro de motoristas
                   </Link>
                 </div>
@@ -558,7 +561,10 @@ export function ViagemForm({
         {veiculosSelecionados.map(({ veiculo, validacao }) => (
           <div
             key={veiculo.id}
-            className={`rounded-lg border p-4 ${validacao.apto ? "border-emerald-800/50 bg-emerald-950/20" : "border-red-800/50 bg-red-950/20"}`}
+            className={cn(
+              mebFormSubsection,
+              validacao.apto ? "border-emerald-200 bg-emerald-50/60" : "border-red-200 bg-red-50/60"
+            )}
           >
             <div className="mb-2 flex items-center justify-between">
               <h3 className="font-medium">
@@ -573,7 +579,7 @@ export function ViagemForm({
                 label={isFrota(veiculo.vinculo) ? undefined : "Terceiro"}
               />
             </div>
-            <dl className="grid gap-1 text-sm text-slate-300 sm:grid-cols-2">
+            <dl className="grid gap-1 text-sm text-slate-600 sm:grid-cols-2">
               <div>Chassi: {veiculo.chassi ?? "—"}</div>
               <div>Ano/Modelo: {veiculo.ano_modelo ?? "—"}</div>
               <div>RENAVAM: {veiculo.renavam ?? "—"}</div>
@@ -589,13 +595,13 @@ export function ViagemForm({
               </div>
             </dl>
             {!validacao.apto && isFrota(veiculo.vinculo) && (
-              <div className="mt-3 flex items-start gap-2 text-sm text-red-300">
+              <div className="mt-3 flex items-start gap-2 text-sm text-red-700">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 <div>
                   {validacao.problemas.map((p) => (
                     <p key={p}>{p}</p>
                   ))}
-                  <Link href="/cadastro/veiculos" className="mt-1 inline-block text-cyan-400 underline">
+                  <Link href="/cadastro/veiculos" className="mt-1 inline-block text-emerald-700 underline">
                     Corrigir no cadastro de veículos
                   </Link>
                 </div>
@@ -605,17 +611,17 @@ export function ViagemForm({
         ))}
 
         {anexosAuto.length > 0 && (
-          <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-3">
-            <p className="mb-2 text-sm font-medium text-slate-300">
+          <div className={cn(mebFormSubsection, "p-3")}>
+            <p className="mb-2 text-sm font-medium text-slate-700">
               Anexos vinculados automaticamente
             </p>
-            <ul className="space-y-1 text-sm text-slate-400">
+            <ul className="space-y-1 text-sm text-slate-600">
               {anexosAuto.map((a) => (
                 <li
                   key={`${a.origem}-${a.categoria}-${a.file_name}`}
                   className="flex items-center gap-2"
                 >
-                  <FileText className="h-4 w-4 text-cyan-500" />
+                  <FileText className="h-4 w-4 text-slate-400" />
                   {a.categoria}: {a.file_name} ({a.origem})
                 </li>
               ))}
@@ -625,7 +631,7 @@ export function ViagemForm({
       </section>
 
       {!aptoGeral && (motoristaId || veiculoIds.length > 0) && (
-        <p className="rounded-lg bg-amber-950/40 px-4 py-3 text-sm text-amber-200">
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           Resolva as pendências acima para liberar o cadastro da viagem.
         </p>
       )}
@@ -634,8 +640,8 @@ export function ViagemForm({
         disabled={!aptoGeral}
         className="space-y-8 disabled:opacity-50"
       >
-        <section className="space-y-4 rounded-xl border border-slate-700/60 p-5">
-          <h2 className="text-lg font-semibold text-cyan-400">2. Dados da viagem</h2>
+        <section className={mebFormSection}>
+          <h2 className="text-lg font-semibold text-slate-800">2. Dados da viagem</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
               label="Data e hora de saída"
@@ -667,7 +673,7 @@ export function ViagemForm({
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-300">
+              <span className="text-sm font-medium text-slate-700">
                 Fornecedores (origem / carregamento)
               </span>
               <Button
@@ -710,7 +716,7 @@ export function ViagemForm({
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-300">Locais de entrega</span>
+              <span className="text-sm font-medium text-slate-700">Locais de entrega</span>
               <Button
                 type="button"
                 variant="secondary"
@@ -775,11 +781,12 @@ export function ViagemForm({
           {veiculoIds.length > 0 && (
             <div className="grid gap-3 sm:grid-cols-2">
             <div
-              className={`rounded-lg border px-4 py-3 text-sm ${
+              className={cn(
+                "rounded-lg border px-4 py-3 text-sm",
                 ultimoKmVeiculo
-                  ? "border-cyan-800/50 bg-cyan-950/20 text-cyan-100"
-                  : "border-amber-800/50 bg-amber-950/20 text-amber-100"
-              }`}
+                  ? "border-sky-200 bg-sky-50 text-sky-900"
+                  : "border-amber-200 bg-amber-50 text-amber-900"
+              )}
             >
               {ultimoKmVeiculo ? (
                 <>
@@ -799,11 +806,12 @@ export function ViagemForm({
               )}
             </div>
             <div
-              className={`rounded-lg border px-4 py-3 text-sm ${
+              className={cn(
+                "rounded-lg border px-4 py-3 text-sm",
                 tanqueVeiculo
-                  ? "border-cyan-800/50 bg-cyan-950/20 text-cyan-100"
-                  : "border-amber-800/50 bg-amber-950/20 text-amber-100"
-              }`}
+                  ? "border-sky-200 bg-sky-50 text-sky-900"
+                  : "border-amber-200 bg-amber-50 text-amber-900"
+              )}
             >
               {tanqueVeiculo ? (
                 <>
@@ -835,9 +843,9 @@ export function ViagemForm({
           />
         </section>
 
-        <section className="space-y-4 rounded-xl border border-slate-700/60 p-5">
-          <h2 className="text-lg font-semibold text-cyan-400">3. Anexos da viagem</h2>
-          <p className="text-sm text-slate-400">
+        <section className={mebFormSection}>
+          <h2 className="text-lg font-semibold text-slate-800">3. Anexos da viagem</h2>
+          <p className="text-sm text-slate-500">
             CNH, Toxicológico e CRLV são vinculados automaticamente do cadastro.
             Romaneios e notas fiscais aceitam vários arquivos.
           </p>
@@ -868,7 +876,7 @@ export function ViagemForm({
           </div>
         </section>
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
 
         <div className="flex flex-wrap gap-3">
           {onCancel && (
@@ -876,7 +884,7 @@ export function ViagemForm({
               Cancelar
             </Button>
           )}
-          <Button type="submit" disabled={saving || !aptoGeral}>
+          <Button type="submit" variant="success" disabled={saving || !aptoGeral}>
             {saving
               ? "Salvando..."
               : isEdit

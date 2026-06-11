@@ -3,15 +3,16 @@
 :root {
   --meb-sidebar: #33388d;
   --meb-sidebar-dark: #2a2f7a;
-  --meb-content-bg: #e8edf2;
-  --meb-content-surface: #ffffff;
-  --meb-content-border: #c5ced8;
+  --meb-content-bg: #ffffff;
+  --meb-content-surface: rgba(255, 255, 255, 0.65);
+  --meb-content-border: #e2e8f0;
   --meb-content-text: #1e293b;
   --meb-content-muted: #64748b;
   --meb-surface-dark: #1a1a1a;
   --meb-border-dark: #2a2a2a;
   --foreground: #1e293b;
-  --meb-ice: #e8edf2;
+  --meb-green: #4ade80;
+  --meb-green-hover: #22c55e;
 }
 
 @theme inline {
@@ -51,9 +52,16 @@ body {
   line-height: var(--text-base--line-height);
 }
 
-/* Área principal: fundo cinza + superfícies brancas legíveis */
+.meb-card {
+  border-radius: 0.75rem;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  backdrop-filter: blur(6px);
+}
+
 .meb-app-main {
-  background-color: var(--meb-content-bg);
+  background-color: #ffffff;
   color: var(--meb-content-text);
 }
 
@@ -69,7 +77,7 @@ body {
 
 .meb-app-main .text-slate-200,
 .meb-app-main .text-slate-300 {
-  color: #334155;
+  color: #475569;
 }
 
 .meb-app-main .text-slate-400,
@@ -77,50 +85,43 @@ body {
   color: var(--meb-content-muted);
 }
 
-/* Mantém texto claro dentro de painéis escuros e modais */
-.meb-app-main :is(
-  [class*="bg-slate-8"],
-  [class*="bg-slate-9"],
-  [class*="bg-cyan-6"],
-  [class*="bg-cyan-7"],
-  [class*="bg-violet-9"],
-  [class*="bg-emerald-9"],
-  [class*="bg-red-9"],
-  [class*="bg-amber-9"],
-  [class*="bg-black"]
-) .text-white,
-.meb-app-main :is(
-  [class*="bg-slate-8"],
-  [class*="bg-slate-9"],
-  [class*="bg-cyan-6"],
-  [class*="bg-violet-9"],
-  [class*="bg-emerald-9"],
-  [class*="bg-red-9"],
-  [class*="bg-amber-9"],
-  [class*="bg-black"]
-) h1,
-.meb-app-main :is(
-  [class*="bg-slate-8"],
-  [class*="bg-slate-9"],
-  [class*="bg-cyan-6"],
-  [class*="bg-violet-9"]
-) h2,
-.meb-app-main :is(
-  [class*="bg-slate-8"],
-  [class*="bg-slate-9"],
-  [class*="bg-cyan-6"],
-  [class*="bg-violet-9"]
-) h3 {
-  color: #f8fafc;
+/* Preserva cores em badges de status e área de acompanhamento */
+.meb-app-main .meb-status-badge {
+  color: inherit;
 }
 
-.meb-app-main :is([class*="bg-slate-8"], [class*="bg-slate-9"]) .text-slate-300,
-.meb-app-main :is([class*="bg-slate-8"], [class*="bg-slate-9"]) .text-slate-400 {
-  color: #cbd5e1;
+.meb-app-main .meb-acompanhamento .text-white {
+  color: #0f172a;
 }
 
-.meb-app-main .bg-cyan-600.text-white,
-.meb-app-main button.bg-cyan-600 {
+/* Mantém texto claro em modais escuros */
+.meb-app-main .fixed.inset-0 .text-white,
+.meb-app-main .fixed.inset-0 h1,
+.meb-app-main .fixed.inset-0 h2,
+.meb-app-main .fixed.inset-0 h3 {
+  color: #f8fafc !important;
+}
+
+.meb-app-main .fixed.inset-0 .text-slate-300,
+.meb-app-main .fixed.inset-0 .text-slate-400 {
+  color: #cbd5e1 !important;
+}
+
+/* Modais / alerts — painel escuro, campos claros */
+.meb-modal {
+  color: #e2e8f0;
+}
+
+.meb-modal h2,
+.meb-modal h3 {
+  color: #ffffff !important;
+}
+
+.meb-modal label {
+  color: #94a3b8 !important;
+}
+
+.meb-modal-backdrop .text-white {
   color: #ffffff !important;
 }
 
@@ -128,12 +129,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(0);
 }
 
+.fixed.inset-0 input[type="date"]::-webkit-calendar-picker-indicator,
 [class*="bg-slate-8"] input[type="date"]::-webkit-calendar-picker-indicator,
 [class*="bg-slate-9"] input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(1);
 }
 
-/* Login — card roxo institucional */
 .login-on-brand label {
   color: rgba(255, 255, 255, 0.92) !important;
 }

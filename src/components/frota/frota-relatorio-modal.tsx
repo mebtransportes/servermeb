@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { FileDown, X } from "lucide-react";
+import { FileDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { MebModal, MebModalBody, MebModalFooter, MebModalHeader } from "@/components/ui/modal";
 import { dataNoIntervalo } from "@/lib/frota-filters";
 import {
   gerarPdfManutencao,
@@ -77,8 +78,6 @@ export function FrotaRelatorioModal(props: Props) {
     ];
   }, [itens, tipo]);
 
-  if (!open) return null;
-
   function validar(): boolean {
     if (!de || !ate) {
       setErro("Informe a data inicial e a data final.");
@@ -143,63 +142,53 @@ export function FrotaRelatorioModal(props: Props) {
       ? "Relatório de Manutenção"
       : "Relatório de Abastecimentos";
 
+  const descricao =
+    tipo === "manutencao"
+      ? "Filtre por período e veículo. O PDF inclui valores, locais, descrições, motoristas e anexos."
+      : "Filtre por período e veículo. Escolha o formato do relatório em PDF.";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div
-        className="w-full max-w-md rounded-xl border border-slate-700 bg-slate-900 p-6 shadow-xl"
-        role="dialog"
-        aria-labelledby="relatorio-titulo"
-      >
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
-            <h2 id="relatorio-titulo" className="text-lg font-bold text-cyan-400">
-              {titulo}
-            </h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Filtre por período e veículo. O PDF inclui valores, locais, descrições,
-              motoristas e anexos.
-            </p>
+    <MebModal open={open} onClose={onClose} aria-labelledby="relatorio-titulo">
+      <div className="p-6">
+        <MebModalHeader
+          id="relatorio-titulo"
+          title={titulo}
+          description={descricao}
+          onClose={onClose}
+        />
+
+        <MebModalBody className="mt-4 space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="De"
+              type="date"
+              tone="light"
+              value={de}
+              onChange={(e) => setDe(e.target.value)}
+              required
+            />
+            <Input
+              label="Até"
+              type="date"
+              tone="light"
+              value={ate}
+              onChange={(e) => setAte(e.target.value)}
+              required
+            />
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
-            aria-label="Fechar"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Input
-            label="De"
-            type="date"
-            value={de}
-            onChange={(e) => setDe(e.target.value)}
-            required
-          />
-          <Input
-            label="Até"
-            type="date"
-            value={ate}
-            onChange={(e) => setAte(e.target.value)}
-            required
-          />
-        </div>
-
-        <div className="mt-4">
           <Select
             label="Veículo"
+            tone="light"
             value={veiculoPlaca}
             onChange={(e) => setVeiculoPlaca(e.target.value)}
             options={veiculoOpcoes}
           />
-        </div>
 
-        {tipo === "abastecimento" && (
-          <div className="mt-4">
+          {tipo === "abastecimento" && (
             <Select
               label="Formato do relatório"
+              tone="light"
               value={formatoAbastecimento}
               onChange={(e) =>
                 setFormatoAbastecimento(e.target.value as "geral" | "por_veiculo")
@@ -214,21 +203,21 @@ export function FrotaRelatorioModal(props: Props) {
                 },
               ]}
             />
-          </div>
-        )}
+          )}
 
-        {erro && <p className="mt-3 text-sm text-red-400">{erro}</p>}
+          {erro && <p className="text-sm text-red-400">{erro}</p>}
+        </MebModalBody>
 
-        <div className="mt-6 flex flex-wrap gap-2">
-          <Button onClick={handleGerar} disabled={gerando}>
+        <MebModalFooter className="mt-6">
+          <Button variant="modal" onClick={handleGerar} disabled={gerando}>
             <FileDown className="h-4 w-4" />
             {gerando ? "Gerando..." : "Baixar PDF"}
           </Button>
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancelar
           </Button>
-        </div>
+        </MebModalFooter>
       </div>
-    </div>
+    </MebModal>
   );
 }

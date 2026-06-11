@@ -30,10 +30,10 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <header className="flex items-center gap-3">
-        <LayoutDashboard className="h-8 w-8 text-cyan-400" />
+        <LayoutDashboard className="h-8 w-8 text-slate-400" />
         <div>
-          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-          <p className="text-sm text-slate-400">
+          <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
+          <p className="text-sm text-slate-500">
             Clique em um status para ver no acompanhamento
           </p>
         </div>

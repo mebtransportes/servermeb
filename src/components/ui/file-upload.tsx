@@ -31,9 +31,7 @@ export function FileUploadField({
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       {label && (
-        <span className="text-sm font-semibold tracking-wide text-slate-200">
-          {label}
-        </span>
+        <span className="text-sm font-medium text-slate-600">{label}</span>
       )}
       <input
         ref={inputRef}
@@ -47,21 +45,21 @@ export function FileUploadField({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="group flex w-full flex-col items-center gap-2 rounded-xl border-2 border-dashed border-slate-600 bg-slate-800/60 px-4 py-5 transition hover:border-cyan-500 hover:bg-slate-800"
+          className="group flex w-full flex-col items-center gap-2 rounded-xl border-2 border-dashed border-slate-200 bg-white/60 px-4 py-5 transition hover:border-emerald-300 hover:bg-emerald-50/40"
         >
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-cyan-600/20 transition group-hover:bg-cyan-600/30">
-            <Upload className="h-5 w-5 text-cyan-400" />
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 transition group-hover:bg-emerald-200">
+            <Upload className="h-5 w-5 text-emerald-600" />
           </span>
-          <span className="text-sm font-medium text-cyan-400">
+          <span className="text-sm font-medium text-slate-700">
             Procurar documento
           </span>
           <span className="text-xs text-slate-500">{hint}</span>
         </button>
       ) : (
-        <div className="flex items-center gap-3 rounded-xl border border-emerald-600/40 bg-emerald-950/25 px-3 py-3">
-          <FileText className="h-5 w-5 shrink-0 text-emerald-400" />
+        <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-3">
+          <FileText className="h-5 w-5 shrink-0 text-emerald-600" />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-slate-200">{file.name}</p>
+            <p className="truncate text-sm font-medium text-slate-800">{file.name}</p>
             <p className="text-xs text-slate-500">
               {(file.size / 1024).toFixed(0)} KB
             </p>
@@ -69,7 +67,7 @@ export function FileUploadField({
           <button
             type="button"
             onClick={limpar}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-700 hover:text-red-400"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
             title="Remover arquivo"
           >
             <X className="h-4 w-4" />
@@ -112,7 +110,7 @@ export function FileUploadMultiple({
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       {label && (
-        <span className="text-sm font-medium text-slate-300">{label}</span>
+        <span className="text-sm font-medium text-slate-600">{label}</span>
       )}
       <input
         ref={inputRef}
@@ -126,12 +124,12 @@ export function FileUploadMultiple({
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="group flex w-full flex-col items-center gap-2 rounded-xl border-2 border-dashed border-slate-600 bg-slate-800/60 px-4 py-4 transition hover:border-cyan-500 hover:bg-slate-800"
+        className="group flex w-full flex-col items-center gap-2 rounded-xl border-2 border-dashed border-slate-200 bg-white/60 px-4 py-4 transition hover:border-emerald-300 hover:bg-emerald-50/40"
       >
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-cyan-600/20 transition group-hover:bg-cyan-600/30">
-          <Upload className="h-4 w-4 text-cyan-400" />
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 transition group-hover:bg-emerald-200">
+          <Upload className="h-4 w-4 text-emerald-600" />
         </span>
-        <span className="text-sm font-medium text-cyan-400">
+        <span className="text-sm font-medium text-slate-700">
           Procurar comprovantes
         </span>
         <span className="text-xs text-slate-500">{hint}</span>
@@ -142,11 +140,11 @@ export function FileUploadMultiple({
           {files.map((file, index) => (
             <li
               key={`${file.name}-${index}`}
-              className="flex items-center gap-3 rounded-lg border border-emerald-600/40 bg-emerald-950/25 px-3 py-2"
+              className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2"
             >
-              <FileText className="h-4 w-4 shrink-0 text-emerald-400" />
+              <FileText className="h-4 w-4 shrink-0 text-emerald-600" />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm text-slate-200">{file.name}</p>
+                <p className="truncate text-sm text-slate-800">{file.name}</p>
                 <p className="text-xs text-slate-500">
                   {(file.size / 1024).toFixed(0)} KB
                 </p>
@@ -154,7 +152,7 @@ export function FileUploadMultiple({
               <button
                 type="button"
                 onClick={() => remover(index)}
-                className="rounded p-1 text-slate-400 hover:bg-slate-700 hover:text-red-400"
+                className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
                 title="Remover"
               >
                 <X className="h-4 w-4" />

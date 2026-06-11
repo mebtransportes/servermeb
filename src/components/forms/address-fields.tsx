@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { fetchCep, buildMapsLink, buildEnderecoCompleto } from "@/lib/utils";
+import { cn, fetchCep, buildMapsLink, buildEnderecoCompleto, mebFormSubsection } from "@/lib/utils";
 import { Copy, MapPin } from "lucide-react";
 
 export type AddressValues = {
@@ -77,8 +77,8 @@ export function AddressFields({
   });
 
   return (
-    <div className="space-y-4 rounded-xl border border-slate-700/60 bg-slate-900/40 p-4">
-      <h3 className="text-sm font-semibold text-cyan-400">Endereço e localização</h3>
+    <div className={cn(mebFormSubsection, "space-y-4")}>
+      <h3 className="text-sm font-semibold text-slate-800">Endereço e localização</h3>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Input
           label={`CEP ${loadingCep ? "(buscando...)" : ""}`}
@@ -160,7 +160,7 @@ export function AddressFields({
             href={values.maps_link}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-sm text-cyan-400 hover:underline"
+            className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 hover:underline"
           >
             <MapPin className="h-4 w-4" />
             Abrir no Google Maps

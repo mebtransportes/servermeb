@@ -13,8 +13,9 @@ import { atualizarFornecedorAtual } from "@/lib/viagem-fornecedor-atual";
 import { VIAGEM_STATUS_CORES, VIAGEM_STATUS_LABEL } from "@/lib/viagem-status";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, mebCardSm } from "@/lib/utils";
 import { Check, Copy, Pencil } from "lucide-react";
+import { mebAlert } from "@/lib/meb-dialog";
 
 function encurtar(texto: string, max = 38) {
   const t = texto.trim();
@@ -45,29 +46,31 @@ export function ViagemAcompanhamentoCard({
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2500);
     } catch {
-      alert("Não foi possível copiar. Tente novamente.");
+      await mebAlert("Não foi possível copiar. Tente novamente.");
     }
   }
 
   return (
     <article
       className={cn(
-        "break-inside-avoid rounded-lg border border-slate-700/50 bg-slate-800/50 p-3 shadow-sm transition print:border-slate-400 print:bg-white print:p-2 print:text-black print:shadow-none hover:border-slate-600"
+        "meb-acompanhamento break-inside-avoid p-3 transition print:border-slate-400 print:bg-white print:p-2 print:text-black print:shadow-none",
+        mebCardSm,
+        "hover:border-slate-300 hover:bg-white/80"
       )}
     >
       <div className="mb-2 flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold text-white print:text-black">
+          <p className="truncate text-sm font-bold text-slate-900 print:text-black">
             {viagem.motorista_nome}
           </p>
-          <p className="truncate text-xs text-slate-400 print:text-gray-600">
+          <p className="truncate text-xs text-slate-500 print:text-gray-600">
             {viagem.veiculos_label}
           </p>
         </div>
         <span
           className={cn(
-            "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase print:border print:border-gray-400 print:bg-gray-100 print:text-black",
-            VIAGEM_STATUS_CORES[viagem.status] ?? "bg-slate-800 text-slate-300"
+            "meb-status-badge shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase print:border print:border-gray-400 print:bg-gray-100 print:text-black",
+            VIAGEM_STATUS_CORES[viagem.status] ?? "bg-slate-100 text-slate-600"
           )}
         >
           {statusLabel}
@@ -78,14 +81,14 @@ export function ViagemAcompanhamentoCard({
         className={cn(
           "mb-2 rounded-md border px-2 py-1.5 text-xs leading-snug print:border-gray-300 print:bg-gray-50 print:text-black",
           precisaSelecionar
-            ? "border-amber-700/40 bg-amber-950/30 text-amber-100"
-            : "border-cyan-800/30 bg-cyan-950/20 text-cyan-100"
+            ? "border-amber-200 bg-amber-50 text-amber-900"
+            : "border-slate-200 bg-slate-50 text-slate-700"
         )}
       >
         {resumoCurto}
       </p>
 
-      <div className="mb-2 space-y-0.5 text-[11px] text-slate-400 print:text-gray-700">
+      <div className="mb-2 space-y-0.5 text-[11px] text-slate-500 print:text-gray-700">
         {viagem.motorista_telefone && <p>📱 {viagem.motorista_telefone}</p>}
         {viagem.numero_cte && <p>📋 CTE {viagem.numero_cte}</p>}
         <p>
@@ -112,8 +115,8 @@ export function ViagemAcompanhamentoCard({
                   className={cn(
                     "rounded px-1.5 py-0.5 text-[10px] print:border print:border-gray-300",
                     destaqueAtual
-                      ? "bg-violet-900/40 font-semibold text-violet-200 print:bg-violet-50 print:text-black"
-                      : "bg-slate-800/60 text-slate-400 print:text-black"
+                      ? "bg-violet-100 font-semibold text-violet-800 print:bg-violet-50 print:text-black"
+                      : "bg-slate-100 text-slate-600 print:text-black"
                   )}
                 >
                   F{f.ordem}) {encurtar(f.local_fornecedor)}
@@ -140,8 +143,8 @@ export function ViagemAcompanhamentoCard({
                   className={cn(
                     "rounded px-1.5 py-0.5 text-[10px] print:border print:border-gray-300",
                     destaqueAtual
-                      ? "bg-orange-900/40 font-semibold text-orange-200 print:bg-orange-50 print:text-black"
-                      : "bg-slate-800/60 text-slate-400 print:text-black"
+                      ? "bg-orange-100 font-semibold text-orange-800 print:bg-orange-50 print:text-black"
+                      : "bg-slate-100 text-slate-600 print:text-black"
                   )}
                 >
                   E{e.ordem}) {encurtar(e.local_entrega)}
@@ -172,7 +175,7 @@ export function ViagemAcompanhamentoCard({
               );
               setSalvando(false);
               if (err) {
-                alert(err);
+                await mebAlert(err);
                 return;
               }
               onAtualizado?.();
@@ -204,7 +207,7 @@ export function ViagemAcompanhamentoCard({
               );
               setSalvando(false);
               if (err) {
-                alert(err);
+                await mebAlert(err);
                 return;
               }
               onAtualizado?.();

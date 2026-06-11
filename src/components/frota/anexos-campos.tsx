@@ -8,6 +8,7 @@ import {
   type CampoAnexoFrota,
   type TabelaAnexoFrota,
 } from "@/lib/anexos-crud";
+import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 
 export function AnexosFrotaCampos({
   notaFiscal,
@@ -33,13 +34,20 @@ export function AnexosFrotaCampos({
   const anexosAtuais = locais ?? existentes;
 
   async function handleExcluir(campo: CampoAnexoFrota, path: string) {
-    if (!confirm("Excluir este documento?")) return;
+    if (
+      !(await mebConfirm("Excluir este documento?", {
+        variant: "danger",
+        confirmLabel: "Excluir",
+      }))
+    ) {
+      return;
+    }
     setExcluindoCampo(campo);
 
     if (registro) {
       const err = await excluirAnexoFrotaInline(registro.tabela, registro.id, campo, path);
       if (err) {
-        alert(err);
+        await mebAlert(err);
         setExcluindoCampo(null);
         return;
       }

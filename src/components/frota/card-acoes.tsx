@@ -11,7 +11,7 @@ export function CardAcoes({
 }) {
   return (
     <div
-      className="mt-2 flex gap-1 border-t border-slate-700/50 pt-2"
+      className="mt-2 flex gap-1 border-t border-slate-200/80 pt-2"
       onPointerDown={(e) => e.stopPropagation()}
     >
       <button
@@ -20,7 +20,7 @@ export function CardAcoes({
           e.stopPropagation();
           onEdit();
         }}
-        className="flex flex-1 items-center justify-center gap-1 rounded-md bg-slate-700/80 py-1 text-xs text-slate-200 hover:bg-cyan-600/80"
+        className="flex flex-1 items-center justify-center gap-1 rounded-md border border-slate-200 bg-white/80 py-1 text-xs text-slate-600 hover:border-slate-300 hover:bg-white"
       >
         <Pencil className="h-3 w-3" />
         Editar
@@ -31,7 +31,7 @@ export function CardAcoes({
           e.stopPropagation();
           onDelete();
         }}
-        className="flex flex-1 items-center justify-center gap-1 rounded-md bg-slate-700/80 py-1 text-xs text-red-300 hover:bg-red-900/60"
+        className="flex flex-1 items-center justify-center gap-1 rounded-md border border-red-200 bg-red-50 py-1 text-xs text-red-700 hover:bg-red-100"
       >
         <Trash2 className="h-3 w-3" />
         Excluir

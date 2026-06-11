@@ -14,6 +14,7 @@ import {
 } from "@/types/recebimento";
 import type { RecebimentoComCanhotos } from "@/lib/recebimento-viagem";
 import { cn } from "@/lib/utils";
+import { mebAlert } from "@/lib/meb-dialog";
 
 export function RecebimentoLinha({
   item,
@@ -45,7 +46,7 @@ export function RecebimentoLinha({
     });
     setSalvando(false);
     if (err) {
-      alert(err);
+      await mebAlert(err);
       return;
     }
     onAtualizado();

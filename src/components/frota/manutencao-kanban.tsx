@@ -16,7 +16,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { FrotaManutencaoStatus, ManutencaoCard } from "@/types/frota";
 import { formatarMoeda } from "@/lib/frota-filters";
 import { resumoPagamentoManutencao } from "@/lib/manutencao-pagamento";
-import { cn } from "@/lib/utils";
+import { cn, mebCardSm } from "@/lib/utils";
 import { Shield, Route } from "lucide-react";
 import { FrotaAnexosLinks } from "@/components/frota/frota-anexos-links";
 import { CardAcoes } from "@/components/frota/card-acoes";
@@ -24,9 +24,9 @@ import { CardAcoes } from "@/components/frota/card-acoes";
 const COLUNAS: FrotaManutencaoStatus[] = ["AGENDADO", "EM ANDAMENTO", "FINALIZADO"];
 
 const colunaStyle: Record<FrotaManutencaoStatus, string> = {
-  AGENDADO: "border-amber-700/50 bg-amber-950/20",
-  "EM ANDAMENTO": "border-blue-700/50 bg-blue-950/20",
-  FINALIZADO: "border-emerald-700/50 bg-emerald-950/20",
+  AGENDADO: "border-amber-200 bg-amber-50/40",
+  "EM ANDAMENTO": "border-sky-200 bg-sky-50/40",
+  FINALIZADO: "border-emerald-200 bg-emerald-50/40",
 };
 
 function DraggableCard({
@@ -52,7 +52,8 @@ function DraggableCard({
       {...listeners}
       {...attributes}
       className={cn(
-        "cursor-grab rounded-lg border border-slate-600/50 bg-slate-800/80 p-3 shadow active:cursor-grabbing",
+        "cursor-grab p-3 active:cursor-grabbing",
+        mebCardSm,
         isDragging && "opacity-40"
       )}
     >
@@ -73,14 +74,14 @@ function CardContent({
   return (
     <>
       <div className="mb-2 flex items-start justify-between gap-2">
-        <p className="font-medium text-white text-sm leading-tight">{item.nome}</p>
+        <p className="text-sm font-medium leading-tight text-slate-900">{item.nome}</p>
         {item.source === "preventiva" ? (
-          <span className="flex shrink-0 items-center gap-0.5 rounded bg-violet-900/60 px-1.5 py-0.5 text-[10px] font-semibold text-violet-300">
+          <span className="flex shrink-0 items-center gap-0.5 rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700">
             <Shield className="h-3 w-3" />
             Preventiva
           </span>
         ) : (
-          <span className="flex shrink-0 items-center gap-0.5 rounded bg-cyan-900/60 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-300">
+          <span className="flex shrink-0 items-center gap-0.5 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700">
             <Route className="h-3 w-3" />
             Viagem
           </span>
@@ -91,17 +92,17 @@ function CardContent({
       )}
       <p className="text-xs text-slate-500">{item.onde}</p>
       {item.motoristaNome && (
-        <p className="mt-1 text-xs text-cyan-400/80">Motorista: {item.motoristaNome}</p>
+        <p className="mt-1 text-xs text-slate-500">Motorista: {item.motoristaNome}</p>
       )}
       {item.veiculoPlaca && (
-        <p className="mt-1 text-xs font-medium text-slate-300">Veículo: {item.veiculoPlaca}</p>
+        <p className="mt-1 text-xs font-medium text-slate-600">Veículo: {item.veiculoPlaca}</p>
       )}
       {item.km != null && (
-        <p className="text-xs text-cyan-400/90">KM: {item.km.toLocaleString("pt-BR")}</p>
+        <p className="text-xs text-slate-500">KM: {item.km.toLocaleString("pt-BR")}</p>
       )}
       <FrotaAnexosLinks anexos={item} />
       {item.source === "preventiva" && item.pagamentoModalidade && item.pagamentoForma && (
-        <p className="mt-1 text-xs text-amber-400/90">
+        <p className="mt-1 text-xs text-slate-500">
           {resumoPagamentoManutencao({
             modalidade: item.pagamentoModalidade,
             forma: item.pagamentoForma,
@@ -115,7 +116,7 @@ function CardContent({
           {item.dataRef}
           {item.horaRef ? ` ${item.horaRef.slice(0, 5)}` : ""}
         </span>
-        <span className="font-semibold text-emerald-400">{formatarMoeda(item.valor)}</span>
+        <span className="font-semibold text-slate-800">{formatarMoeda(item.valor)}</span>
       </div>
       {onEdit && onDelete && <CardAcoes onEdit={onEdit} onDelete={onDelete} />}
     </>
@@ -141,12 +142,12 @@ function DroppableColumn({
       className={cn(
         "flex min-h-[320px] flex-col rounded-xl border-2 border-dashed p-3 transition",
         colunaStyle[status],
-        isOver && "ring-2 ring-cyan-400"
+        isOver && "ring-2 ring-emerald-300"
       )}
     >
-      <h3 className="mb-3 text-center text-sm font-bold uppercase tracking-wide text-slate-300">
+      <h3 className="mb-3 text-center text-sm font-bold uppercase tracking-wide text-slate-600">
         {status}
-        <span className="ml-2 rounded-full bg-slate-800 px-2 py-0.5 text-xs">
+        <span className="ml-2 rounded-full bg-white/80 px-2 py-0.5 text-xs text-slate-600 ring-1 ring-slate-200">
           {items.length}
         </span>
       </h3>
@@ -227,7 +228,7 @@ export function ManutencaoKanban({
       </div>
       <DragOverlay>
         {active ? (
-          <div className="rounded-lg border border-cyan-500 bg-slate-800 p-3 shadow-xl">
+          <div className={cn(mebCardSm, "p-3 shadow-lg ring-2 ring-emerald-200")}>
             <CardContent item={active} />
           </div>
         ) : null}

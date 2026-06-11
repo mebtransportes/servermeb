@@ -19,9 +19,10 @@ import {
   type PeriodoFiltroState,
 } from "@/lib/frota-filters";
 import type { AbastecimentoCard } from "@/types/frota";
-import { cn } from "@/lib/utils";
+import { cn, mebCardSm } from "@/lib/utils";
 import { FrotaAnexosLinks } from "@/components/frota/frota-anexos-links";
 import { FrotaRelatorioModal } from "@/components/frota/frota-relatorio-modal";
+import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 
 export default function FrotaAbastecimentosPage() {
   const [items, setItems] = useState<AbastecimentoCard[]>([]);
@@ -88,10 +89,17 @@ export default function FrotaAbastecimentosPage() {
 
   async function handleExcluir(item: AbastecimentoCard) {
     const label = item.source === "viagem" ? "registro da viagem" : "abastecimento manual";
-    if (!confirm(`Excluir este ${label}? Esta ação não pode ser desfeita.`)) return;
+    if (
+      !(await mebConfirm(`Excluir este ${label}? Esta ação não pode ser desfeita.`, {
+        variant: "danger",
+        confirmLabel: "Excluir",
+      }))
+    ) {
+      return;
+    }
     const err = await excluirAbastecimento(item);
     if (err) {
-      alert(err);
+      await mebAlert(err);
       return;
     }
     if (editingItem?.id === item.id) {
@@ -116,7 +124,7 @@ export default function FrotaAbastecimentosPage() {
             <FileBarChart className="h-4 w-4" />
             Relatórios
           </Button>
-          <Button onClick={abrirNovo}>
+          <Button variant="success" onClick={abrirNovo}>
             <Plus className="h-4 w-4" />
             Novo abastecimento
           </Button>
@@ -193,28 +201,28 @@ function AbastecimentoCardView({
   onDelete: () => void;
 }) {
   return (
-    <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-2.5">
+    <div className={cn(mebCardSm, "p-2.5")}>
       <div className="mb-1 flex items-start justify-between gap-2">
-        <span className="text-base font-bold text-emerald-400">
+        <span className="text-base font-bold text-slate-900">
           {formatarMoeda(item.valor)}
         </span>
         {item.source === "viagem" ? (
-          <span className="flex items-center gap-1 rounded bg-cyan-900/50 px-2 py-0.5 text-[10px] font-semibold text-cyan-300">
+          <span className="flex items-center gap-1 rounded bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
             <Route className="h-3 w-3" />
             Viagem
           </span>
         ) : (
-          <span className="flex items-center gap-1 rounded bg-violet-900/50 px-2 py-0.5 text-[10px] font-semibold text-violet-300">
+          <span className="flex items-center gap-1 rounded bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
             <ClipboardList className="h-3 w-3" />
             Manual
           </span>
         )}
       </div>
-      <p className="text-xs text-slate-300">
+      <p className="text-xs text-slate-500">
         {new Date(item.dataHora).toLocaleString("pt-BR")}
       </p>
       {(item.km != null || item.litros != null || item.litrosTotais != null) && (
-        <p className="mt-0.5 text-xs text-cyan-400">
+        <p className="mt-0.5 text-xs text-slate-500">
           {item.km != null && `KM: ${item.km.toLocaleString("pt-BR")}`}
           {item.km != null && (item.litros != null || item.litrosTotais != null) && " · "}
           {item.litros != null && `${item.litros.toLocaleString("pt-BR")} L abast.`}
@@ -227,7 +235,7 @@ function AbastecimentoCardView({
       {item.postoNome && <p className="text-xs text-slate-400">Posto: {item.postoNome}</p>}
       {item.veiculoLabel && <p className="text-xs text-slate-400">{item.veiculoLabel}</p>}
       {item.motoristaNome && (
-        <p className="text-xs text-cyan-400/80">Motorista: {item.motoristaNome}</p>
+        <p className="text-xs text-slate-500">Motorista: {item.motoristaNome}</p>
       )}
       {item.descricao && (
         <p className={cn("mt-1 text-[10px] text-slate-500")}>{item.descricao}</p>

@@ -22,10 +22,10 @@ export function AnexoArquivoRow({
   }, [storagePath]);
 
   return (
-    <div className="flex items-center justify-between gap-2 rounded-lg bg-[#262626]/80 px-3 py-2 text-sm">
+    <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200/80 bg-white/70 px-3 py-2 text-sm">
       <span className="flex min-w-0 items-center gap-2">
-        <FileText className="h-4 w-4 shrink-0 text-cyan-400" />
-        <span className="truncate text-slate-200">{label}</span>
+        <FileText className="h-4 w-4 shrink-0 text-slate-400" />
+        <span className="truncate text-slate-700">{label}</span>
       </span>
       <div className="flex shrink-0 items-center gap-2">
         {url ? (
@@ -33,12 +33,12 @@ export function AnexoArquivoRow({
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-cyan-400 hover:underline"
+            className="text-slate-600 hover:text-slate-900 hover:underline"
           >
             Abrir
           </a>
         ) : (
-          <span className="text-slate-500">…</span>
+          <span className="text-slate-400">…</span>
         )}
         {onExcluir && (
           <button
@@ -46,7 +46,7 @@ export function AnexoArquivoRow({
             onClick={onExcluir}
             disabled={excluindo}
             title="Excluir anexo"
-            className="rounded-md p-1.5 text-red-400 transition hover:bg-red-950/50 disabled:opacity-50"
+            className="rounded-md p-1.5 text-red-500 transition hover:bg-red-50 disabled:opacity-50"
           >
             <Trash2 className="h-4 w-4" />
           </button>

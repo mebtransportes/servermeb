@@ -9,8 +9,10 @@ import type { ViagemFechamento } from "@/types/fechamento";
 import { agruparFechamentosComissao } from "@/types/fechamento";
 import { statusElegivelComissao } from "@/lib/viagem-status";
 import { VIAGEM_STATUS_LABEL } from "@/lib/viagem-status";
-import { FileText, X } from "lucide-react";
+import { FileText } from "lucide-react";
+import { MebModal, MebModalFooter, MebModalHeader } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
+import { mebAlert } from "@/lib/meb-dialog";
 
 export function GerarComissaoModal({
   motoristaNome,
@@ -69,7 +71,7 @@ export function GerarComissaoModal({
 
   async function gerar() {
     if (!selecionados.length) {
-      alert("Selecione ao menos uma viagem (finalizada ou pagamento pendente).");
+      await mebAlert("Selecione ao menos uma viagem (finalizada ou pagamento pendente).");
       return;
     }
     await gerarPdfComissaoMotorista({
@@ -81,29 +83,28 @@ export function GerarComissaoModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="flex max-h-[92vh] w-full max-w-5xl flex-col rounded-xl border border-slate-700 bg-slate-900 shadow-xl">
-        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-700/60 px-6 py-4">
-          <div>
-            <h2 className="text-lg font-semibold text-white">Gerar comissão</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Motorista: <span className="text-slate-200">{motoristaNome}</span>
-            </p>
-            <p className="mt-1 text-xs text-slate-500">
-              Selecione as viagens para juntar gastos, fretes e comissão no relatório.
-            </p>
-          </div>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-white">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <MebModal
+      open
+      onClose={onClose}
+      maxWidth="max-w-5xl"
+      panelClassName="flex max-h-[92vh] flex-col"
+      aria-labelledby="comissao-titulo"
+    >
+      <div className="shrink-0 border-b border-[#2a2a2a] px-6 py-4">
+        <MebModalHeader
+          id="comissao-titulo"
+          title="Gerar comissão"
+          description={`Motorista: ${motoristaNome}. Selecione as viagens para juntar gastos, fretes e comissão no relatório.`}
+          onClose={onClose}
+        />
+      </div>
 
-        <div className="shrink-0 border-b border-slate-700/60 px-6 py-3">
+        <div className="shrink-0 border-b border-[#2a2a2a] px-6 py-3">
           <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" variant="secondary" onClick={selecionarTodas}>
+            <Button type="button" variant="modal" onClick={selecionarTodas}>
               Selecionar todas
             </Button>
-            <Button type="button" variant="ghost" onClick={limparSelecao}>
+            <Button type="button" variant="secondary" onClick={limparSelecao}>
               Limpar seleção
             </Button>
             <span className="text-sm text-slate-400">
@@ -120,8 +121,8 @@ export function GerarComissaoModal({
           ) : (
             <div className="space-y-6">
               {selecionados.length > 0 && (
-                <div className="rounded-xl border border-cyan-800/40 bg-cyan-950/20 p-4">
-                  <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-cyan-400">
+                <div className="rounded-xl border border-[#2a2a2a] bg-[#262626] p-4">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
                     Resumo agrupado ({resumo.viagens} viagem(ns))
                   </p>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -165,8 +166,8 @@ export function GerarComissaoModal({
                       className={cn(
                         "rounded-xl border p-4 transition",
                         checked
-                          ? "border-cyan-600/50 bg-cyan-950/20"
-                          : "border-slate-700/50 bg-slate-800/30"
+                          ? "border-slate-500 bg-[#2d2d2d]"
+                          : "border-[#2a2a2a] bg-[#262626]"
                       )}
                     >
                       <label className="mb-3 flex cursor-pointer items-start gap-3">
@@ -195,7 +196,7 @@ export function GerarComissaoModal({
                             {statusLabel}
                           </span>
                         </div>
-                        <span className="shrink-0 text-sm font-semibold text-emerald-400">
+                        <span className="shrink-0 text-sm font-semibold text-slate-200">
                           {formatarMoeda(f.comissao_final)}
                         </span>
                       </label>
@@ -208,17 +209,21 @@ export function GerarComissaoModal({
           )}
         </div>
 
-        <div className="flex shrink-0 justify-end gap-2 border-t border-slate-700/60 px-6 py-4">
+        <MebModalFooter className="shrink-0 justify-end border-t border-[#2a2a2a] px-6 py-4">
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancelar
           </Button>
-          <Button type="button" disabled={!selecionados.length} onClick={gerar}>
+          <Button
+            type="button"
+            variant="modal"
+            disabled={!selecionados.length}
+            onClick={gerar}
+          >
             <FileText className="mr-2 h-4 w-4" />
             Gerar recibo PDF ({selectedIds.size})
           </Button>
-        </div>
-      </div>
-    </div>
+        </MebModalFooter>
+    </MebModal>
   );
 }
 
@@ -237,7 +242,7 @@ function ResumoItem({
       <p
         className={cn(
           "text-sm font-semibold",
-          destaque ? "text-emerald-400" : "text-slate-200"
+          destaque ? "text-white" : "text-slate-200"
         )}
       >
         {value}
