@@ -17,16 +17,16 @@ export default function FrotaDocumentacaoPage() {
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-center gap-3">
-        <FileText className="h-8 w-8 text-cyan-400" />
+        <FileText className="h-8 w-8 text-[#33388d]" />
         <div>
-          <h1 className="text-2xl font-bold">Documentação</h1>
-          <p className="text-slate-400">
-            Vencimentos de CNH, toxicológico, CRLV e IPVA
+          <h1 className="text-2xl font-bold text-slate-900">Documentação</h1>
+          <p className="text-slate-600">
+            Vencimentos de CNH, toxicológico, CRLV, IPVA e tacógrafo
           </p>
         </div>
       </header>
 
-      <div className="flex gap-1 border-b border-slate-700/60">
+      <div className="flex gap-1 border-b border-slate-200">
         {ABAS.map((item) => (
           <button
             key={item.id}
@@ -35,8 +35,8 @@ export default function FrotaDocumentacaoPage() {
             className={cn(
               "flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition -mb-px",
               aba === item.id
-                ? "border-cyan-500 text-cyan-400"
-                : "border-transparent text-slate-400 hover:text-slate-200"
+                ? "border-[#33388d] text-[#33388d]"
+                : "border-transparent text-slate-500 hover:text-slate-800"
             )}
           >
             <item.icon className="h-4 w-4" />

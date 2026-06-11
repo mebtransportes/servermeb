@@ -36,8 +36,8 @@ export function PeriodoFilter({
             className={cn(
               "rounded-lg px-3.5 py-2 text-sm font-medium transition",
               value.preset === p.value
-                ? "bg-cyan-600 text-white"
-                : "bg-slate-800 text-slate-400 hover:bg-slate-700"
+                ? "bg-[#33388d] text-white shadow-sm"
+                : "border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50"
             )}
           >
             {p.label}
@@ -49,8 +49,8 @@ export function PeriodoFilter({
           className={cn(
             "rounded-lg px-3.5 py-2 text-sm font-medium transition",
             isCustom
-              ? "bg-cyan-600 text-white"
-              : "bg-slate-800 text-slate-400 hover:bg-slate-700"
+              ? "bg-[#33388d] text-white shadow-sm"
+              : "border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50"
           )}
         >
           Datas específicas

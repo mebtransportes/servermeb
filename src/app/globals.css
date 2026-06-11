@@ -4,10 +4,12 @@
   --meb-sidebar: #33388d;
   --meb-sidebar-dark: #2a2f7a;
   --meb-content-bg: #e8edf2;
-  --meb-content-bg-deep: #dde4ea;
-  --meb-surface: #1a1a1a;
-  --meb-border: #2a2a2a;
-  --meb-muted: #363636;
+  --meb-content-surface: #ffffff;
+  --meb-content-border: #c5ced8;
+  --meb-content-text: #1e293b;
+  --meb-content-muted: #64748b;
+  --meb-surface-dark: #1a1a1a;
+  --meb-border-dark: #2a2a2a;
   --foreground: #1e293b;
   --meb-ice: #e8edf2;
 }
@@ -17,9 +19,9 @@
   --color-foreground: var(--foreground);
   --color-slate-950: #0c0c0c;
   --color-slate-900: #1a1a1a;
-  --color-slate-800: var(--meb-surface);
-  --color-slate-700: var(--meb-border);
-  --color-slate-600: var(--meb-muted);
+  --color-slate-800: var(--meb-surface-dark);
+  --color-slate-700: var(--meb-border-dark);
+  --color-slate-600: #475569;
   --color-slate-500: #64748b;
   --color-slate-400: #94a3b8;
   --color-slate-300: #cbd5e1;
@@ -49,31 +51,77 @@ body {
   line-height: var(--text-base--line-height);
 }
 
-/* Área principal: fundo cinza gelo; títulos legíveis fora dos cards escuros */
+/* Área principal: fundo cinza + superfícies brancas legíveis */
 .meb-app-main {
   background-color: var(--meb-content-bg);
-  color: #334155;
+  color: var(--meb-content-text);
 }
 
-.meb-app-main h1.text-white,
-.meb-app-main h2.text-white,
-.meb-app-main h3.text-white {
+.meb-app-main h1,
+.meb-app-main h2,
+.meb-app-main h3 {
   color: #0f172a;
 }
 
-.meb-app-main > div > header .text-slate-400,
-.meb-app-main > div > header .text-slate-500,
-.meb-app-main > div > p.text-slate-400:first-child,
-.meb-app-main > div > p.text-slate-500 {
-  color: #64748b;
+.meb-app-main .text-white {
+  color: #0f172a;
 }
 
-.meb-app-main [class*="bg-slate-8"] .text-white,
-.meb-app-main [class*="bg-slate-9"] .text-white,
-.meb-app-main [class*="bg-slate-8"] h1,
-.meb-app-main [class*="bg-slate-9"] h1,
-.meb-app-main [class*="bg-cyan-9"] .text-white {
+.meb-app-main .text-slate-200,
+.meb-app-main .text-slate-300 {
+  color: #334155;
+}
+
+.meb-app-main .text-slate-400,
+.meb-app-main .text-slate-500 {
+  color: var(--meb-content-muted);
+}
+
+/* Mantém texto claro dentro de painéis escuros e modais */
+.meb-app-main :is(
+  [class*="bg-slate-8"],
+  [class*="bg-slate-9"],
+  [class*="bg-cyan-6"],
+  [class*="bg-cyan-7"],
+  [class*="bg-violet-9"],
+  [class*="bg-emerald-9"],
+  [class*="bg-red-9"],
+  [class*="bg-amber-9"],
+  [class*="bg-black"]
+) .text-white,
+.meb-app-main :is(
+  [class*="bg-slate-8"],
+  [class*="bg-slate-9"],
+  [class*="bg-cyan-6"],
+  [class*="bg-violet-9"],
+  [class*="bg-emerald-9"],
+  [class*="bg-red-9"],
+  [class*="bg-amber-9"],
+  [class*="bg-black"]
+) h1,
+.meb-app-main :is(
+  [class*="bg-slate-8"],
+  [class*="bg-slate-9"],
+  [class*="bg-cyan-6"],
+  [class*="bg-violet-9"]
+) h2,
+.meb-app-main :is(
+  [class*="bg-slate-8"],
+  [class*="bg-slate-9"],
+  [class*="bg-cyan-6"],
+  [class*="bg-violet-9"]
+) h3 {
   color: #f8fafc;
+}
+
+.meb-app-main :is([class*="bg-slate-8"], [class*="bg-slate-9"]) .text-slate-300,
+.meb-app-main :is([class*="bg-slate-8"], [class*="bg-slate-9"]) .text-slate-400 {
+  color: #cbd5e1;
+}
+
+.meb-app-main .bg-cyan-600.text-white,
+.meb-app-main button.bg-cyan-600 {
+  color: #ffffff !important;
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator {

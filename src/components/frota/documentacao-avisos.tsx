@@ -26,7 +26,7 @@ type Filtro = "todos" | "motorista" | "veiculo";
 function StatusBadge({ alerta }: { alerta: AlertaDocumentacao }) {
   if (alerta.apenasContexto || alerta.status === "ok") {
     return (
-      <span className="rounded-full bg-emerald-950/80 px-2.5 py-0.5 text-xs font-semibold text-emerald-300">
+      <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
         Em dia
         {alerta.diasRestantes != null && ` (${alerta.diasRestantes} dias)`}
       </span>
@@ -34,7 +34,7 @@ function StatusBadge({ alerta }: { alerta: AlertaDocumentacao }) {
   }
   if (alerta.status === "vencido") {
     return (
-      <span className="rounded-full bg-red-950/80 px-2.5 py-0.5 text-xs font-semibold text-red-300">
+      <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800">
         Vencido
         {alerta.diasRestantes != null &&
           ` há ${Math.abs(alerta.diasRestantes)} dia(s)`}
@@ -43,13 +43,13 @@ function StatusBadge({ alerta }: { alerta: AlertaDocumentacao }) {
   }
   if (alerta.status === "vencendo") {
     return (
-      <span className="rounded-full bg-amber-950/80 px-2.5 py-0.5 text-xs font-semibold text-amber-300">
+      <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900">
         Vence em {alerta.diasRestantes} dia(s)
       </span>
     );
   }
   return (
-    <span className="rounded-full bg-slate-700/80 px-2.5 py-0.5 text-xs font-semibold text-slate-300">
+    <span className="rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
       Sem data cadastrada
     </span>
   );
@@ -94,16 +94,17 @@ export function DocumentacaoAvisos() {
   }, [alertas, filtro]);
 
   if (loading) {
-    return <p className="text-slate-400">Carregando avisos...</p>;
+    return <p className="text-slate-600">Carregando avisos...</p>;
   }
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-slate-400">
+      <p className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">
         Documentos vencidos, a vencer nos próximos{" "}
-        <strong className="text-cyan-400">{DIAS_ALERTA_VENCIMENTO} dias</strong> ou
+        <strong className="text-[#33388d]">{DIAS_ALERTA_VENCIMENTO} dias</strong> ou
         sem data no cadastro. Quando há aviso em um motorista ou veículo, os demais
-        documentos dele aparecem em <span className="text-emerald-400/90">verde (em dia)</span>.
+        documentos dele aparecem em{" "}
+        <span className="font-medium text-emerald-700">verde (em dia)</span>.
         Atualize em Cadastro → Motoristas ou Veículos.
       </p>
 
@@ -157,31 +158,38 @@ export function DocumentacaoAvisos() {
             type="button"
             onClick={() => setFiltro(f.id)}
             className={cn(
-              "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition",
+              "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition shadow-sm",
               filtro === f.id
-                ? "border-cyan-500 bg-cyan-600/20 text-cyan-300"
-                : "border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-200"
+                ? "border-[#33388d] bg-[#33388d] text-white"
+                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
             )}
           >
             {"icon" in f && f.icon && <f.icon className="h-4 w-4" />}
             {f.label}
-            <span className="rounded-full bg-slate-800 px-1.5 text-xs">{f.count}</span>
+            <span
+              className={cn(
+                "rounded-full px-1.5 text-xs",
+                filtro === f.id ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+              )}
+            >
+              {f.count}
+            </span>
           </button>
         ))}
       </div>
 
       {filtrados.length === 0 ? (
-        <div className="rounded-xl border border-emerald-800/40 bg-emerald-950/20 p-10 text-center">
-          <p className="font-medium text-emerald-400">Nenhum aviso no momento</p>
-          <p className="mt-1 text-sm text-slate-400">
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-10 text-center shadow-sm">
+          <p className="font-medium text-emerald-800">Nenhum aviso no momento</p>
+          <p className="mt-1 text-sm text-emerald-700/80">
             Todos os documentos monitorados estão em dia no período de alerta.
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-700/50">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full min-w-[720px] text-left text-sm">
             <thead>
-              <tr className="border-b border-slate-700 bg-slate-800/60 text-xs uppercase tracking-wide text-slate-400">
+              <tr className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
                 <th className="px-4 py-3">Tipo</th>
                 <th className="px-4 py-3">Nome</th>
                 <th className="px-4 py-3">Documento</th>
@@ -195,33 +203,33 @@ export function DocumentacaoAvisos() {
                 <tr
                   key={a.id}
                   className={cn(
-                    "border-b border-slate-800/80 transition hover:bg-slate-800/40",
-                    a.apenasContexto && "bg-slate-900/30 opacity-80",
-                    a.status === "vencido" && !a.apenasContexto && "bg-red-950/10",
-                    a.status === "vencendo" && !a.apenasContexto && "bg-amber-950/10"
+                    "border-b border-slate-100 transition hover:bg-slate-50",
+                    a.apenasContexto && "bg-slate-50/80",
+                    a.status === "vencido" && !a.apenasContexto && "bg-red-50",
+                    a.status === "vencendo" && !a.apenasContexto && "bg-amber-50"
                   )}
                 >
                   <td className="px-4 py-3">
                     {a.categoria === "motorista" ? (
-                      <span className="flex items-center gap-1.5 text-cyan-400">
+                      <span className="flex items-center gap-1.5 font-medium text-[#33388d]">
                         <Users className="h-4 w-4" />
                         Motorista
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1.5 text-violet-400">
+                      <span className="flex items-center gap-1.5 font-medium text-violet-700">
                         <Car className="h-4 w-4" />
                         Veículo
                       </span>
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <p className="font-medium text-white">{a.entidadeNome}</p>
+                    <p className="font-medium text-slate-900">{a.entidadeNome}</p>
                     {a.entidadeDetalhe && (
                       <p className="text-xs text-slate-500">{a.entidadeDetalhe}</p>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-slate-300">{a.documento}</td>
-                  <td className="px-4 py-3 text-slate-300">
+                  <td className="px-4 py-3 text-slate-700">{a.documento}</td>
+                  <td className="px-4 py-3 text-slate-700">
                     {a.dataVencimento ? formatarDataBr(a.dataVencimento) : "—"}
                   </td>
                   <td className="px-4 py-3">
@@ -230,7 +238,7 @@ export function DocumentacaoAvisos() {
                   <td className="px-4 py-3 text-right">
                     <Link
                       href={a.href}
-                      className="inline-flex items-center gap-1 text-xs text-cyan-400 hover:underline"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-[#33388d] hover:underline"
                     >
                       Cadastro
                       <ExternalLink className="h-3 w-3" />
@@ -258,20 +266,26 @@ function ResumoCard({
   tone: "cyan" | "red" | "amber" | "slate";
 }) {
   const tones = {
-    cyan: "border-cyan-700/40 bg-cyan-950/20 text-cyan-400",
-    red: "border-red-700/40 bg-red-950/20 text-red-400",
-    amber: "border-amber-700/40 bg-amber-950/20 text-amber-400",
-    slate: "border-slate-600/40 bg-slate-800/30 text-slate-400",
+    cyan: "border-cyan-200 bg-white text-cyan-800",
+    red: "border-red-200 bg-white text-red-800",
+    amber: "border-amber-200 bg-white text-amber-900",
+    slate: "border-slate-200 bg-white text-slate-700",
+  };
+  const iconTones = {
+    cyan: "text-cyan-600",
+    red: "text-red-500",
+    amber: "text-amber-600",
+    slate: "text-slate-500",
   };
   return (
-    <div className={cn("rounded-xl border p-4", tones[tone])}>
+    <div className={cn("rounded-xl border p-4 shadow-sm", tones[tone])}>
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+        <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
           {label}
         </span>
-        <Icon className="h-4 w-4 opacity-80" />
+        <Icon className={cn("h-4 w-4", iconTones[tone])} />
       </div>
-      <p className="text-2xl font-bold text-white">{value}</p>
+      <p className="text-2xl font-bold text-slate-900">{value}</p>
     </div>
   );
 }

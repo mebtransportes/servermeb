@@ -16,14 +16,14 @@ export function StatsCards({
           key={s.label}
           className={
             compact
-              ? "rounded-lg border border-slate-700/50 bg-slate-800/40 p-2.5"
-              : "rounded-xl border border-slate-700/50 bg-slate-800/40 p-4"
+              ? "rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm"
+              : "rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
           }
         >
-          <p className={compact ? "text-[10px] text-slate-400" : "text-sm text-slate-400"}>
+          <p className={compact ? "text-[10px] text-slate-500" : "text-sm text-slate-500"}>
             {s.label}
           </p>
-          <p className={compact ? "mt-0.5 text-lg font-bold text-cyan-400" : "mt-1 text-2xl font-bold text-cyan-400"}>
+          <p className={compact ? "mt-0.5 text-lg font-bold text-[#33388d]" : "mt-1 text-2xl font-bold text-[#33388d]"}>
             {typeof s.value === "number" ? s.value : s.value}
           </p>
           {s.sub && (
