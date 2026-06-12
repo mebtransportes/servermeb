@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
 import Link from "next/link";
 import { ROLE_LABELS, normalizeProfileRole } from "@/lib/roles";
+import { cn, mebFormSection } from "@/lib/utils";
 
 export default function PerfilPage() {
   const [username, setUsername] = useState("");
@@ -127,10 +128,10 @@ export default function PerfilPage() {
   return (
     <div className="max-w-lg">
       <header className="mb-8 flex items-center gap-3">
-        <Settings className="h-8 w-8 text-cyan-400" />
+        <Settings className="h-8 w-8 text-cyan-600" />
         <div>
-          <h1 className="text-2xl font-bold">Minha conta</h1>
-          <p className="text-slate-400">
+          <h1 className="text-2xl font-bold text-slate-900">Minha conta</h1>
+          <p className="text-slate-500">
             {role ? `Perfil: ${role} · ` : ""}
             Altere usuário e senha
           </p>
@@ -138,12 +139,12 @@ export default function PerfilPage() {
       </header>
 
       {message && (
-        <p className="mb-4 rounded-lg bg-cyan-950/50 px-3 py-2 text-sm text-cyan-300">
+        <p className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
           {message}
         </p>
       )}
       {error && (
-        <p className="mb-4 rounded-lg bg-red-950/50 px-3 py-2 text-sm text-red-300">
+        <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
         </p>
       )}
@@ -151,27 +152,27 @@ export default function PerfilPage() {
       {isAdmin && (
         <Link
           href="/configuracoes/usuarios"
-          className="mb-6 block rounded-xl border border-cyan-700/40 bg-cyan-950/20 px-4 py-3 text-sm text-cyan-300 hover:border-cyan-500/50"
+          className="mb-6 block rounded-xl border border-cyan-200 bg-cyan-50/80 px-4 py-3 text-sm text-cyan-800 hover:border-cyan-300 hover:bg-cyan-50"
         >
           Gerenciar usuários do sistema →
         </Link>
       )}
 
-      <form onSubmit={updateUsername} className="mb-8 space-y-4 rounded-xl border border-slate-700/50 p-6">
-        <h2 className="font-semibold text-white">Nome de usuário</h2>
+      <form onSubmit={updateUsername} className={cn(mebFormSection, "mb-8 space-y-4")}>
+        <h2 className="font-semibold text-slate-900">Nome de usuário</h2>
         <Input
           label="Novo nome de usuário"
           value={newUsername}
           onChange={(e) => setNewUsername(e.target.value)}
           required
         />
-        <Button type="submit" disabled={loading}>
+        <Button type="submit" variant="success" disabled={loading}>
           Salvar usuário
         </Button>
       </form>
 
-      <form onSubmit={updatePassword} className="space-y-4 rounded-xl border border-slate-700/50 p-6">
-        <h2 className="font-semibold text-white">Senha</h2>
+      <form onSubmit={updatePassword} className={cn(mebFormSection, "space-y-4")}>
+        <h2 className="font-semibold text-slate-900">Senha</h2>
         <Input
           label="Senha atual"
           type="password"
@@ -193,7 +194,7 @@ export default function PerfilPage() {
           onChange={(e) => setConfirmPassword(e.target.value)}
           required
         />
-        <Button type="submit" disabled={loading}>
+        <Button type="submit" variant="success" disabled={loading}>
           Alterar senha
         </Button>
       </form>

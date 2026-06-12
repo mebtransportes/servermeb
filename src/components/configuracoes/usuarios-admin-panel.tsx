@@ -13,6 +13,7 @@ import {
   type UsuarioListItem,
 } from "@/app/(app)/configuracoes/usuarios/actions";
 import { ROLE_LABELS, ROLE_OPTIONS, type ProfileRole } from "@/lib/roles";
+import { cn, mebCard } from "@/lib/utils";
 
 type FormState = {
   email: string;
@@ -119,34 +120,34 @@ export function UsuariosAdminPanel() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Users className="h-8 w-8 text-cyan-400" />
+          <Users className="h-8 w-8 text-cyan-600" />
           <div>
-            <h1 className="text-2xl font-bold text-white">Usuários do sistema</h1>
-            <p className="text-base text-slate-400">
+            <h1 className="text-2xl font-bold text-slate-900">Usuários do sistema</h1>
+            <p className="text-base text-slate-500">
               Crie logins, defina perfil (Admin, Mecânico ou Inativo) e altere senhas
             </p>
           </div>
         </div>
-        <Button type="button" onClick={openCreate}>
+        <Button type="button" variant="success" onClick={openCreate}>
           <Plus className="h-4 w-4" />
           Novo usuário
         </Button>
       </header>
 
       {message && (
-        <p className="rounded-lg border border-emerald-700/40 bg-emerald-950/30 px-4 py-2 text-sm text-emerald-300">
+        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-800">
           {message}
         </p>
       )}
       {error && !modal && (
-        <p className="rounded-lg border border-red-800/50 bg-red-950/40 px-4 py-2 text-sm text-red-300">
+        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
           {error}
         </p>
       )}
 
-      <div className="overflow-x-auto rounded-xl border border-[#2a2a2a]">
+      <div className={cn(mebCard, "overflow-x-auto")}>
         <table className="w-full min-w-[640px] text-left text-sm">
-          <thead className="bg-[#262626] text-slate-400">
+          <thead className="border-b border-slate-200/80 bg-slate-50/80 text-slate-600">
             <tr>
               <th className="px-4 py-3 font-medium">Usuário</th>
               <th className="px-4 py-3 font-medium">E-mail</th>
@@ -169,16 +170,16 @@ export function UsuariosAdminPanel() {
               </tr>
             ) : (
               users.map((u) => (
-                <tr key={u.id} className="border-t border-[#2a2a2a] text-slate-200">
-                  <td className="px-4 py-3 font-medium">@{u.username}</td>
-                  <td className="px-4 py-3">{u.auth_email}</td>
+                <tr key={u.id} className="border-t border-slate-200/80 text-slate-800">
+                  <td className="px-4 py-3 font-medium text-slate-900">@{u.username}</td>
+                  <td className="px-4 py-3 text-slate-700">{u.auth_email}</td>
                   <td className="px-4 py-3">
                     <span
                       className={
                         u.role === "admin"
-                          ? "text-cyan-400"
+                          ? "text-cyan-700"
                           : u.role === "mecanico"
-                            ? "text-amber-400"
+                            ? "text-amber-700"
                             : "text-slate-500"
                       }
                     >
@@ -254,7 +255,7 @@ export function UsuariosAdminPanel() {
               )}
 
               {error && modal && (
-                <p className="text-sm text-red-400">{error}</p>
+                <p className="text-sm text-red-600">{error}</p>
               )}
 
               <MebModalFooter className="pt-2">
