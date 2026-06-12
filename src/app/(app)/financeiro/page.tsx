@@ -11,7 +11,7 @@ import {
   Loader2,
   Banknote,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, mebCard } from "@/lib/utils";
 import { EvolucaoMensalChart } from "@/components/financeiro/evolucao-mensal-chart";
 import { fetchGraficoMensalFinanceiroGeral } from "@/lib/financeiro-dashboard";
 import type { PontoGraficoMensal } from "@/lib/grafico-mensal";
@@ -77,7 +77,7 @@ export default function FinanceiroDashboardPage() {
       </header>
 
       {carregandoGrafico ? (
-        <div className="flex items-center justify-center gap-2 rounded-xl border border-slate-700/50 bg-slate-800/30 py-16 text-slate-400">
+        <div className={cn(mebCard, "flex items-center justify-center gap-2 py-16 text-slate-500")}>
           <Loader2 className="h-5 w-5 animate-spin" />
           Carregando evolução dos gastos…
         </div>
@@ -101,12 +101,12 @@ export default function FinanceiroDashboardPage() {
               <Link key={m.href} href={m.href} className="block">
                 <article
                   className={cn(
-                    "rounded-xl border border-slate-700/50 bg-slate-800/30 p-5 transition",
-                    "hover:border-cyan-600/50 hover:bg-slate-800/60"
+                    mebCard,
+                    "p-5 transition hover:border-cyan-200 hover:bg-white/80"
                   )}
                 >
                   <Icon className={cn("mb-3 h-8 w-8", m.cor)} />
-                  <h2 className="font-semibold text-white">{m.label}</h2>
+                  <h2 className="font-semibold text-slate-900">{m.label}</h2>
                   <p className="mt-1 text-sm text-slate-400">{m.desc}</p>
                 </article>
               </Link>

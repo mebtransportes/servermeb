@@ -35,6 +35,7 @@ import {
 import type { DespesaEmpresarial } from "@/types/custos-empresariais";
 import { Trash2 } from "lucide-react";
 import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
+import { cn, mebCard, mebFormSection } from "@/lib/utils";
 
 type ModalDetalhe =
   | "motorista"
@@ -83,35 +84,35 @@ function CardEmpresarial({
   }
 
   return (
-    <article className="flex flex-col rounded-xl border border-slate-700/50 bg-slate-800/30 p-4">
-      <div className="mb-2 flex items-center gap-2 text-slate-400">
-        <Icon className="h-5 w-5 text-purple-400" />
-        <span className="text-sm font-medium">{label}</span>
+    <article className={cn(mebCard, "flex flex-col p-4")}>
+      <div className="mb-2 flex items-center gap-2 text-slate-500">
+        <Icon className="h-5 w-5 text-purple-600" />
+        <span className="text-sm font-medium text-slate-600">{label}</span>
       </div>
       {children}
-      <p className="text-2xl font-bold text-white">{formatarMoeda(valor)}</p>
+      <p className="text-2xl font-bold text-slate-900">{formatarMoeda(valor)}</p>
       {sub && <p className="mt-1 text-xs text-slate-500">{sub}</p>}
       {despesas && despesas.length > 0 && onExcluirDespesa && (
-        <ul className="mt-3 max-h-40 space-y-1.5 overflow-y-auto border-t border-slate-700/50 pt-3">
+        <ul className="mt-3 max-h-40 space-y-1.5 overflow-y-auto border-t border-slate-200/80 pt-3">
           {despesas.slice(0, 5).map((d) => (
             <li
               key={d.id}
-              className="flex items-center justify-between gap-2 rounded-md bg-slate-900/40 px-2 py-1.5 text-xs"
+              className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-2 py-1.5 text-xs"
             >
               <div className="min-w-0 truncate">
-                <span className="text-slate-300">{d.nome_item}</span>
+                <span className="text-slate-700">{d.nome_item}</span>
                 <span className="ml-1 text-slate-500">
                   · {formatarDataBr(d.data_despesa)}
                 </span>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <span className="text-purple-300">{formatarMoeda(Number(d.valor))}</span>
+                <span className="text-purple-700">{formatarMoeda(Number(d.valor))}</span>
                 <button
                   type="button"
                   title="Excluir"
                   disabled={excluindoId === d.id}
                   onClick={() => handleExcluirCard(d.id)}
-                  className="rounded p-1 text-red-400 hover:bg-red-950/50 disabled:opacity-50"
+                  className="rounded p-1 text-red-600 hover:bg-red-50 disabled:opacity-50"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -171,20 +172,20 @@ export default function CustosEmpresariaisPage() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Building2 className="h-8 w-8 text-purple-400" />
+          <Building2 className="h-8 w-8 text-purple-600" />
           <div>
-            <h1 className="text-2xl font-bold">Custos Empresariais</h1>
-            <p className="text-slate-400">Período: {periodoLabel}</p>
+            <h1 className="text-2xl font-bold text-slate-900">Custos Empresariais</h1>
+            <p className="text-slate-500">Período: {periodoLabel}</p>
           </div>
         </div>
-        <Button onClick={() => setShowCadastro(true)}>
+        <Button variant="success" onClick={() => setShowCadastro(true)}>
           <Plus className="h-4 w-4" />
           Cadastrar despesa
         </Button>
       </header>
 
-      <div className="rounded-xl border border-slate-700/50 bg-slate-800/20 p-4">
-        <label className="mb-2 block text-xs text-slate-400">Filtrar por período</label>
+      <div className={mebFormSection}>
+        <label className="mb-2 block text-xs font-medium text-slate-500">Filtrar por período</label>
         <PeriodoFilter value={periodo} onChange={setPeriodo} />
       </div>
 
@@ -194,9 +195,9 @@ export default function CustosEmpresariaisPage() {
         <>
           <CustosEmpresariaisChart dados={grafico} />
 
-          <article className="rounded-xl border border-purple-700/40 bg-purple-950/25 p-5 text-center">
-            <p className="text-sm text-purple-300/80">Total empresarial no período</p>
-            <p className="text-3xl font-bold text-purple-200">{formatarMoeda(resumo.total)}</p>
+          <article className={cn(mebCard, "border-purple-200/80 p-5 text-center")}>
+            <p className="text-sm text-slate-500">Total empresarial no período</p>
+            <p className="text-3xl font-bold text-purple-700">{formatarMoeda(resumo.total)}</p>
           </article>
 
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

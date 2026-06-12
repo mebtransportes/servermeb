@@ -26,7 +26,7 @@ import {
   PERIODO_FILTRO_INICIAL,
   type PeriodoFiltroState,
 } from "@/lib/frota-filters";
-import { cn } from "@/lib/utils";
+import { cn, mebCard, mebCardSm } from "@/lib/utils";
 
 function CardCusto({
   label,
@@ -47,18 +47,19 @@ function CardCusto({
       type={onClick ? "button" : undefined}
       onClick={onClick}
       className={cn(
-        "rounded-lg border border-slate-700/50 bg-slate-800/30 p-3 text-left transition",
-        onClick && "cursor-pointer hover:border-cyan-600/50 hover:bg-slate-800/60"
+        mebCardSm,
+        "p-3 text-left transition",
+        onClick && "cursor-pointer hover:border-cyan-200 hover:bg-white/80"
       )}
     >
-      <div className="mb-1 flex items-center gap-2 text-slate-400">
-        <Icon className="h-4 w-4 text-cyan-500" />
-        <span className="text-xs font-medium">{label}</span>
+      <div className="mb-1 flex items-center gap-2 text-slate-500">
+        <Icon className="h-4 w-4 text-cyan-600" />
+        <span className="text-xs font-medium text-slate-600">{label}</span>
       </div>
-      <p className="text-lg font-bold text-white">{formatarMoeda(valor)}</p>
+      <p className="text-lg font-bold text-slate-900">{formatarMoeda(valor)}</p>
       {sub && <p className="mt-0.5 text-[10px] text-slate-500">{sub}</p>}
       {onClick && (
-        <p className="mt-1 text-[10px] text-cyan-500/80">Clique para ver detalhes</p>
+        <p className="mt-1 text-[10px] text-cyan-700">Clique para ver detalhes</p>
       )}
     </Tag>
   );
@@ -87,10 +88,10 @@ export default function CustosOperacionaisPage() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Truck className="h-8 w-8 text-cyan-400" />
+          <Truck className="h-8 w-8 text-cyan-600" />
           <div>
-            <h1 className="text-2xl font-bold">Custos Operacionais</h1>
-            <p className="text-sm text-slate-400">
+            <h1 className="text-2xl font-bold text-slate-900">Custos Operacionais</h1>
+            <p className="text-sm text-slate-500">
               Gastos em serviços de operação · {periodoLabel}
             </p>
           </div>
@@ -113,9 +114,9 @@ export default function CustosOperacionaisPage() {
         <p className="text-slate-500">Carregando...</p>
       ) : (
         <>
-          <article className="rounded-lg border border-cyan-700/40 bg-cyan-950/20 p-4 text-center">
-            <p className="text-xs text-cyan-400/80">Total operacional no período</p>
-            <p className="text-2xl font-bold text-cyan-300">{formatarMoeda(resumo.total)}</p>
+          <article className={cn(mebCard, "border-cyan-200/80 p-4 text-center")}>
+            <p className="text-xs text-slate-500">Total operacional no período</p>
+            <p className="text-2xl font-bold text-cyan-700">{formatarMoeda(resumo.total)}</p>
           </article>
 
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

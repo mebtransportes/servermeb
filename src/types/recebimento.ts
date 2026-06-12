@@ -21,6 +21,7 @@ export type ViagemRecebimento = {
   data_recebimento?: string | null;
   status: RecebimentoStatus;
   observacao?: string | null;
+  numero_cte?: string | null;
   created_at?: string;
   updated_at?: string;
 };

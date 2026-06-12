@@ -146,3 +146,20 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
   caret-color: #0f172a;
 }
+
+.meb-marquee-track {
+  animation: meb-marquee-scroll 14s linear infinite;
+}
+
+.meb-marquee-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes meb-marquee-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(calc(-50% - 1rem));
+  }
+}

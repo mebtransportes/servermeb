@@ -13,7 +13,7 @@ import {
 import { useEffect, useState } from "react";
 import { parseBrNumber } from "@/lib/number-format";
 import { atualizarFechamentoConfig } from "@/lib/fechamento-data";
-import { cn } from "@/lib/utils";
+import { cn, mebCard, mebFormSubsection } from "@/lib/utils";
 import { mebAlert } from "@/lib/meb-dialog";
 
 export function FechamentoViagemCard({
@@ -59,6 +59,7 @@ export function FechamentoViagemCard({
       motoristaTerceiro: !!f.motorista_terceiro,
       seguroValor: f.seguro_valor,
       monitoramentoValor: f.monitoramento_valor,
+      pedagioDescontaMotorista: f.pedagio_desconta_motorista,
     });
     setSaving(false);
     if (result.error) {
@@ -73,7 +74,7 @@ export function FechamentoViagemCard({
   }
 
   return (
-    <article className="rounded-xl border border-slate-700/50 bg-slate-800/30 p-4">
+    <article className={cn(mebCard, "p-4")}>
       <FechamentoViagemDetalhe
         f={f}
         icmsPercent={icms}
@@ -83,8 +84,8 @@ export function FechamentoViagemCard({
         showComissaoFinal={false}
       />
 
-      <div className="mt-3 rounded-lg border border-slate-700/50 bg-slate-900/30 p-3">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <div className={cn(mebFormSubsection, "mt-3")}>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
           Configuração (admin)
         </p>
         <div className="grid gap-3 sm:grid-cols-3">
@@ -117,18 +118,18 @@ export function FechamentoViagemCard({
           </p>
           <div className="flex items-center gap-2">
             {salvoMsg && (
-              <span className="text-xs font-medium text-emerald-400">Salvo!</span>
+              <span className="text-xs font-medium text-emerald-700">Salvo!</span>
             )}
-            <Button type="button" disabled={saving} onClick={handleSalvar}>
+            <Button type="button" variant="success" disabled={saving} onClick={handleSalvar}>
               {saving ? "Salvando..." : "Salvar configuração"}
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="mt-2 rounded-lg bg-emerald-950/40 px-3 py-2 text-center">
-        <p className="text-xs text-emerald-400/80">Comissão final (comissão + reembolso)</p>
-        <p className={cn("text-xl font-bold text-emerald-400")}>
+      <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-center">
+        <p className="text-xs text-slate-600">Comissão final (comissão + reembolso)</p>
+        <p className={cn("text-xl font-bold text-emerald-700")}>
           {formatarMoeda(preview.comissao_final)}
         </p>
       </div>

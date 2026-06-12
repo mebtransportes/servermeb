@@ -21,7 +21,7 @@ import { totalDespesasFechamento } from "@/types/fechamento";
 import type { ViagemFechamento } from "@/types/fechamento";
 import { statusElegivelComissao } from "@/lib/viagem-status";
 import { VIAGEM_STATUS_LABEL } from "@/lib/viagem-status";
-import { cn } from "@/lib/utils";
+import { cn, mebCard, mebFormSection } from "@/lib/utils";
 import { mebAlert } from "@/lib/meb-dialog";
 
 export default function FechamentoViagensPage() {
@@ -114,16 +114,17 @@ export default function FechamentoViagensPage() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Route className="h-8 w-8 text-emerald-400" />
+          <Route className="h-8 w-8 text-emerald-600" />
           <div>
-            <h1 className="text-2xl font-bold">Fechamento de Viagens</h1>
-            <p className="text-slate-400">
+            <h1 className="text-2xl font-bold text-slate-900">Fechamento de Viagens</h1>
+            <p className="text-slate-500">
               Viagens finalizadas e com pagamento pendente · Arquivadas ficam só no acompanhamento
             </p>
           </div>
         </div>
         <Button
           type="button"
+          variant="success"
           disabled={!motoristaId || !selectedIds.size}
           onClick={abrirComissao}
         >
@@ -132,9 +133,9 @@ export default function FechamentoViagensPage() {
         </Button>
       </header>
 
-      <div className="flex flex-wrap items-end gap-4 rounded-xl border border-slate-700/50 bg-slate-800/20 p-4">
+      <div className={cn(mebFormSection, "flex flex-wrap items-end gap-4")}>
         <div className="min-w-[220px] flex-1">
-          <label className="mb-1 block text-xs text-slate-400">Motorista</label>
+          <label className="mb-1 block text-xs font-medium text-slate-500">Motorista</label>
           <Select
             value={motoristaId}
             onChange={(e) => setMotoristaId(e.target.value)}
@@ -145,7 +146,7 @@ export default function FechamentoViagensPage() {
           />
         </div>
         <div>
-          <label className="mb-2 block text-xs text-slate-400">Período</label>
+          <label className="mb-2 block text-xs font-medium text-slate-500">Período</label>
           <PeriodoFilter value={periodo} onChange={setPeriodo} />
         </div>
         <Button type="button" variant="secondary" onClick={selecionarTodasVisiveis}>
@@ -160,19 +161,19 @@ export default function FechamentoViagensPage() {
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2">
-            <article className="rounded-xl border border-amber-700/40 bg-amber-950/20 p-4">
-              <div className="mb-1 flex items-center gap-2 text-amber-400/80">
-                <Wallet className="h-5 w-5" />
+            <article className={cn(mebCard, "border-amber-200/80 p-4")}>
+              <div className="mb-1 flex items-center gap-2 text-slate-500">
+                <Wallet className="h-5 w-5 text-amber-600" />
                 <span className="text-sm">Total de despesas</span>
               </div>
-              <p className="text-2xl font-bold text-amber-300">{formatarMoeda(totalDespesas)}</p>
+              <p className="text-2xl font-bold text-amber-700">{formatarMoeda(totalDespesas)}</p>
             </article>
-            <article className="rounded-xl border border-emerald-700/40 bg-emerald-950/20 p-4">
-              <div className="mb-1 flex items-center gap-2 text-emerald-400/80">
-                <Coins className="h-5 w-5" />
+            <article className={cn(mebCard, "border-emerald-200/80 p-4")}>
+              <div className="mb-1 flex items-center gap-2 text-slate-500">
+                <Coins className="h-5 w-5 text-emerald-600" />
                 <span className="text-sm">Total de comissão</span>
               </div>
-              <p className="text-2xl font-bold text-emerald-300">{formatarMoeda(totalComissao)}</p>
+              <p className="text-2xl font-bold text-emerald-700">{formatarMoeda(totalComissao)}</p>
             </article>
           </div>
 
@@ -199,25 +200,25 @@ export default function FechamentoViagensPage() {
                   <div
                     key={f.id}
                     className={cn(
-                      "rounded-xl border transition",
-                      checked ? "border-cyan-600/40" : "border-transparent"
+                      "rounded-xl transition",
+                      checked && "ring-2 ring-cyan-200"
                     )}
                   >
                     {elegivel && (
-                      <label className="mb-2 flex cursor-pointer items-center gap-2 px-1 text-sm text-slate-300">
+                      <label className="mb-2 flex cursor-pointer items-center gap-2 px-1 text-sm text-slate-700">
                         <input
                           type="checkbox"
                           checked={checked}
                           onChange={() => toggleSelect(f.id)}
-                          className="rounded border-slate-600"
+                          className="rounded border-slate-300"
                         />
                         <span>Incluir na comissão</span>
                         <span
                           className={cn(
-                            "rounded px-2 py-0.5 text-[10px] font-semibold uppercase",
+                            "rounded border px-2 py-0.5 text-[10px] font-semibold uppercase",
                             f.viagem_status === "PAGAMENTO PENDENTE"
-                              ? "bg-amber-900/50 text-amber-300"
-                              : "bg-emerald-900/50 text-emerald-300"
+                              ? "border-amber-200 bg-amber-50 text-amber-800"
+                              : "border-emerald-200 bg-emerald-50 text-emerald-800"
                           )}
                         >
                           {statusLabel}

@@ -16,6 +16,7 @@ type RecursoRow = {
   litros?: number | null;
   abastecimento_inicial?: boolean;
   combustivel_tipo?: string | null;
+  desconta_motorista?: boolean | null;
 };
 
 function isArlaCombustivel(tipo?: string | null) {
@@ -28,6 +29,7 @@ function somarRecursos(recursos: RecursoRow[]) {
   let arla_valor = 0;
   let manutencao_total = 0;
   let pedagio_valor = 0;
+  let pedagio_desconta_motorista = 0;
   let outros_valor = 0;
   let seguro_valor = 0;
   let monitoramento_valor = 0;
@@ -55,6 +57,9 @@ function somarRecursos(recursos: RecursoRow[]) {
       case "pedagio":
       case "estacionamento":
         pedagio_valor += v;
+        if (r.desconta_motorista !== false) {
+          pedagio_desconta_motorista += v;
+        }
         break;
       case "outro":
         outros_valor += v;
@@ -77,6 +82,7 @@ function somarRecursos(recursos: RecursoRow[]) {
     arla_valor,
     manutencao_total,
     pedagio_valor,
+    pedagio_desconta_motorista,
     outros_valor,
     seguro_valor,
     monitoramento_valor,
@@ -149,7 +155,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
 
   const { data: recursos } = await supabase
     .from("viagem_recursos")
-    .select("tipo, valor, litros, abastecimento_inicial, combustivel_tipo")
+    .select("tipo, valor, litros, abastecimento_inicial, combustivel_tipo, desconta_motorista")
     .eq("viagem_id", viagemId);
 
   const gastos = somarRecursos((recursos as RecursoRow[]) ?? []);
@@ -177,6 +183,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
       motoristaTerceiro,
       seguroValor: gastos.seguro_valor,
       monitoramentoValor: gastos.monitoramento_valor,
+      pedagioDescontaMotorista: gastos.pedagio_desconta_motorista,
     });
   const valorCarga = Number(viagem.valor_mercadoria) || 0;
   const destino =
@@ -219,6 +226,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     arla_valor: gastos.arla_valor,
     manutencao_total: gastos.manutencao_total,
     pedagio_valor: gastos.pedagio_valor,
+    pedagio_desconta_motorista: gastos.pedagio_desconta_motorista,
     outros_valor: gastos.outros_valor,
     reembolso_valor: gastos.reembolso_valor,
     motorista_terceiro: motoristaTerceiro,

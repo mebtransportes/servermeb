@@ -124,11 +124,15 @@ export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
 
   const { data: viagensArquivadas } = await supabase
     .from("viagens")
-    .select("id")
+    .select("id, numero_cte")
     .eq("status", "ARQUIVADO");
 
   const ids = (viagensArquivadas ?? []).map((v) => v.id);
   if (!ids.length) return [];
+
+  const ctePorViagem = new Map(
+    (viagensArquivadas ?? []).map((v) => [v.id, v.numero_cte as string | null])
+  );
 
   const { data: recebimentos, error } = await supabase
     .from("viagem_recebimentos")
@@ -155,6 +159,7 @@ export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
 
   return (recebimentos ?? []).map((r) => ({
     ...(r as ViagemRecebimento),
+    numero_cte: ctePorViagem.get(r.viagem_id) ?? null,
     canhotos: canhotosPorViagem.get(r.viagem_id) ?? [],
   }));
 }

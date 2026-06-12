@@ -59,6 +59,7 @@ export async function atualizarFechamentoConfig(opts: {
   motoristaTerceiro?: boolean;
   seguroValor?: number;
   monitoramentoValor?: number;
+  pedagioDescontaMotorista?: number;
 }) {
   const supabase = createClient();
   const { frete_liquido, comissao_final, valor_icms } = calcularComissionamento({
@@ -70,6 +71,7 @@ export async function atualizarFechamentoConfig(opts: {
     motoristaTerceiro: opts.motoristaTerceiro,
     seguroValor: opts.seguroValor,
     monitoramentoValor: opts.monitoramentoValor,
+    pedagioDescontaMotorista: opts.pedagioDescontaMotorista,
   });
 
   const { data, error } = await supabase

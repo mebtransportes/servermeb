@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { AnexoArquivoRow } from "@/components/shared/anexo-arquivo-row";
+import { TextoMarquee } from "@/components/shared/texto-marquee";
 import { atualizarRecebimento } from "@/lib/recebimento-viagem";
 import { formatarMoeda } from "@/lib/frota-filters";
 import {
@@ -13,8 +14,33 @@ import {
   type RecebimentoStatus,
 } from "@/types/recebimento";
 import type { RecebimentoComCanhotos } from "@/lib/recebimento-viagem";
-import { cn } from "@/lib/utils";
+import { cn, mebCard, mebFormSubsection } from "@/lib/utils";
 import { mebAlert } from "@/lib/meb-dialog";
+
+const inputCompact = "py-1.5 text-sm";
+
+function Campo({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex min-w-0 flex-col gap-1", className)}>
+      <p className="text-xs text-slate-500">{label}</p>
+      {children}
+    </div>
+  );
+}
+
+function Valor({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <p className={cn("flex min-h-[34px] items-center text-sm", className)}>{children}</p>
+  );
+}
 
 export function RecebimentoLinha({
   item,
@@ -53,94 +79,101 @@ export function RecebimentoLinha({
   }
 
   return (
-    <div className="rounded-xl border border-slate-700/50 bg-slate-800/30 p-4">
-      <div className="grid gap-3 lg:grid-cols-12 lg:items-start">
-        <div className="lg:col-span-2">
-          <p className="text-xs text-slate-500">Motorista</p>
-          <p className="text-sm font-medium text-white">{item.motorista_nome}</p>
-        </div>
-        <div className="lg:col-span-1">
-          <p className="text-xs text-slate-500">Placas</p>
-          <p className="font-mono text-sm text-cyan-300">{item.veiculos_placas}</p>
-        </div>
-        <div className="lg:col-span-2">
-          <p className="text-xs text-slate-500">Empresa (saída)</p>
-          <p className="text-sm text-slate-300" title={item.empresa}>
-            {item.empresa.length > 40 ? item.empresa.slice(0, 39) + "…" : item.empresa}
-          </p>
-        </div>
-        <div className="lg:col-span-1">
-          <p className="text-xs text-slate-500">Frete total</p>
-          <p className="text-sm font-medium text-emerald-400">
+    <div className={cn(mebCard, "min-w-0 overflow-hidden p-4")}>
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 xl:grid-cols-12">
+        <Campo label="Motorista">
+          <TextoMarquee text={item.motorista_nome} className="font-medium text-slate-900" />
+        </Campo>
+        <Campo label="CTE">
+          <TextoMarquee
+            text={item.numero_cte?.trim() || "—"}
+            className="font-mono text-slate-800"
+          />
+        </Campo>
+        <Campo label="Placas">
+          <TextoMarquee text={item.veiculos_placas} className="font-mono text-cyan-700" />
+        </Campo>
+        <Campo label="Fornecedor">
+          <TextoMarquee text={item.empresa} className="text-slate-700" />
+        </Campo>
+        <Campo label="Frete total">
+          <Valor className="font-medium text-emerald-700">
             {formatarMoeda(item.valor_frete_total)}
-          </p>
-        </div>
-        <div className="lg:col-span-1">
-          <p className="text-xs text-slate-500">Frete líquido</p>
-          <p className="text-sm text-slate-200" title="Bruto − 12% ICMS">
+          </Valor>
+        </Campo>
+        <Campo label="Frete líquido">
+          <Valor className="text-slate-700" title="Bruto − 12% ICMS">
             {formatarMoeda(item.valor_frete_liquido)}
-          </p>
-        </div>
-        <div className="lg:col-span-1">
+          </Valor>
+        </Campo>
+        <Campo label="Descargas/+">
           <Input
-            label="Descargas/+"
             type="number"
             step="0.01"
             min="0"
             value={descargas}
             onChange={(e) => setDescargas(e.target.value)}
-            className="text-sm"
+            className={inputCompact}
           />
-        </div>
-        <div className="lg:col-span-1">
-          <p className="text-xs text-slate-500">Total a receber</p>
-          <p className="text-sm font-bold text-amber-300">{formatarMoeda(totalReceber)}</p>
-        </div>
-        <div className="lg:col-span-1">
+        </Campo>
+        <Campo label="Total a receber">
+          <Valor className="font-bold text-amber-700">{formatarMoeda(totalReceber)}</Valor>
+        </Campo>
+        <Campo label="Data receb." className="xl:col-span-2">
           <Input
-            label="Data receb."
             type="date"
             value={dataRecebimento}
             onChange={(e) => setDataRecebimento(e.target.value)}
-            className="text-sm"
+            className={cn(inputCompact, "min-w-[10.5rem] w-full")}
           />
-        </div>
-        <div className="lg:col-span-1">
+        </Campo>
+        <Campo label="Status" className="xl:col-span-2">
           <Select
-            label="Status"
             value={status}
             onChange={(e) => setStatus(e.target.value as RecebimentoStatus)}
+            className={cn(inputCompact, "min-w-[9.5rem] w-full")}
             options={(
               Object.entries(RECEBIMENTO_STATUS_LABEL) as [RecebimentoStatus, string][]
             ).map(([v, l]) => ({ value: v, label: l }))}
           />
-        </div>
-        <div className="flex flex-col gap-1 lg:col-span-1">
-          <Button type="button" className="h-9 text-xs" disabled={salvando} onClick={salvar}>
-            {salvando ? "..." : "Salvar"}
-          </Button>
-          <button
-            type="button"
-            onClick={() => setExpandido((v) => !v)}
-            className="text-xs text-cyan-400 hover:underline"
-          >
-            Canhotos ({item.canhotos.length})
-          </button>
-        </div>
+        </Campo>
+        <Campo label="Ações">
+          <div className="flex min-h-[34px] flex-col justify-center gap-1">
+            <Button
+              type="button"
+              variant="success"
+              className="h-8 w-full px-2 text-xs"
+              disabled={salvando}
+              onClick={salvar}
+            >
+              {salvando ? "..." : "Salvar"}
+            </Button>
+            <button
+              type="button"
+              onClick={() => setExpandido((v) => !v)}
+              className="text-left text-xs text-cyan-700 hover:underline"
+            >
+              Canhotos ({item.canhotos.length})
+            </button>
+          </div>
+        </Campo>
       </div>
 
-      <div className="mt-3">
+      <div className="mt-4 border-t border-slate-200/80 pt-4">
         <Input
           label="Observação"
           value={observacao}
           onChange={(e) => setObservacao(e.target.value)}
           placeholder="Anotações sobre o recebimento..."
+          className="py-2 text-sm"
         />
       </div>
 
       {expandido && (
-        <div className="mt-3 rounded-lg border border-slate-700/40 bg-slate-900/40 p-3">
-          <p className="mb-2 text-xs font-semibold uppercase text-slate-400">Canhotos da viagem</p>
+        <div className={cn(mebFormSubsection, "mt-3")}>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Canhotos da viagem
+          </p>
           {item.canhotos.length === 0 ? (
             <p className="text-xs text-slate-500">
               Nenhum canhoto anexado. Adicione no Acompanhamento da viagem.
@@ -159,9 +192,9 @@ export function RecebimentoLinha({
 
       <p
         className={cn(
-          "mt-2 text-[10px] text-slate-600",
-          status === "vencido" && "text-red-400",
-          status === "pago" && "text-emerald-500"
+          "mt-2 text-[10px] text-slate-400",
+          status === "vencido" && "text-red-600",
+          status === "pago" && "text-emerald-600"
         )}
       >
         Frete líquido = frete total − 12% ICMS · Total = líquido + descargas/adicionais

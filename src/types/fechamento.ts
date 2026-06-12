@@ -21,6 +21,7 @@ export type ViagemFechamento = {
   arla_valor: number;
   manutencao_total: number;
   pedagio_valor: number;
+  pedagio_desconta_motorista?: number;
   outros_valor?: number;
   reembolso_valor: number;
   valor_frete: number;
@@ -133,6 +134,8 @@ export function calcularComissionamento(opts: {
   motoristaTerceiro?: boolean;
   seguroValor?: number;
   monitoramentoValor?: number;
+  /** Pedágios/estacionamentos que reduzem a base da comissão. */
+  pedagioDescontaMotorista?: number;
 }) {
   const valor_icms = calcularValorIcms(opts.valorFrete, opts.icmsPercent);
   const frete_liquido = opts.motoristaTerceiro
@@ -144,14 +147,18 @@ export function calcularComissionamento(opts: {
       })
     : calcularFreteLiquido(opts.valorFrete, opts.icmsPercent);
 
+  const descontoPedagio = Math.max(0, Number(opts.pedagioDescontaMotorista) || 0);
+  const baseComissao = Math.max(0, frete_liquido - descontoPedagio);
+
   const total_comissao = calcularTotalComissao(
-    frete_liquido,
+    baseComissao,
     opts.comissaoPercent,
     opts.comissaoTipo
   );
   const comissao_final = calcularComissaoFinal(total_comissao, opts.reembolso);
   return {
     frete_liquido: Math.round(frete_liquido * 100) / 100,
+    base_comissao: Math.round(baseComissao * 100) / 100,
     valor_icms,
     total_comissao,
     comissao_final,
@@ -212,6 +219,7 @@ export function agruparFechamentosComissao(
         motoristaTerceiro: !!f.motorista_terceiro,
         seguroValor: f.seguro_valor,
         monitoramentoValor: f.monitoramento_valor,
+        pedagioDescontaMotorista: f.pedagio_desconta_motorista,
       });
       return {
         viagens: acc.viagens + 1,

@@ -14,9 +14,9 @@ import { useMemo } from "react";
 
 function Linha({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-wrap justify-between gap-1 border-b border-slate-800/80 py-1.5 text-sm">
+    <div className="flex flex-wrap justify-between gap-1 border-b border-slate-200/80 py-1.5 text-sm">
       <span className="text-slate-500">{label}</span>
-      <span className="font-medium text-slate-200">{value}</span>
+      <span className="font-medium text-slate-800">{value}</span>
     </div>
   );
 }
@@ -40,7 +40,7 @@ export function useFechamentoValores(
   const despesas = totalDespesasFechamento(f);
 
   const valores = useMemo(() => {
-    const { frete_liquido, total_comissao, comissao_final, valor_icms } =
+    const { frete_liquido, base_comissao, total_comissao, comissao_final, valor_icms } =
       calcularComissionamento({
         valorFrete: Number(f.valor_frete) || 0,
         icmsPercent: icms,
@@ -50,8 +50,16 @@ export function useFechamentoValores(
         motoristaTerceiro: !!f.motorista_terceiro,
         seguroValor: f.seguro_valor,
         monitoramentoValor: f.monitoramento_valor,
+        pedagioDescontaMotorista: f.pedagio_desconta_motorista,
       });
-    return { icms, frete_liquido, total_comissao, comissao_final, valor_icms };
+    return {
+      icms,
+      frete_liquido,
+      base_comissao,
+      total_comissao,
+      comissao_final,
+      valor_icms,
+    };
   }, [f, icms, comissaoPercent, comissaoTipo]);
 
   return {
@@ -85,15 +93,15 @@ export function FechamentoViagemDetalhe({
   return (
     <div>
       {showHeader && (
-        <header className="mb-3 border-b border-slate-700/50 pb-3">
-          <h3 className="font-semibold text-white">{f.motorista_nome}</h3>
-          <p className="text-xs text-slate-400">
+        <header className="mb-3 border-b border-slate-200/80 pb-3">
+          <h3 className="font-semibold text-slate-900">{f.motorista_nome}</h3>
+          <p className="text-xs text-slate-500">
             Embarque: {new Date(f.data_embarque).toLocaleString("pt-BR")}
           </p>
         </header>
       )}
 
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-cyan-500">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-cyan-700">
         Dados gerais
       </p>
       <Linha label="Local do embarque" value={f.local_embarque} />
@@ -121,7 +129,7 @@ export function FechamentoViagemDetalhe({
         value={v.kmRodado != null ? v.kmRodado.toLocaleString("pt-BR") : "—"}
       />
 
-      <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-amber-500">
+      <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-amber-700">
         Gastos e consumo
       </p>
       <Linha
@@ -140,6 +148,15 @@ export function FechamentoViagemDetalhe({
       <Linha label="Arla" value={formatarMoeda(f.arla_valor)} />
       <Linha label="Manutenção total" value={formatarMoeda(f.manutencao_total)} />
       <Linha label="Pedágio / estacionamento" value={formatarMoeda(f.pedagio_valor)} />
+      {(f.pedagio_desconta_motorista ?? 0) > 0 &&
+        (f.pedagio_desconta_motorista ?? 0) < (f.pedagio_valor ?? 0) && (
+          <Linha
+            label="Pedágio (empresa — não desconta motorista)"
+            value={formatarMoeda(
+              (f.pedagio_valor ?? 0) - (f.pedagio_desconta_motorista ?? 0)
+            )}
+          />
+        )}
       {(f.outros_valor ?? 0) > 0 && (
         <Linha label="Outras despesas" value={formatarMoeda(f.outros_valor ?? 0)} />
       )}
@@ -151,15 +168,15 @@ export function FechamentoViagemDetalhe({
       )}
       <Linha label="Total gastos" value={formatarMoeda(v.despesas)} />
 
-      <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-violet-400">
+      <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-violet-700">
         Reembolso ao motorista
       </p>
       <Linha label="Valor a reembolsar" value={formatarMoeda(f.reembolso_valor)} />
 
-      <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-emerald-500">
+      <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-emerald-700">
         Comissionamento
         {f.motorista_terceiro && (
-          <span className="ml-2 font-normal normal-case text-amber-400/90">
+          <span className="ml-2 font-normal normal-case text-amber-700">
             (motorista terceiro)
           </span>
         )}
@@ -192,6 +209,15 @@ export function FechamentoViagemDetalhe({
         }
         value={formatarMoeda(v.frete_liquido)}
       />
+      {(f.pedagio_desconta_motorista ?? 0) > 0 && (
+        <Linha
+          label="Pedágio descontado na comissão"
+          value={`− ${formatarMoeda(f.pedagio_desconta_motorista ?? 0)}`}
+        />
+      )}
+      {(f.pedagio_desconta_motorista ?? 0) > 0 && v.base_comissao != null && (
+        <Linha label="Base da comissão" value={formatarMoeda(v.base_comissao)} />
+      )}
       <Linha
         label={
           v.comissaoTipo === "LIQUIDO_TOTAL"
@@ -201,9 +227,9 @@ export function FechamentoViagemDetalhe({
         value={formatarMoeda(v.total_comissao)}
       />
       {showComissaoFinal && (
-        <div className="mt-2 rounded-lg bg-emerald-950/40 px-3 py-2 text-center">
-          <p className="text-xs text-emerald-400/80">Comissão final (comissão + reembolso)</p>
-          <p className="text-lg font-bold text-emerald-400">{formatarMoeda(v.comissao_final)}</p>
+        <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-center">
+          <p className="text-xs text-slate-600">Comissão final (comissão + reembolso)</p>
+          <p className="text-lg font-bold text-emerald-700">{formatarMoeda(v.comissao_final)}</p>
         </div>
       )}
     </div>

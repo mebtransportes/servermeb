@@ -45,6 +45,7 @@ type Recurso = {
   comprovante_path?: string | null;
   comprovante_nome?: string | null;
   recurso_par_id?: string | null;
+  desconta_motorista?: boolean;
   postos?: { nome: string } | null;
   oficinas?: { nome: string } | null;
 };
@@ -87,6 +88,7 @@ export function ViagemRecursos({
   const [motoristaTerceiro, setMotoristaTerceiro] = useState(false);
   const [kmOdometroInicial, setKmOdometroInicial] = useState<number | null>(null);
   const [motoristaAdiantou, setMotoristaAdiantou] = useState(false);
+  const [naoDescontaMotorista, setNaoDescontaMotorista] = useState(false);
 
   const load = async () => {
     const supabase = createClient();
@@ -172,6 +174,7 @@ export function ViagemRecursos({
     setComprovante(null);
     setFiles([]);
     setMotoristaAdiantou(false);
+    setNaoDescontaMotorista(false);
   }
 
   async function handleAdd(e: React.FormEvent, tipoFixo?: "reembolso") {
@@ -220,6 +223,9 @@ export function ViagemRecursos({
       if (combustivelTipo) payload.combustivel_tipo = combustivelTipo;
     }
     if (tipoLancamento === "manutencao") payload.status_frota = "FINALIZADO";
+    if (tipoLancamento === "pedagio" || tipoLancamento === "estacionamento") {
+      payload.desconta_motorista = !naoDescontaMotorista;
+    }
 
     const { data: recurso, error } = await supabase
       .from("viagem_recursos")
@@ -364,6 +370,7 @@ export function ViagemRecursos({
                 setCombustivelTipo("");
               }
               if (t !== "outro") setMotoristaAdiantou(false);
+              if (t !== "pedagio" && t !== "estacionamento") setNaoDescontaMotorista(false);
             }}
             options={[
               { value: "abastecimento", label: "Abastecimento" },
@@ -497,22 +504,43 @@ export function ViagemRecursos({
               </label>
             </>
           ) : (
-            <Textarea
-              label="Descrição"
-              value={descricao}
-              onChange={(e) => setDescricao(e.target.value)}
-              placeholder={
-                tipo === "pedagio"
-                  ? "Ex: praça de pedágio, rota, etc."
-                  : tipo === "estacionamento"
-                    ? "Ex: local, período, etc."
-                    : tipo === "seguro"
-                      ? "Ex: apólice, cobertura, etc."
-                      : tipo === "monitoramento"
-                        ? "Ex: rastreador, mensalidade, etc."
-                        : ""
-              }
-            />
+            <>
+              <Textarea
+                label="Descrição"
+                value={descricao}
+                onChange={(e) => setDescricao(e.target.value)}
+                placeholder={
+                  tipo === "pedagio"
+                    ? "Ex: praça de pedágio, rota, etc."
+                    : tipo === "estacionamento"
+                      ? "Ex: local, período, etc."
+                      : tipo === "seguro"
+                        ? "Ex: apólice, cobertura, etc."
+                        : tipo === "monitoramento"
+                          ? "Ex: rastreador, mensalidade, etc."
+                          : ""
+                }
+              />
+              {(tipo === "pedagio" || tipo === "estacionamento") && (
+                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={naoDescontaMotorista}
+                    onChange={(e) => setNaoDescontaMotorista(e.target.checked)}
+                    className="mt-0.5 rounded border-slate-300"
+                  />
+                  <span>
+                    <span className="font-medium text-slate-800">
+                      Não descontar do motorista
+                    </span>
+                    <span className="mt-0.5 block text-xs text-slate-600">
+                      O valor entra no financeiro da empresa, mas não reduz a comissão do motorista.
+                      Não gera reembolso.
+                    </span>
+                  </span>
+                </label>
+              )}
+            </>
           )}
           <AnexosFrotaCampos
             notaFiscal={notaFiscal}
@@ -784,6 +812,12 @@ function RecursoItem({
       {recurso.descricao && recurso.tipo !== "outro" && (
         <p className="mt-1 text-slate-700">{recurso.descricao}</p>
       )}
+      {(recurso.tipo === "pedagio" || recurso.tipo === "estacionamento") &&
+        recurso.desconta_motorista === false && (
+          <p className="mt-1 text-xs text-slate-500">
+            Pago pela empresa — não desconta do motorista
+          </p>
+        )}
       {recurso.tipo === "outro" && reembolsosVinculados && reembolsosVinculados.length > 0 && (
         <p className="mt-1 text-xs text-violet-700">
           Reembolso vinculado:{" "}

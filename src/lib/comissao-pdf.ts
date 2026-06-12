@@ -59,6 +59,7 @@ function calcularComissaoSemReembolso(fechamentos: ViagemFechamento[]): number {
       motoristaTerceiro: !!f.motorista_terceiro,
       seguroValor: f.seguro_valor,
       monitoramentoValor: f.monitoramento_valor,
+      pedagioDescontaMotorista: f.pedagio_desconta_motorista,
     });
     return s + calc.total_comissao;
   }, 0);

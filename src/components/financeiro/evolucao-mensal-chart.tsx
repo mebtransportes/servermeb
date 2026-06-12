@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import type { PontoGraficoMensal } from "@/lib/grafico-mensal";
 import { formatarMoeda } from "@/lib/frota-filters";
 import { TrendingDown, TrendingUp, Minus } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, mebCard } from "@/lib/utils";
 
 const W = 800;
 const H = 280;
@@ -12,36 +12,33 @@ const PAD = { top: 28, right: 20, bottom: 52, left: 56 };
 
 const THEMES = {
   purple: {
-    border: "border-purple-500/40",
-    bg: "bg-[#1a1a1a]",
-    line: "#a855f7",
-    fillStart: "rgb(168, 85, 247)",
+    border: "border-purple-200/80",
+    line: "#9333ea",
+    fillStart: "rgb(147, 51, 234)",
     dot: "#7c3aed",
-    dotHover: "#c084fc",
-    tooltipBorder: "border-purple-700/50",
-    value: "text-purple-300",
+    dotHover: "#a855f7",
+    tooltipBorder: "border-purple-200",
+    value: "text-purple-700",
     gradientId: "lineFillPurple",
   },
   amber: {
-    border: "border-amber-500/40",
-    bg: "bg-[#1a1a1a]",
-    line: "#f59e0b",
+    border: "border-amber-200/80",
+    line: "#d97706",
     fillStart: "rgb(245, 158, 11)",
-    dot: "#d97706",
-    dotHover: "#fbbf24",
-    tooltipBorder: "border-amber-700/50",
-    value: "text-amber-300",
+    dot: "#b45309",
+    dotHover: "#f59e0b",
+    tooltipBorder: "border-amber-200",
+    value: "text-amber-700",
     gradientId: "lineFillAmber",
   },
   cyan: {
-    border: "border-cyan-500/40",
-    bg: "bg-[#1a1a1a]",
-    line: "#22d3ee",
-    fillStart: "rgb(34, 211, 238)",
-    dot: "#0891b2",
-    dotHover: "#67e8f9",
-    tooltipBorder: "border-cyan-700/50",
-    value: "text-cyan-300",
+    border: "border-cyan-200/80",
+    line: "#0891b2",
+    fillStart: "rgb(6, 182, 212)",
+    dot: "#0e7490",
+    dotHover: "#06b6d4",
+    tooltipBorder: "border-cyan-200",
+    value: "text-cyan-700",
     gradientId: "lineFillCyan",
   },
 } as const;
@@ -74,14 +71,14 @@ export function EvolucaoMensalChart({
       : null;
 
   return (
-    <div className={cn("rounded-xl border p-5", t.border, t.bg)}>
+    <div className={cn(mebCard, "p-5", t.border)}>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-white">{titulo}</h2>
-          <p className="text-base text-slate-400">{subtitulo}</p>
+          <h2 className="text-xl font-semibold text-slate-900">{titulo}</h2>
+          <p className="text-base text-slate-500">{subtitulo}</p>
         </div>
         {ultimo && variacaoUltimo != null && (
-          <div className="rounded-lg border border-[#2a2a2a] bg-[#141414] px-3 py-2 text-sm">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
             <span className="text-slate-500">vs. mês anterior: </span>
             <VariacaoBadge pct={variacaoUltimo} />
           </div>
@@ -110,7 +107,7 @@ export function EvolucaoMensalChart({
                   y1={g.y}
                   x2={W - PAD.right}
                   y2={g.y}
-                  stroke="rgb(55, 55, 55)"
+                  stroke="#e2e8f0"
                   strokeDasharray="4 4"
                 />
                 <text x={PAD.left - 6} y={g.y + 4} textAnchor="end" className="fill-slate-500 text-xs">
@@ -151,7 +148,7 @@ export function EvolucaoMensalChart({
                 x={p.x}
                 y={H - 14}
                 textAnchor="middle"
-                className="fill-slate-400 text-xs"
+                className="fill-slate-500 text-xs"
               >
                 {p.label}
               </text>
@@ -160,7 +157,7 @@ export function EvolucaoMensalChart({
           {active && hovered != null && chart.points[hovered] && (
             <div
               className={cn(
-                "pointer-events-none absolute top-2 rounded-lg border border-[#2a2a2a] bg-[#1a1a1a] px-3 py-2 shadow-lg",
+                "pointer-events-none absolute top-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-md",
                 t.tooltipBorder
               )}
               style={{
@@ -231,7 +228,7 @@ function VariacaoBadge({ pct }: { pct: number }) {
     <span
       className={cn(
         "inline-flex items-center gap-1 text-xs font-medium",
-        gastouMais ? "text-amber-400" : "text-emerald-400"
+        gastouMais ? "text-amber-600" : "text-emerald-600"
       )}
     >
       {gastouMais ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
