@@ -36,9 +36,19 @@ function Campo({
   );
 }
 
-function Valor({ children, className }: { children: ReactNode; className?: string }) {
+function Valor({
+  children,
+  className,
+  title,
+}: {
+  children: ReactNode;
+  className?: string;
+  title?: string;
+}) {
   return (
-    <p className={cn("flex min-h-[34px] items-center text-sm", className)}>{children}</p>
+    <p title={title} className={cn("flex min-h-[34px] items-center text-sm", className)}>
+      {children}
+    </p>
   );
 }
 
