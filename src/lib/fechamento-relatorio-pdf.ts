@@ -20,7 +20,7 @@ import {
   totalDespesasMotoristaFrota,
 } from "@/types/fechamento";
 import { formatarMoeda } from "@/lib/frota-filters";
-import { desenharRodapeAssinaturasRecibo } from "@/lib/pdf-recibo-rodape";
+import { desenharRodapeAssinaturasRecibo, RODAPE_ASSINATURA_ALTURA } from "@/lib/pdf-recibo-rodape";
 
 const COR: [number, number, number] = [0, 120, 140];
 const MARGIN = 12;
@@ -297,11 +297,15 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
 
   const valorFinal = calc.comissao_final;
   const pageH = doc.internal.pageSize.getHeight();
-  let boxY = y + 6;
-  if (boxY + 14 + 40 > pageH - MARGIN) {
+  const blocoFinalH = 14 + 4 + RODAPE_ASSINATURA_ALTURA;
+  const blocoFinalY = pageH - MARGIN - blocoFinalH;
+
+  if (y + 4 > blocoFinalY) {
     doc.addPage();
-    boxY = MARGIN + 4;
+    y = MARGIN;
   }
+
+  const boxY = Math.max(y + 4, blocoFinalY);
   doc.setFillColor(...COR);
   doc.roundedRect(MARGIN, boxY, PAGE_W - MARGIN * 2, 14, 2, 2, "F");
   doc.setFont("helvetica", "bold");
@@ -315,7 +319,7 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
   doc.text(formatarMoeda(valorFinal), PAGE_W - MARGIN - 4, boxY + 10, { align: "right" });
 
   desenharRodapeAssinaturasRecibo(doc, {
-    y: boxY + 18,
+    y: boxY + 14,
     beneficiarioNome: f.motorista_nome,
     ehTerceiro: !!f.motorista_terceiro,
   });

@@ -3,7 +3,7 @@ import autoTable from "jspdf-autotable";
 import { LOGO_SRC } from "@/components/brand/logo";
 import { fetchOutrosDespesasPorViagens } from "@/lib/fechamento-outros-despesas";
 import { fetchAdiantamentosPorViagens } from "@/lib/fechamento-adiantamentos";
-import { desenharRodapeAssinaturasRecibo } from "@/lib/pdf-recibo-rodape";
+import { desenharRodapeAssinaturasRecibo, RODAPE_ASSINATURA_ALTURA } from "@/lib/pdf-recibo-rodape";
 import type { ViagemFechamento } from "@/types/fechamento";
 import {
   agruparFechamentosComissao,
@@ -250,6 +250,9 @@ export async function gerarPdfComissaoMotorista(opts: {
   const docTable = doc as jsPDF & { lastAutoTable?: { finalY: number } };
   y = (docTable.lastAutoTable?.finalY ?? y) + 6;
 
+  /** Reserva espaço no fim da última página para resumo + assinaturas. */
+  const margemRodape = RODAPE_ASSINATURA_ALTURA + MARGIN + 10;
+
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.setTextColor(...COR_PRIMARIA);
@@ -286,7 +289,7 @@ export async function gerarPdfComissaoMotorista(opts: {
       3: { cellWidth: 32 },
       4: { halign: "right", cellWidth: 24 },
     },
-    margin: { left: MARGIN, right: MARGIN },
+    margin: { left: MARGIN, right: MARGIN, bottom: margemRodape },
     alternateRowStyles: { fillColor: [248, 250, 252] },
   });
 
@@ -324,7 +327,7 @@ export async function gerarPdfComissaoMotorista(opts: {
         2: { halign: "right", cellWidth: 24 },
         3: { cellWidth: 52 },
       },
-      margin: { left: MARGIN, right: MARGIN },
+      margin: { left: MARGIN, right: MARGIN, bottom: margemRodape },
       alternateRowStyles: { fillColor: [248, 250, 252] },
     });
 
@@ -364,13 +367,17 @@ export async function gerarPdfComissaoMotorista(opts: {
           2: { cellWidth: 22 },
           3: { halign: "right", cellWidth: 24 },
         },
-        margin: { left: MARGIN, right: MARGIN },
+        margin: { left: MARGIN, right: MARGIN, bottom: margemRodape },
         alternateRowStyles: { fillColor: [255, 247, 237] },
       });
 
       y = (docTable.lastAutoTable?.finalY ?? y) + 4;
     }
   }
+
+  const pageH = doc.internal.pageSize.getHeight();
+  const rodapeY = pageH - MARGIN - RODAPE_ASSINATURA_ALTURA;
+  const resumoY = Math.min(y, rodapeY - 6);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
@@ -383,13 +390,12 @@ export async function gerarPdfComissaoMotorista(opts: {
     `Outras ${formatarMoeda(outrosTotal)}`,
     `Total ${formatarMoeda(resumo.despesas)}`,
   ].join(" · ");
-  doc.text(`Resumo de despesas (informativo): ${infoDespesas}`, MARGIN, y, {
+  doc.text(`Resumo de despesas (informativo): ${infoDespesas}`, MARGIN, resumoY, {
     maxWidth: contentW,
   });
-  y += 8;
 
   desenharRodapeAssinaturasRecibo(doc, {
-    y,
+    y: resumoY + 5,
     beneficiarioNome: motoristaNome,
     ehTerceiro,
   });
