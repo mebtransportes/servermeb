@@ -15,12 +15,34 @@ import {
   type PeriodoFiltroState,
 } from "@/lib/frota-filters";
 import { calcularTotalAReceber } from "@/types/recebimento";
-import { RECEBIMENTO_STATUS_LABEL, type RecebimentoStatus } from "@/types/recebimento";
+import {
+  RECEBIMENTO_ENCARGO_LABEL,
+  RECEBIMENTO_ENCARGO_STATUS_LABEL,
+  RECEBIMENTO_STATUS_LABEL,
+  type RecebimentoEncargoStatus,
+  type RecebimentoEncargoTipo,
+  type RecebimentoStatus,
+} from "@/types/recebimento";
 import { cn, mebCard, mebFilterActive, mebFilterInactive, mebFormSection } from "@/lib/utils";
 import type { RecursoVinculo } from "@/types";
 
 type FiltroStatus = RecebimentoStatus | "todos";
 type FiltroVinculo = "todos" | RecursoVinculo;
+type FiltroEncargoTipo = RecebimentoEncargoTipo | "todos";
+type FiltroEncargoStatus = RecebimentoEncargoStatus | "todos";
+
+const ENCARGO_TIPO_FILTROS: { value: FiltroEncargoTipo; label: string }[] = [
+  { value: "todos", label: "Todos os tipos" },
+  { value: "descarga", label: "Descarga" },
+  { value: "diaria", label: "Diária" },
+];
+
+const ENCARGO_STATUS_FILTROS: { value: FiltroEncargoStatus; label: string }[] = [
+  { value: "todos", label: "Todos os status" },
+  { value: "sem_data", label: "Sem data" },
+  { value: "pendente", label: "Pendente" },
+  { value: "pago", label: "Pago" },
+];
 
 const STATUS_FILTROS: { value: FiltroStatus; label: string }[] = [
   { value: "todos", label: "Todos" },
@@ -54,11 +76,27 @@ function matchVinculo(item: RecebimentoComCanhotos, filtro: FiltroVinculo): bool
   return !item.eh_frota;
 }
 
+function matchEncargoFiltros(
+  item: RecebimentoComCanhotos,
+  tipo: FiltroEncargoTipo,
+  statusEncargo: FiltroEncargoStatus
+): boolean {
+  if (tipo === "todos" && statusEncargo === "todos") return true;
+  if (!item.encargos.length) return false;
+  return item.encargos.some(
+    (e) =>
+      (tipo === "todos" || e.tipo === tipo) &&
+      (statusEncargo === "todos" || e.status === statusEncargo)
+  );
+}
+
 export function RecebimentosPageContent() {
   const [itens, setItens] = useState<RecebimentoComCanhotos[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroVinculo, setFiltroVinculo] = useState<FiltroVinculo>("todos");
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("todos");
+  const [filtroEncargoTipo, setFiltroEncargoTipo] = useState<FiltroEncargoTipo>("todos");
+  const [filtroEncargoStatus, setFiltroEncargoStatus] = useState<FiltroEncargoStatus>("todos");
   const [periodo, setPeriodo] = useState<PeriodoFiltroState>(PERIODO_FILTRO_INICIAL);
   const [showRelatorio, setShowRelatorio] = useState(false);
 
@@ -84,9 +122,17 @@ export function RecebimentosPageContent() {
   );
 
   const filtrados = useMemo(() => {
-    if (filtroStatus === "todos") return noPeriodo;
-    return noPeriodo.filter((i) => i.status === filtroStatus);
-  }, [noPeriodo, filtroStatus]);
+    let lista = noPeriodo;
+    if (filtroStatus !== "todos") {
+      lista = lista.filter((i) => i.status === filtroStatus);
+    }
+    if (filtroEncargoTipo !== "todos" || filtroEncargoStatus !== "todos") {
+      lista = lista.filter((i) =>
+        matchEncargoFiltros(i, filtroEncargoTipo, filtroEncargoStatus)
+      );
+    }
+    return lista;
+  }, [noPeriodo, filtroStatus, filtroEncargoTipo, filtroEncargoStatus]);
 
   const resumo = useMemo(() => {
     let pendente = 0;
@@ -193,6 +239,44 @@ export function RecebimentosPageContent() {
         </div>
 
         <div>
+          <p className="mb-2 text-xs font-medium text-slate-500">Tipo de encargo</p>
+          <div className="flex flex-wrap gap-2">
+            {ENCARGO_TIPO_FILTROS.map((t) => (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => setFiltroEncargoTipo(t.value)}
+                className={cn(
+                  "rounded-lg px-3.5 py-2 text-sm font-medium transition",
+                  filtroEncargoTipo === t.value ? mebFilterActive : mebFilterInactive
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-2 text-xs font-medium text-slate-500">Status dos encargos</p>
+          <div className="flex flex-wrap gap-2">
+            {ENCARGO_STATUS_FILTROS.map((s) => (
+              <button
+                key={s.value}
+                type="button"
+                onClick={() => setFiltroEncargoStatus(s.value)}
+                className={cn(
+                  "rounded-lg px-3.5 py-2 text-sm font-medium transition",
+                  filtroEncargoStatus === s.value ? mebFilterActive : mebFilterInactive
+                )}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
           <p className="mb-2 text-xs font-medium text-slate-500">
             Período (data para recebimento)
           </p>
@@ -204,6 +288,12 @@ export function RecebimentosPageContent() {
           {filtroVinculo !== "todos" && <> · {vinculoLabel}</>}
           {filtroStatus !== "todos" && (
             <> · {RECEBIMENTO_STATUS_LABEL[filtroStatus as RecebimentoStatus]}</>
+          )}
+          {filtroEncargoTipo !== "todos" && (
+            <> · Encargo: {RECEBIMENTO_ENCARGO_LABEL[filtroEncargoTipo]}</>
+          )}
+          {filtroEncargoStatus !== "todos" && (
+            <> · Encargo {RECEBIMENTO_ENCARGO_STATUS_LABEL[filtroEncargoStatus]}</>
           )}
           {periodo.preset !== "todos" && <> · {labelPeriodoConfig(periodo)}</>}
           {" · "}

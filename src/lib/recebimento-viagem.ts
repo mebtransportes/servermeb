@@ -1,7 +1,13 @@
 import { createClient } from "@/lib/supabase/client";
 import { isFrota } from "@/lib/viagem-validation";
 import { calcularFreteLiquido, ICMS_FRETE_PERCENT } from "@/types/fechamento";
-import type { RecebimentoStatus, RecebimentoEncargoTipo, ViagemRecebimento } from "@/types/recebimento";
+import type {
+  RecebimentoStatus,
+  RecebimentoEncargoTipo,
+  RecebimentoEncargoStatus,
+  ViagemRecebimento,
+  ViagemRecebimentoEncargo,
+} from "@/types/recebimento";
 import type { RecursoVinculo } from "@/types";
 
 type VeiculoRef = { vinculo?: RecursoVinculo | null; nome?: string; placa?: string };
@@ -108,11 +114,45 @@ export async function syncRecebimentosArquivados(): Promise<void> {
   }
 }
 
+async function sincronizarTotaisEncargos(recebimentoId: string): Promise<string | null> {
+  const supabase = createClient();
+  const { data: encargos, error: errList } = await supabase
+    .from("viagem_recebimento_encargos")
+    .select("tipo, valor")
+    .eq("recebimento_id", recebimentoId);
+
+  if (errList) return errList.message;
+
+  let descargas = 0;
+  let diarias = 0;
+  for (const e of encargos ?? []) {
+    const v = Number(e.valor) || 0;
+    if (e.tipo === "descarga") descargas += v;
+    else diarias += v;
+  }
+
+  const { error } = await supabase
+    .from("viagem_recebimentos")
+    .update({
+      valor_descargas_adicionais: Math.round(descargas * 100) / 100,
+      valor_diarias: Math.round(diarias * 100) / 100,
+    })
+    .eq("id", recebimentoId);
+
+  return error?.message ?? null;
+}
+
 export async function adicionarEncargoRecebimento(
   id: string,
-  tipo: RecebimentoEncargoTipo,
-  valor: number
+  opts: {
+    tipo: RecebimentoEncargoTipo;
+    valor: number;
+    numero_cte?: string | null;
+    data_recebimento?: string | null;
+    status?: RecebimentoEncargoStatus;
+  }
 ): Promise<string | null> {
+  const valor = opts.valor;
   if (!Number.isFinite(valor) || valor <= 0) {
     return "Informe um valor maior que zero.";
   }
@@ -120,25 +160,28 @@ export async function adicionarEncargoRecebimento(
   const supabase = createClient();
   const { data: atual, error: errGet } = await supabase
     .from("viagem_recebimentos")
-    .select("valor_descargas_adicionais, valor_diarias")
+    .select("id")
     .eq("id", id)
     .maybeSingle();
 
   if (errGet) return errGet.message;
   if (!atual) return "Recebimento não encontrado.";
 
-  const patch =
-    tipo === "descarga"
-      ? {
-          valor_descargas_adicionais:
-            Math.round((Number(atual.valor_descargas_adicionais ?? 0) + valor) * 100) / 100,
-        }
-      : {
-          valor_diarias: Math.round((Number(atual.valor_diarias ?? 0) + valor) * 100) / 100,
-        };
+  const dataReceb = opts.data_recebimento?.trim() || null;
+  const status: RecebimentoEncargoStatus =
+    opts.status ?? (dataReceb ? "pendente" : "sem_data");
 
-  const { error } = await supabase.from("viagem_recebimentos").update(patch).eq("id", id);
-  return error?.message ?? null;
+  const { error: errInsert } = await supabase.from("viagem_recebimento_encargos").insert({
+    recebimento_id: id,
+    tipo: opts.tipo,
+    valor: Math.round(valor * 100) / 100,
+    numero_cte: opts.numero_cte?.trim() || null,
+    data_recebimento: dataReceb,
+    status,
+  });
+
+  if (errInsert) return errInsert.message;
+  return sincronizarTotaisEncargos(id);
 }
 
 export async function atualizarRecebimento(
@@ -157,6 +200,7 @@ export async function atualizarRecebimento(
 
 export type RecebimentoComCanhotos = ViagemRecebimento & {
   canhotos: { id: string; file_name: string; storage_path: string }[];
+  encargos: ViagemRecebimentoEncargo[];
   eh_frota: boolean;
 };
 
@@ -205,6 +249,28 @@ export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
     .select("id, viagem_id, file_name, storage_path")
     .in("viagem_id", ids);
 
+  const recebimentoIds = (recebimentos ?? []).map((r) => r.id);
+  const encargosPorRecebimento = new Map<string, ViagemRecebimentoEncargo[]>();
+
+  if (recebimentoIds.length) {
+    const { data: encargosRows, error: errEnc } = await supabase
+      .from("viagem_recebimento_encargos")
+      .select("*")
+      .in("recebimento_id", recebimentoIds)
+      .order("created_at", { ascending: true });
+
+    if (errEnc) {
+      console.error("viagem_recebimento_encargos:", errEnc);
+    } else {
+      for (const e of encargosRows ?? []) {
+        const row = e as ViagemRecebimentoEncargo;
+        const lista = encargosPorRecebimento.get(row.recebimento_id) ?? [];
+        lista.push({ ...row, valor: Number(row.valor) || 0 });
+        encargosPorRecebimento.set(row.recebimento_id, lista);
+      }
+    }
+  }
+
   const canhotosPorViagem = new Map<string, { id: string; file_name: string; storage_path: string }[]>();
   for (const c of canhotos ?? []) {
     const lista = canhotosPorViagem.get(c.viagem_id) ?? [];
@@ -220,6 +286,7 @@ export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
       numero_cte: ctePorViagem.get(r.viagem_id) ?? null,
       eh_frota: frotaPorViagem.get(r.viagem_id) ?? true,
       canhotos: canhotosPorViagem.get(r.viagem_id) ?? [],
+      encargos: encargosPorRecebimento.get(r.id) ?? [],
     };
   });
 }

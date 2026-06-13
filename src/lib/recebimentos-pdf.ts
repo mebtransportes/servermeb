@@ -79,7 +79,7 @@ function cabecalhoRelatorio(
     `Pendente: ${formatarMoeda(resumo.pendente)}`,
     `Pago: ${formatarMoeda(resumo.pago)}`,
     `Vencido: ${formatarMoeda(resumo.vencido)}`,
-    `Total a receber: ${formatarMoeda(resumo.total)}`,
+    `Total a receber com encargos: ${formatarMoeda(resumo.total)}`,
   ].forEach((linha) => {
     doc.text(linha, 14, y);
     y += 5;
@@ -128,10 +128,10 @@ export function gerarPdfRecebimentos(
         "Placas",
         "Fornecedor",
         "Frete total",
-        "Frete líquido",
+        "Frete líq. s/ enc. e imp.",
         "Descargas",
         "Diárias",
-        "Total a receber",
+        "Total c/ encargos",
         "Data receb.",
         "Status",
         "Observação",

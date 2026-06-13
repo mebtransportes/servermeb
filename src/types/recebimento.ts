@@ -11,9 +11,29 @@ export type ViagemCanhoto = {
 
 export type RecebimentoEncargoTipo = "diaria" | "descarga";
 
+export type RecebimentoEncargoStatus = "sem_data" | "pendente" | "pago";
+
 export const RECEBIMENTO_ENCARGO_LABEL: Record<RecebimentoEncargoTipo, string> = {
   diaria: "Diária",
   descarga: "Descarga",
+};
+
+export const RECEBIMENTO_ENCARGO_STATUS_LABEL: Record<RecebimentoEncargoStatus, string> = {
+  sem_data: "Sem data",
+  pendente: "Pendente",
+  pago: "Pago",
+};
+
+export type ViagemRecebimentoEncargo = {
+  id: string;
+  recebimento_id: string;
+  tipo: RecebimentoEncargoTipo;
+  valor: number;
+  numero_cte?: string | null;
+  data_recebimento?: string | null;
+  status: RecebimentoEncargoStatus;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type ViagemRecebimento = {
@@ -40,13 +60,19 @@ export const RECEBIMENTO_STATUS_LABEL: Record<RecebimentoStatus, string> = {
   vencido: "Vencido",
 };
 
+export function totalEncargos(
+  encargos: Pick<ViagemRecebimentoEncargo, "valor">[] | undefined
+) {
+  return (encargos ?? []).reduce((s, e) => s + (Number(e.valor) || 0), 0);
+}
+
 export function calcularTotalAReceber(r: Pick<
   ViagemRecebimento,
   "valor_frete_liquido" | "valor_descargas_adicionais" | "valor_diarias"
->) {
-  return (
-    (Number(r.valor_frete_liquido) || 0) +
-    (Number(r.valor_descargas_adicionais) || 0) +
-    (Number(r.valor_diarias) || 0)
-  );
+> & { encargos?: Pick<ViagemRecebimentoEncargo, "valor">[] }) {
+  const encargosTotal =
+    r.encargos && r.encargos.length > 0
+      ? totalEncargos(r.encargos)
+      : (Number(r.valor_descargas_adicionais) || 0) + (Number(r.valor_diarias) || 0);
+  return (Number(r.valor_frete_liquido) || 0) + encargosTotal;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,9 @@ import { formatarMoeda } from "@/lib/frota-filters";
 import {
   calcularTotalAReceber,
   RECEBIMENTO_ENCARGO_LABEL,
+  RECEBIMENTO_ENCARGO_STATUS_LABEL,
   RECEBIMENTO_STATUS_LABEL,
+  type RecebimentoEncargoStatus,
   type RecebimentoEncargoTipo,
   type RecebimentoStatus,
 } from "@/types/recebimento";
@@ -54,6 +56,15 @@ function Valor({
   );
 }
 
+function somaEncargosPorTipo(
+  encargos: RecebimentoComCanhotos["encargos"],
+  tipo: RecebimentoEncargoTipo
+) {
+  return encargos
+    .filter((e) => e.tipo === tipo)
+    .reduce((s, e) => s + (Number(e.valor) || 0), 0);
+}
+
 export function RecebimentoLinha({
   item,
   onAtualizado,
@@ -61,8 +72,6 @@ export function RecebimentoLinha({
   item: RecebimentoComCanhotos;
   onAtualizado: () => void;
 }) {
-  const [descargas, setDescargas] = useState(Number(item.valor_descargas_adicionais) || 0);
-  const [diarias, setDiarias] = useState(Number(item.valor_diarias) || 0);
   const [dataRecebimento, setDataRecebimento] = useState(item.data_recebimento ?? "");
   const [status, setStatus] = useState<RecebimentoStatus>(item.status);
   const [observacao, setObservacao] = useState(item.observacao ?? "");
@@ -71,11 +80,15 @@ export function RecebimentoLinha({
   const [encargosAbertos, setEncargosAbertos] = useState(false);
   const [tipoEncargo, setTipoEncargo] = useState<RecebimentoEncargoTipo>("descarga");
   const [valorEncargo, setValorEncargo] = useState("");
+  const [cteEncargo, setCteEncargo] = useState("");
+  const [dataEncargo, setDataEncargo] = useState("");
+  const [statusEncargo, setStatusEncargo] = useState<RecebimentoEncargoStatus>("sem_data");
   const [salvandoEncargo, setSalvandoEncargo] = useState(false);
 
+  const descargas = somaEncargosPorTipo(item.encargos, "descarga") || Number(item.valor_descargas_adicionais) || 0;
+  const diarias = somaEncargosPorTipo(item.encargos, "diaria") || Number(item.valor_diarias) || 0;
+
   useEffect(() => {
-    setDescargas(Number(item.valor_descargas_adicionais) || 0);
-    setDiarias(Number(item.valor_diarias) || 0);
     setDataRecebimento(item.data_recebimento ?? "");
     setStatus(item.status);
     setObservacao(item.observacao ?? "");
@@ -85,6 +98,7 @@ export function RecebimentoLinha({
     valor_frete_liquido: item.valor_frete_liquido,
     valor_descargas_adicionais: descargas,
     valor_diarias: diarias,
+    encargos: item.encargos,
   });
 
   async function salvar() {
@@ -109,13 +123,22 @@ export function RecebimentoLinha({
       return;
     }
     setSalvandoEncargo(true);
-    const err = await adicionarEncargoRecebimento(item.id, tipoEncargo, valor);
+    const err = await adicionarEncargoRecebimento(item.id, {
+      tipo: tipoEncargo,
+      valor,
+      numero_cte: cteEncargo.trim() || null,
+      data_recebimento: dataEncargo.trim() || null,
+      status: dataEncargo.trim() ? statusEncargo : "sem_data",
+    });
     setSalvandoEncargo(false);
     if (err) {
       await mebAlert(err);
       return;
     }
     setValorEncargo("");
+    setCteEncargo("");
+    setDataEncargo("");
+    setStatusEncargo("sem_data");
     onAtualizado();
   }
 
@@ -142,8 +165,8 @@ export function RecebimentoLinha({
             {formatarMoeda(item.valor_frete_total)}
           </Valor>
         </Campo>
-        <Campo label="Frete líquido">
-          <Valor className="text-slate-700" title="Bruto − 12% ICMS">
+        <Campo label="Frete líquido sem encargos e imposto">
+          <Valor className="text-slate-700" title="Frete bruto − ICMS (12%)">
             {formatarMoeda(item.valor_frete_liquido)}
           </Valor>
         </Campo>
@@ -153,8 +176,10 @@ export function RecebimentoLinha({
         <Campo label="Diárias">
           <Valor className="font-medium text-slate-800">{formatarMoeda(diarias)}</Valor>
         </Campo>
-        <Campo label="Total a receber">
-          <Valor className="font-bold text-amber-700">{formatarMoeda(totalReceber)}</Valor>
+        <Campo label="Total a receber com Encargos">
+          <Valor className="font-bold text-amber-700" title="Frete líquido + encargos">
+            {formatarMoeda(totalReceber)}
+          </Valor>
         </Campo>
         <Campo label="Data receb." className="xl:col-span-2">
           <Input
@@ -197,7 +222,7 @@ export function RecebimentoLinha({
               onClick={() => setEncargosAbertos((v) => !v)}
               className="text-left text-xs text-cyan-700 hover:underline"
             >
-              Encargos
+              Encargos ({item.encargos.length})
             </button>
           </div>
         </Campo>
@@ -244,7 +269,7 @@ export function RecebimentoLinha({
               label="Tipo"
               value={tipoEncargo}
               onChange={(e) => setTipoEncargo(e.target.value as RecebimentoEncargoTipo)}
-              className={cn(inputCompact, "min-w-[160px]")}
+              className={cn(inputCompact, "min-w-[140px]")}
               options={(
                 Object.entries(RECEBIMENTO_ENCARGO_LABEL) as [RecebimentoEncargoTipo, string][]
               ).map(([v, l]) => ({ value: v, label: l }))}
@@ -256,8 +281,38 @@ export function RecebimentoLinha({
               min="0"
               value={valorEncargo}
               onChange={(e) => setValorEncargo(e.target.value)}
-              className={cn(inputCompact, "min-w-[140px]")}
+              className={cn(inputCompact, "min-w-[120px]")}
               placeholder="0,00"
+            />
+            <Input
+              label="Nº CT-e"
+              value={cteEncargo}
+              onChange={(e) => setCteEncargo(e.target.value)}
+              className={cn(inputCompact, "min-w-[120px]")}
+              placeholder="Informe o CT-e do encargo"
+            />
+            <Input
+              label="Data para receber"
+              type="date"
+              value={dataEncargo}
+              onChange={(e) => {
+                setDataEncargo(e.target.value);
+                if (!e.target.value) setStatusEncargo("sem_data");
+                else if (statusEncargo === "sem_data") setStatusEncargo("pendente");
+              }}
+              className={cn(inputCompact, "min-w-[140px]")}
+            />
+            <Select
+              label="Status do encargo"
+              value={statusEncargo}
+              onChange={(e) => setStatusEncargo(e.target.value as RecebimentoEncargoStatus)}
+              className={cn(inputCompact, "min-w-[140px]")}
+              options={(
+                Object.entries(RECEBIMENTO_ENCARGO_STATUS_LABEL) as [
+                  RecebimentoEncargoStatus,
+                  string,
+                ][]
+              ).map(([v, l]) => ({ value: v, label: l }))}
             />
             <Button
               type="button"
@@ -276,17 +331,52 @@ export function RecebimentoLinha({
               onClick={() => {
                 setEncargosAbertos(false);
                 setValorEncargo("");
+                setCteEncargo("");
+                setDataEncargo("");
+                setStatusEncargo("sem_data");
               }}
             >
               Fechar
             </Button>
           </div>
+
+          {item.encargos.length > 0 ? (
+            <div className="overflow-x-auto rounded-lg border border-slate-200">
+              <table className="w-full min-w-[520px] text-left text-xs">
+                <thead className="bg-slate-100 text-slate-600">
+                  <tr>
+                    <th className="px-3 py-2 font-semibold">Tipo</th>
+                    <th className="px-3 py-2 font-semibold">CT-e</th>
+                    <th className="px-3 py-2 font-semibold">Valor</th>
+                    <th className="px-3 py-2 font-semibold">Data receb.</th>
+                    <th className="px-3 py-2 font-semibold">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {item.encargos.map((e) => (
+                    <tr key={e.id} className="border-t border-slate-100">
+                      <td className="px-3 py-2">{RECEBIMENTO_ENCARGO_LABEL[e.tipo]}</td>
+                      <td className="px-3 py-2 font-mono">{e.numero_cte?.trim() || "—"}</td>
+                      <td className="px-3 py-2 font-medium">{formatarMoeda(e.valor)}</td>
+                      <td className="px-3 py-2">
+                        {e.data_recebimento
+                          ? new Date(`${e.data_recebimento}T12:00:00`).toLocaleDateString("pt-BR")
+                          : "—"}
+                      </td>
+                      <td className="px-3 py-2">{RECEBIMENTO_ENCARGO_STATUS_LABEL[e.status]}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500">Nenhum encargo lançado ainda.</p>
+          )}
+
           <p className="text-xs text-slate-500">
-            O valor será somado em{" "}
-            <strong className="text-slate-700">
-              {tipoEncargo === "descarga" ? "Descargas" : "Diárias"}
-            </strong>{" "}
-            e incluído no total a receber.
+            Encargos lançados entram no{" "}
+            <strong className="text-slate-700">Total a receber com Encargos</strong> (frete líquido
+            sem ICMS + soma dos encargos).
           </p>
         </div>
       )}
@@ -298,7 +388,8 @@ export function RecebimentoLinha({
           status === "pago" && "text-emerald-600"
         )}
       >
-        Frete líquido = frete total − 12% ICMS · Total = líquido + descargas + diárias
+        Frete líquido sem encargos e imposto = frete total − ICMS · Total com encargos = líquido +
+        diárias + descargas
       </p>
     </div>
   );
