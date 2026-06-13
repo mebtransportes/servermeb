@@ -11,7 +11,7 @@ import {
 } from "@/lib/fechamento-adiantamentos";
 import { formatarMoeda } from "@/lib/frota-filters";
 import type { ViagemFechamento } from "@/types/fechamento";
-import { agruparFechamentosComissao } from "@/types/fechamento";
+import { agruparFechamentosComissao, comissionamentoFechamento } from "@/types/fechamento";
 import { statusElegivelComissao } from "@/lib/viagem-status";
 import { VIAGEM_STATUS_LABEL } from "@/lib/viagem-status";
 import { FileText } from "lucide-react";
@@ -237,7 +237,7 @@ export function GerarComissaoModal({
                         </div>
                         <span className="shrink-0 text-right text-sm">
                           <span className="block font-semibold text-slate-200">
-                            {formatarMoeda(f.comissao_final)}
+                            {formatarMoeda(comissionamentoFechamento(f).comissao_final)}
                           </span>
                           {(f.adiantamento_valor ?? 0) > 0 && (
                             <span className="text-[10px] text-orange-300">

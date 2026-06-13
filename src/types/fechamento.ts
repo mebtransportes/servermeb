@@ -281,9 +281,26 @@ export type ResumoFechamentosAgrupados = {
   adiantamento_valor: number;
   abastecimento_valor: number;
   abastecimento_litros: number;
+  comissao_bruta: number;
   comissao_final: number;
   motorista_terceiro: boolean;
 };
+
+/** Recalcula comissão/repasse de um fechamento (mesma fórmula da tela de detalhe). */
+export function comissionamentoFechamento(f: ViagemFechamento) {
+  const despesas = totalDespesasFechamento(f);
+  return calcularComissionamento({
+    valorFrete: Number(f.valor_frete) || 0,
+    icmsPercent: getIcmsPercent(f),
+    comissaoPercent: getComissaoPercent(f),
+    comissaoTipo: (f.comissao_tipo ?? "PERCENTUAL") as "PERCENTUAL" | "LIQUIDO_TOTAL",
+    reembolso: Number(f.reembolso_valor) || 0,
+    adiantamento: Number(f.adiantamento_valor) || 0,
+    motoristaTerceiro: !!f.motorista_terceiro,
+    totalDespesas: despesas,
+    totalDespesasMotorista: f.motorista_terceiro ? despesas : totalDespesasMotoristaFrota(f),
+  });
+}
 
 /** Soma fretes, gastos e comissão de várias viagens para o relatório agrupado. */
 export function agruparFechamentosComissao(
@@ -291,21 +308,7 @@ export function agruparFechamentosComissao(
 ): ResumoFechamentosAgrupados {
   const base = fechamentos.reduce(
     (acc, f) => {
-      const icms = getIcmsPercent(f);
-      const despesas = totalDespesasFechamento(f);
-      const calc = calcularComissionamento({
-        valorFrete: Number(f.valor_frete) || 0,
-        icmsPercent: icms,
-        comissaoPercent: getComissaoPercent(f),
-        comissaoTipo: (f.comissao_tipo ?? "PERCENTUAL") as "PERCENTUAL" | "LIQUIDO_TOTAL",
-        reembolso: Number(f.reembolso_valor) || 0,
-        adiantamento: Number(f.adiantamento_valor) || 0,
-        motoristaTerceiro: !!f.motorista_terceiro,
-        totalDespesas: despesas,
-        totalDespesasMotorista: f.motorista_terceiro
-          ? despesas
-          : totalDespesasMotoristaFrota(f),
-      });
+      const calc = comissionamentoFechamento(f);
       return {
         viagens: acc.viagens + 1,
         km_total: acc.km_total + (Number(f.km_rodado ?? f.km_total) || 0),
@@ -324,7 +327,8 @@ export function agruparFechamentosComissao(
           acc.abastecimento_valor + (Number(f.abastecimento_valor) || 0),
         abastecimento_litros:
           acc.abastecimento_litros + (Number(f.abastecimento_litros) || 0),
-        comissao_final: acc.comissao_final + (Number(f.comissao_final) || 0),
+        comissao_bruta: acc.comissao_bruta + (calc.comissao_bruta ?? calc.total_comissao),
+        comissao_final: acc.comissao_final + calc.comissao_final,
         motorista_terceiro: acc.motorista_terceiro || !!f.motorista_terceiro,
       };
     },
@@ -342,6 +346,7 @@ export function agruparFechamentosComissao(
       adiantamento_valor: 0,
       abastecimento_valor: 0,
       abastecimento_litros: 0,
+      comissao_bruta: 0,
       comissao_final: 0,
       motorista_terceiro: false,
     }

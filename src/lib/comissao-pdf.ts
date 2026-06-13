@@ -7,12 +7,8 @@ import { desenharRodapeAssinaturasRecibo, RODAPE_ASSINATURA_ALTURA } from "@/lib
 import type { ViagemFechamento } from "@/types/fechamento";
 import {
   agruparFechamentosComissao,
-  calcularComissionamento,
+  comissionamentoFechamento,
   COMISSAO_MOTORISTA_PERCENT,
-  getComissaoPercent,
-  getIcmsPercent,
-  totalDespesasFechamento,
-  totalDespesasMotoristaFrota,
 } from "@/types/fechamento";
 import { formatarDataBr, formatarMoeda } from "@/lib/frota-filters";
 
@@ -54,24 +50,6 @@ function encurtar(texto: string, max = 36): string {
   return `${t.slice(0, max - 1)}…`;
 }
 
-function calcularComissaoBrutaFrota(fechamentos: ViagemFechamento[]): number {
-  return fechamentos.reduce((s, f) => {
-    if (f.motorista_terceiro) return s;
-    const calc = calcularComissionamento({
-      valorFrete: Number(f.valor_frete) || 0,
-      icmsPercent: getIcmsPercent(f),
-      comissaoPercent: getComissaoPercent(f),
-      comissaoTipo: (f.comissao_tipo ?? "PERCENTUAL") as "PERCENTUAL" | "LIQUIDO_TOTAL",
-      reembolso: 0,
-      adiantamento: 0,
-      motoristaTerceiro: false,
-      totalDespesas: totalDespesasFechamento(f),
-      totalDespesasMotorista: totalDespesasMotoristaFrota(f),
-    });
-    return s + (calc.comissao_bruta ?? calc.total_comissao);
-  }, 0);
-}
-
 function desenharCaixa(
   doc: jsPDF,
   x: number,
@@ -107,7 +85,7 @@ export async function gerarPdfComissaoMotorista(opts: {
   const { motoristaNome, motoristaDocumento, fechamentos } = opts;
   const ehTerceiro = fechamentos.every((f) => f.motorista_terceiro);
   const resumo = agruparFechamentosComissao(fechamentos);
-  const comissaoBrutaFrota = calcularComissaoBrutaFrota(fechamentos);
+  const comissaoBrutaFrota = ehTerceiro ? 0 : resumo.comissao_bruta;
   const valorPagar = resumo.comissao_final;
   const periodoViagens = opts.periodoLabel ?? periodoDasViagens(fechamentos);
   const geradoEm = new Date().toLocaleString("pt-BR");
@@ -278,7 +256,7 @@ export async function gerarPdfComissaoMotorista(opts: {
         f.numero_cte ?? "—",
         encurtar(`${f.local_embarque} → ${f.destino ?? "—"}`, qtdViagens > 10 ? 34 : 42),
         encurtar(f.veiculo_label, qtdViagens > 10 ? 18 : 22),
-        formatarMoeda(f.comissao_final),
+        formatarMoeda(comissionamentoFechamento(f).comissao_final),
       ]),
     styles: { fontSize: fonteViagens, cellPadding: padViagens },
     headStyles: { fillColor: [51, 65, 85], fontSize: fonteViagens },
