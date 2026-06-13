@@ -58,22 +58,59 @@ function linhaCampos(
   pares: { rotulo: string; valor: string }[],
   cols: number
 ): number {
-  const w = (PAGE_W - MARGIN * 2) / cols;
-  doc.setFontSize(7);
-  pares.forEach((p, i) => {
-    const col = i % cols;
-    const row = Math.floor(i / cols);
-    const x = MARGIN + col * w;
-    const ly = y + row * 11;
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(100, 116, 139);
-    doc.text(p.rotulo, x, ly);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(30, 41, 59);
-    doc.text(p.valor, x, ly + 4, { maxWidth: w - 2 });
-  });
+  const contentW = PAGE_W - MARGIN * 2;
+  const colW = contentW / cols;
+  const rotuloLineH = 3.2;
+  const valorLineH = 3.6;
+  const gapRotuloValor = 1.5;
+  const rowGap = 3;
   const rows = Math.ceil(pares.length / cols);
-  return y + rows * 11 + 2;
+  let currentY = y;
+
+  for (let row = 0; row < rows; row++) {
+    const cells: {
+      x: number;
+      rotuloLines: string[];
+      valorLines: string[];
+      cellH: number;
+    }[] = [];
+    let rowHeight = 0;
+
+    for (let col = 0; col < cols; col++) {
+      const idx = row * cols + col;
+      if (idx >= pares.length) break;
+
+      const p = pares[idx];
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      const rotuloLines = doc.splitTextToSize(p.rotulo, colW - 2);
+      doc.setFont("helvetica", "normal");
+      const valorLines = doc.splitTextToSize(p.valor, colW - 2);
+      const cellH =
+        rotuloLines.length * rotuloLineH +
+        gapRotuloValor +
+        valorLines.length * valorLineH;
+
+      cells.push({ x: MARGIN + col * colW, rotuloLines, valorLines, cellH });
+      rowHeight = Math.max(rowHeight, cellH);
+    }
+
+    for (const cell of cells) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139);
+      doc.text(cell.rotuloLines, cell.x, currentY);
+
+      const valorY = currentY + cell.rotuloLines.length * rotuloLineH + gapRotuloValor;
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(30, 41, 59);
+      doc.text(cell.valorLines, cell.x, valorY);
+    }
+
+    currentY += rowHeight + rowGap;
+  }
+
+  return currentY + 2;
 }
 
 export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
@@ -179,7 +216,7 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
       y,
       [
         { rotulo: "Frete bruto", valor: formatarMoeda(f.valor_frete) },
-        { rotulo: `Frete líquido (− ${icms}% ICMS)`, valor: formatarMoeda(calc.frete_liquido) },
+        { rotulo: "Frete Livre de Encargos", valor: formatarMoeda(calc.frete_liquido) },
         { rotulo: "Valor do ICMS", valor: formatarMoeda(calc.valor_icms) },
         { rotulo: "Total de despesas", valor: formatarMoeda(despesas) },
         {
@@ -267,7 +304,7 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
       y,
       [
         { rotulo: "Frete bruto", valor: formatarMoeda(f.valor_frete) },
-        { rotulo: `Frete líquido (− ${icms}% ICMS)`, valor: formatarMoeda(calc.frete_liquido) },
+        { rotulo: "Frete Livre de Encargos", valor: formatarMoeda(calc.frete_liquido) },
         { rotulo: "Valor do ICMS", valor: formatarMoeda(calc.valor_icms) },
         { rotulo: "Total de despesas", valor: formatarMoeda(despesas) },
         {

@@ -201,7 +201,7 @@ export async function gerarPdfComissaoMotorista(opts: {
   const linhasPagamento: (string | { content: string; styles?: object })[][] = [
     ["Frete bruto total", formatarMoeda(resumo.valor_frete)],
     ["(-) ICMS", formatarMoeda(resumo.valor_icms)],
-    ["Frete líquido (sem ICMS)", formatarMoeda(resumo.frete_liquido)],
+    ["Frete Livre de Encargos", formatarMoeda(resumo.frete_liquido)],
   ];
 
   if (ehTerceiro) {
