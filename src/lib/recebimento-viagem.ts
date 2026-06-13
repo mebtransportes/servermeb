@@ -4,7 +4,7 @@ import { calcularFreteLiquido, ICMS_FRETE_PERCENT } from "@/types/fechamento";
 import type { RecebimentoStatus, RecebimentoEncargoTipo, ViagemRecebimento } from "@/types/recebimento";
 import type { RecursoVinculo } from "@/types";
 
-type VeiculoRef = { nome: string; placa: string; vinculo?: RecursoVinculo | null };
+type VeiculoRef = { vinculo?: RecursoVinculo | null; nome?: string; placa?: string };
 
 type ViagemVeiculosRef = {
   veiculos: VeiculoRef | VeiculoRef[] | null;
@@ -29,7 +29,7 @@ function extrairVeiculos(viagem: ViagemVeiculosRef): VeiculoRef[] {
 }
 
 function placasLabel(veiculos: VeiculoRef[]) {
-  return veiculos.map((v) => v.placa).join(", ") || "—";
+  return veiculos.map((v) => v.placa ?? "—").join(", ") || "—";
 }
 
 /** Viagem da frota própria: todos os veículos vinculados têm vínculo frota. */
