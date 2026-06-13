@@ -9,6 +9,13 @@ export type ViagemCanhoto = {
   created_at?: string;
 };
 
+export type RecebimentoEncargoTipo = "diaria" | "descarga";
+
+export const RECEBIMENTO_ENCARGO_LABEL: Record<RecebimentoEncargoTipo, string> = {
+  diaria: "Diária",
+  descarga: "Descarga",
+};
+
 export type ViagemRecebimento = {
   id: string;
   viagem_id: string;
@@ -18,6 +25,7 @@ export type ViagemRecebimento = {
   valor_frete_total: number;
   valor_frete_liquido: number;
   valor_descargas_adicionais: number;
+  valor_diarias: number;
   data_recebimento?: string | null;
   status: RecebimentoStatus;
   observacao?: string | null;
@@ -34,10 +42,11 @@ export const RECEBIMENTO_STATUS_LABEL: Record<RecebimentoStatus, string> = {
 
 export function calcularTotalAReceber(r: Pick<
   ViagemRecebimento,
-  "valor_frete_liquido" | "valor_descargas_adicionais"
+  "valor_frete_liquido" | "valor_descargas_adicionais" | "valor_diarias"
 >) {
   return (
     (Number(r.valor_frete_liquido) || 0) +
-    (Number(r.valor_descargas_adicionais) || 0)
+    (Number(r.valor_descargas_adicionais) || 0) +
+    (Number(r.valor_diarias) || 0)
   );
 }

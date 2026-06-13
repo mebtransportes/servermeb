@@ -79,14 +79,15 @@ export type ViagemRecursoTipo =
   | "seguro"
   | "monitoramento"
   | "arla"
-  | "outro";
+  | "outro"
+  | "adiantamento";
 
 export interface Viagem {
   id: string;
   motorista_id: string;
   veiculo_id: string;
   saida_em: string;
-  chegada_prevista_em: string;
+  chegada_prevista_em: string | null;
   local_saida: string;
   tipo_trajeto: ViagemTipoTrajeto;
   peso_kg?: number | null;

@@ -5,6 +5,7 @@ export type ViagemFechamento = {
   motorista_id: string;
   motorista_nome: string;
   data_embarque: string;
+  chegada_em?: string | null;
   local_embarque: string;
   veiculo_label: string;
   numero_cte?: string | null;
@@ -21,9 +22,12 @@ export type ViagemFechamento = {
   arla_valor: number;
   manutencao_total: number;
   pedagio_valor: number;
+  estacionamento_valor?: number;
   pedagio_desconta_motorista?: number;
+  km_final_abastecimento?: number | null;
   outros_valor?: number;
   reembolso_valor: number;
+  adiantamento_valor?: number;
   valor_frete: number;
   frete_liquido: number;
   comissao_final: number;
@@ -44,18 +48,31 @@ export const COMISSAO_MOTORISTA_PERCENT = 12;
 export const SEGURO_CARGA_PERCENT = 0.09;
 export const MONITORAMENTO_VALOR_FIXO = 160;
 
-/** Gastos operacionais da viagem (sem reembolso). Terceiro: seguro/monitoramento entram no frete líquido. */
-export function totalDespesasFechamento(f: ViagemFechamento) {
-  const base =
+/** Gastos operacionais da viagem frota (sem reembolso/adiantamento). */
+export function totalDespesasFrota(f: ViagemFechamento) {
+  return (
     (Number(f.abastecimento_valor) || 0) +
     (Number(f.arla_valor) || 0) +
     (Number(f.manutencao_total) || 0) +
     (Number(f.pedagio_valor) || 0) +
-    (Number(f.outros_valor) || 0);
-  if (f.motorista_terceiro) return base;
-  return (
-    base + (Number(f.seguro_valor) || 0) + (Number(f.monitoramento_valor) || 0)
+    (Number(f.estacionamento_valor) || 0) +
+    (Number(f.outros_valor) || 0)
   );
+}
+
+/** Gastos operacionais viagem terceiro. */
+export function totalDespesasTerceiro(f: ViagemFechamento) {
+  return (
+    (Number(f.seguro_valor) || 0) +
+    (Number(f.monitoramento_valor) || 0) +
+    (Number(f.outros_valor) || 0)
+  );
+}
+
+/** Gastos operacionais da viagem (sem reembolso). */
+export function totalDespesasFechamento(f: ViagemFechamento) {
+  if (f.motorista_terceiro) return totalDespesasTerceiro(f);
+  return totalDespesasFrota(f);
 }
 
 function clampPercent(v: number) {
@@ -120,9 +137,16 @@ export function calcularTotalComissao(
   return freteLiquido * (clampPercent(comissaoPercent) / 100);
 }
 
-/** Comissão final = total comissão + reembolso ao motorista. */
-export function calcularComissaoFinal(totalComissao: number, reembolso: number) {
-  return totalComissao + (Number(reembolso) || 0);
+/** Comissão final = comissão + reembolso − adiantamentos. */
+export function calcularComissaoFinal(
+  totalComissao: number,
+  reembolso: number,
+  adiantamento?: number
+) {
+  const adv = Math.max(0, Number(adiantamento) || 0);
+  return (
+    Math.round((totalComissao + (Number(reembolso) || 0) - adv) * 100) / 100
+  );
 }
 
 export function calcularComissionamento(opts: {
@@ -131,36 +155,59 @@ export function calcularComissionamento(opts: {
   comissaoPercent: number;
   comissaoTipo?: "PERCENTUAL" | "LIQUIDO_TOTAL" | null;
   reembolso: number;
+  adiantamento?: number;
   motoristaTerceiro?: boolean;
   seguroValor?: number;
   monitoramentoValor?: number;
-  /** Pedágios/estacionamentos que reduzem a base da comissão. */
+  /** @deprecated Pedágio na base — fórmula frota usa frete líquido − todas despesas. */
   pedagioDescontaMotorista?: number;
+  totalDespesas?: number;
 }) {
   const valor_icms = calcularValorIcms(opts.valorFrete, opts.icmsPercent);
-  const frete_liquido = opts.motoristaTerceiro
-    ? calcularFreteLiquidoTerceiro({
-        valorFrete: opts.valorFrete,
-        icmsPercent: opts.icmsPercent,
-        seguroValor: opts.seguroValor ?? 0,
-        monitoramentoValor: opts.monitoramentoValor ?? 0,
-      })
-    : calcularFreteLiquido(opts.valorFrete, opts.icmsPercent);
+  const despesas =
+    opts.totalDespesas ??
+    (opts.motoristaTerceiro
+      ? (Number(opts.seguroValor) || 0) +
+        (Number(opts.monitoramentoValor) || 0)
+      : 0);
 
-  const descontoPedagio = Math.max(0, Number(opts.pedagioDescontaMotorista) || 0);
-  const baseComissao = Math.max(0, frete_liquido - descontoPedagio);
+  if (opts.motoristaTerceiro) {
+    const frete_liquido = calcularFreteLiquido(opts.valorFrete, opts.icmsPercent);
+    const liquido_repassar = Math.round((frete_liquido - despesas) * 100) / 100;
+    return {
+      frete_liquido: Math.round(frete_liquido * 100) / 100,
+      frete_menos_gastos: liquido_repassar,
+      base_comissao: liquido_repassar,
+      valor_icms,
+      total_comissao: liquido_repassar,
+      comissao_bruta: liquido_repassar,
+      comissao_final: liquido_repassar,
+    };
+  }
 
-  const total_comissao = calcularTotalComissao(
-    baseComissao,
-    opts.comissaoPercent,
-    opts.comissaoTipo
+  const frete_liquido = calcularFreteLiquido(opts.valorFrete, opts.icmsPercent);
+  const totalDespesas = opts.totalDespesas ?? despesas;
+  const frete_menos_gastos = Math.max(
+    0,
+    Math.round((frete_liquido - totalDespesas) * 100) / 100
   );
-  const comissao_final = calcularComissaoFinal(total_comissao, opts.reembolso);
+  const comissao_bruta = calcularTotalComissao(
+    frete_menos_gastos,
+    opts.comissaoPercent,
+    opts.comissaoTipo ?? "PERCENTUAL"
+  );
+  const comissao_final = calcularComissaoFinal(
+    comissao_bruta,
+    opts.reembolso,
+    opts.adiantamento
+  );
   return {
     frete_liquido: Math.round(frete_liquido * 100) / 100,
-    base_comissao: Math.round(baseComissao * 100) / 100,
+    frete_menos_gastos,
+    base_comissao: frete_menos_gastos,
     valor_icms,
-    total_comissao,
+    total_comissao: comissao_bruta,
+    comissao_bruta,
     comissao_final,
   };
 }
@@ -197,6 +244,7 @@ export type ResumoFechamentosAgrupados = {
   monitoramento_valor: number;
   despesas: number;
   reembolso_valor: number;
+  adiantamento_valor: number;
   abastecimento_valor: number;
   abastecimento_litros: number;
   comissao_final: number;
@@ -210,16 +258,16 @@ export function agruparFechamentosComissao(
   const base = fechamentos.reduce(
     (acc, f) => {
       const icms = getIcmsPercent(f);
+      const despesas = totalDespesasFechamento(f);
       const calc = calcularComissionamento({
         valorFrete: Number(f.valor_frete) || 0,
         icmsPercent: icms,
         comissaoPercent: getComissaoPercent(f),
         comissaoTipo: (f.comissao_tipo ?? "PERCENTUAL") as "PERCENTUAL" | "LIQUIDO_TOTAL",
-        reembolso: 0,
+        reembolso: Number(f.reembolso_valor) || 0,
+        adiantamento: Number(f.adiantamento_valor) || 0,
         motoristaTerceiro: !!f.motorista_terceiro,
-        seguroValor: f.seguro_valor,
-        monitoramentoValor: f.monitoramento_valor,
-        pedagioDescontaMotorista: f.pedagio_desconta_motorista,
+        totalDespesas: despesas,
       });
       return {
         viagens: acc.viagens + 1,
@@ -233,6 +281,8 @@ export function agruparFechamentosComissao(
           acc.monitoramento_valor + (Number(f.monitoramento_valor) || 0),
         despesas: acc.despesas + totalDespesasFechamento(f),
         reembolso_valor: acc.reembolso_valor + (Number(f.reembolso_valor) || 0),
+        adiantamento_valor:
+          acc.adiantamento_valor + (Number(f.adiantamento_valor) || 0),
         abastecimento_valor:
           acc.abastecimento_valor + (Number(f.abastecimento_valor) || 0),
         abastecimento_litros:
@@ -252,6 +302,7 @@ export function agruparFechamentosComissao(
       monitoramento_valor: 0,
       despesas: 0,
       reembolso_valor: 0,
+      adiantamento_valor: 0,
       abastecimento_valor: 0,
       abastecimento_litros: 0,
       comissao_final: 0,

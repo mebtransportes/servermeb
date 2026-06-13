@@ -1,16 +1,17 @@
 import { createClient } from "@/lib/supabase/client";
-import { formatarVeiculosLabel } from "@/lib/viagem-crud";
+import { isFrota } from "@/lib/viagem-validation";
 import { calcularFreteLiquido, ICMS_FRETE_PERCENT } from "@/types/fechamento";
-import type { RecebimentoStatus, ViagemRecebimento } from "@/types/recebimento";
+import type { RecebimentoStatus, RecebimentoEncargoTipo, ViagemRecebimento } from "@/types/recebimento";
+import type { RecursoVinculo } from "@/types";
 
-type VeiculoRef = { nome: string; placa: string };
+type VeiculoRef = { nome: string; placa: string; vinculo?: RecursoVinculo | null };
 
-function extrairVeiculos(
-  viagem: {
-    veiculos: VeiculoRef | VeiculoRef[] | null;
-    viagem_veiculos?: { ordem: number; veiculos: VeiculoRef | VeiculoRef[] }[] | null;
-  }
-): VeiculoRef[] {
+type ViagemVeiculosRef = {
+  veiculos: VeiculoRef | VeiculoRef[] | null;
+  viagem_veiculos?: { ordem: number; veiculos: VeiculoRef | VeiculoRef[] }[] | null;
+};
+
+function extrairVeiculos(viagem: ViagemVeiculosRef): VeiculoRef[] {
   const vv = viagem.viagem_veiculos ?? [];
   const lista = vv
     .sort((a, b) => a.ordem - b.ordem)
@@ -29,6 +30,13 @@ function extrairVeiculos(
 
 function placasLabel(veiculos: VeiculoRef[]) {
   return veiculos.map((v) => v.placa).join(", ") || "—";
+}
+
+/** Viagem da frota própria: todos os veículos vinculados têm vínculo frota. */
+export function viagemEhFrota(viagem: ViagemVeiculosRef): boolean {
+  const veiculos = extrairVeiculos(viagem);
+  if (veiculos.length === 0) return true;
+  return veiculos.every((v) => isFrota(v.vinculo));
 }
 
 /** Cria ou atualiza registro de recebimento quando a viagem é arquivada. */
@@ -71,7 +79,7 @@ export async function syncRecebimentoViagem(viagemId: string): Promise<string | 
 
   const { data: existente } = await supabase
     .from("viagem_recebimentos")
-    .select("id, valor_descargas_adicionais, data_recebimento, status, observacao")
+    .select("id, valor_descargas_adicionais, valor_diarias, data_recebimento, status, observacao")
     .eq("viagem_id", viagemId)
     .maybeSingle();
 
@@ -100,6 +108,39 @@ export async function syncRecebimentosArquivados(): Promise<void> {
   }
 }
 
+export async function adicionarEncargoRecebimento(
+  id: string,
+  tipo: RecebimentoEncargoTipo,
+  valor: number
+): Promise<string | null> {
+  if (!Number.isFinite(valor) || valor <= 0) {
+    return "Informe um valor maior que zero.";
+  }
+
+  const supabase = createClient();
+  const { data: atual, error: errGet } = await supabase
+    .from("viagem_recebimentos")
+    .select("valor_descargas_adicionais, valor_diarias")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (errGet) return errGet.message;
+  if (!atual) return "Recebimento não encontrado.";
+
+  const patch =
+    tipo === "descarga"
+      ? {
+          valor_descargas_adicionais:
+            Math.round((Number(atual.valor_descargas_adicionais ?? 0) + valor) * 100) / 100,
+        }
+      : {
+          valor_diarias: Math.round((Number(atual.valor_diarias ?? 0) + valor) * 100) / 100,
+        };
+
+  const { error } = await supabase.from("viagem_recebimentos").update(patch).eq("id", id);
+  return error?.message ?? null;
+}
+
 export async function atualizarRecebimento(
   id: string,
   patch: Partial<{
@@ -116,6 +157,7 @@ export async function atualizarRecebimento(
 
 export type RecebimentoComCanhotos = ViagemRecebimento & {
   canhotos: { id: string; file_name: string; storage_path: string }[];
+  eh_frota: boolean;
 };
 
 export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
@@ -124,10 +166,23 @@ export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
 
   const { data: viagensArquivadas } = await supabase
     .from("viagens")
-    .select("id, numero_cte")
+    .select(
+      `
+      id, numero_cte,
+      veiculos ( vinculo ),
+      viagem_veiculos ( ordem, veiculos ( vinculo ) )
+    `
+    )
     .eq("status", "ARQUIVADO");
 
-  const ids = (viagensArquivadas ?? []).map((v) => v.id);
+  const frotaPorViagem = new Map(
+    (viagensArquivadas ?? []).map((v) => [
+      v.id,
+      viagemEhFrota(v as ViagemVeiculosRef),
+    ])
+  );
+
+  const ids = [...frotaPorViagem.keys()];
   if (!ids.length) return [];
 
   const ctePorViagem = new Map(
@@ -157,9 +212,14 @@ export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
     canhotosPorViagem.set(c.viagem_id, lista);
   }
 
-  return (recebimentos ?? []).map((r) => ({
-    ...(r as ViagemRecebimento),
-    numero_cte: ctePorViagem.get(r.viagem_id) ?? null,
-    canhotos: canhotosPorViagem.get(r.viagem_id) ?? [],
-  }));
+  return (recebimentos ?? []).map((r) => {
+    const row = r as ViagemRecebimento;
+    return {
+      ...row,
+      valor_diarias: Number(row.valor_diarias) || 0,
+      numero_cte: ctePorViagem.get(r.viagem_id) ?? null,
+      eh_frota: frotaPorViagem.get(r.viagem_id) ?? true,
+      canhotos: canhotosPorViagem.get(r.viagem_id) ?? [],
+    };
+  });
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { AcompanhamentoViagemItem } from "@/lib/acompanhamento-data";
 import {
@@ -12,9 +12,13 @@ import { atualizarEntregaAtual } from "@/lib/viagem-entrega-atual";
 import { atualizarFornecedorAtual } from "@/lib/viagem-fornecedor-atual";
 import { VIAGEM_STATUS_CORES, VIAGEM_STATUS_LABEL } from "@/lib/viagem-status";
 import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn, mebCardSm } from "@/lib/utils";
 import { Check, Copy, Pencil } from "lucide-react";
+import { formatarDuracaoViagem } from "@/lib/viagem-duracao";
+import { atualizarChegadaViagem } from "@/lib/viagem-chegada";
+import { isoParaDatetimeLocal } from "@/lib/viagem-crud";
 import { mebAlert } from "@/lib/meb-dialog";
 
 function encurtar(texto: string, max = 38) {
@@ -31,12 +35,41 @@ export function ViagemAcompanhamentoCard({
 }) {
   const [salvando, setSalvando] = useState(false);
   const [copiado, setCopiado] = useState(false);
+  const [chegadaEm, setChegadaEm] = useState(
+    viagem.chegada_prevista_em ? isoParaDatetimeLocal(viagem.chegada_prevista_em) : ""
+  );
+  const [salvandoChegada, setSalvandoChegada] = useState(false);
   const multiplosFornecedores = viagem.fornecedores.length > 1;
   const multiplasEntregas = viagem.entregas.length > 1;
   const statusLabel = VIAGEM_STATUS_LABEL[viagem.status] ?? viagem.status;
   const resumoCurto = textoResumoCurto(viagem, statusLabel);
   const precisaSelecionar = viagemPrecisaSelecionarParada(viagem);
   const editarHref = `/operacional/acompanhamento/${viagem.id}`;
+  const duracaoViagem =
+    viagem.chegada_prevista_em != null
+      ? formatarDuracaoViagem(viagem.saida_em, viagem.chegada_prevista_em)
+      : null;
+
+  async function salvarChegada() {
+    if (!chegadaEm) {
+      await mebAlert("Informe a data e hora de chegada.");
+      return;
+    }
+    setSalvandoChegada(true);
+    const err = await atualizarChegadaViagem(viagem.id, new Date(chegadaEm).toISOString());
+    setSalvandoChegada(false);
+    if (err) {
+      await mebAlert(err);
+      return;
+    }
+    onAtualizado?.();
+  }
+
+  useEffect(() => {
+    setChegadaEm(
+      viagem.chegada_prevista_em ? isoParaDatetimeLocal(viagem.chegada_prevista_em) : ""
+    );
+  }, [viagem.chegada_prevista_em]);
 
   async function copiarWhatsApp(e: React.MouseEvent) {
     e.stopPropagation();
@@ -98,6 +131,18 @@ export function ViagemAcompanhamentoCard({
             timeStyle: "short",
           })}
         </p>
+        {viagem.chegada_prevista_em && (
+          <p>
+            🕐 Chegada:{" "}
+            {new Date(viagem.chegada_prevista_em).toLocaleString("pt-BR", {
+              dateStyle: "short",
+              timeStyle: "short",
+            })}
+          </p>
+        )}
+        {duracaoViagem && (
+          <p className="font-medium text-emerald-700">⏱ Duração: {duracaoViagem}</p>
+        )}
       </div>
 
       {viagem.fornecedores.length > 0 && (
@@ -157,6 +202,31 @@ export function ViagemAcompanhamentoCard({
       )}
 
       <div className="mb-2 space-y-2 print:hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="flex flex-wrap items-end gap-2">
+          <Input
+            label="Data e hora de chegada"
+            type="datetime-local"
+            value={chegadaEm}
+            disabled={salvandoChegada}
+            onChange={(e) => setChegadaEm(e.target.value)}
+            className="min-w-0 flex-1 text-xs"
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-10 shrink-0 text-xs"
+            disabled={
+              salvandoChegada ||
+              chegadaEm ===
+                (viagem.chegada_prevista_em
+                  ? isoParaDatetimeLocal(viagem.chegada_prevista_em)
+                  : "")
+            }
+            onClick={salvarChegada}
+          >
+            {salvandoChegada ? "..." : "Salvar"}
+          </Button>
+        </div>
         {multiplosFornecedores && (
           <Select
             label="Fornecedor atual (origem)"

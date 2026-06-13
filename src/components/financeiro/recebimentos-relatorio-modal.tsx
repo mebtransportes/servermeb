@@ -37,10 +37,14 @@ export function RecebimentosRelatorioModal({
   itens,
   open,
   onClose,
+  titulo = "Relatório de Recebimentos",
+  pdfSlug = "recebimentos",
 }: {
   itens: RecebimentoComCanhotos[];
   open: boolean;
   onClose: () => void;
+  titulo?: string;
+  pdfSlug?: string;
 }) {
   const [de, setDe] = useState(padraoDatas().de);
   const [ate, setAte] = useState(padraoDatas().ate);
@@ -72,7 +76,10 @@ export function RecebimentosRelatorioModal({
       }
       const statusLabel =
         status === "todos" ? "Todos" : RECEBIMENTO_STATUS_LABEL[status];
-      gerarPdfRecebimentos(filtrados, de, ate, statusLabel);
+      gerarPdfRecebimentos(filtrados, de, ate, statusLabel, {
+        titulo,
+        arquivoSlug: pdfSlug,
+      });
       onClose();
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Erro ao gerar PDF.");
@@ -86,7 +93,7 @@ export function RecebimentosRelatorioModal({
       <div className="p-6">
         <MebModalHeader
           id="recebimentos-relatorio-titulo"
-          title="Relatório de Recebimentos"
+          title={titulo}
           description="Escolha o intervalo de datas e, se quiser, filtre por status. O PDF inclui motorista, fornecedor, valores e observações."
           onClose={onClose}
         />

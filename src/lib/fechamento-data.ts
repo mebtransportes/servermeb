@@ -57,9 +57,8 @@ export async function atualizarFechamentoConfig(opts: {
   comissaoTipo: "PERCENTUAL" | "LIQUIDO_TOTAL";
   comissaoPercent: number;
   motoristaTerceiro?: boolean;
-  seguroValor?: number;
-  monitoramentoValor?: number;
-  pedagioDescontaMotorista?: number;
+  adiantamentoValor?: number;
+  totalDespesas?: number;
 }) {
   const supabase = createClient();
   const { frete_liquido, comissao_final, valor_icms } = calcularComissionamento({
@@ -68,10 +67,9 @@ export async function atualizarFechamentoConfig(opts: {
     comissaoPercent: opts.comissaoPercent,
     comissaoTipo: opts.comissaoTipo,
     reembolso: opts.reembolso,
+    adiantamento: opts.adiantamentoValor,
     motoristaTerceiro: opts.motoristaTerceiro,
-    seguroValor: opts.seguroValor,
-    monitoramentoValor: opts.monitoramentoValor,
-    pedagioDescontaMotorista: opts.pedagioDescontaMotorista,
+    totalDespesas: opts.totalDespesas,
   });
 
   const { data, error } = await supabase

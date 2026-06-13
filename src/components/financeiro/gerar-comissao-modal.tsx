@@ -1,9 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FechamentoViagemDetalhe } from "@/components/financeiro/fechamento-viagem-detalhe";
-import { gerarPdfComissaoMotorista } from "@/lib/comissao-pdf";
+import { gerarPdfFechamentosLote } from "@/lib/fechamento-relatorio-pdf";
+import { fetchOutrosDespesasPorViagens, type FechamentoOutroDespesa } from "@/lib/fechamento-outros-despesas";
+import {
+  fetchAdiantamentosPorViagens,
+  type FechamentoAdiantamento,
+} from "@/lib/fechamento-adiantamentos";
 import { formatarMoeda } from "@/lib/frota-filters";
 import type { ViagemFechamento } from "@/types/fechamento";
 import { agruparFechamentosComissao } from "@/types/fechamento";
@@ -20,6 +25,7 @@ export function GerarComissaoModal({
   periodoLabel,
   fechamentos,
   selecionadosInicial,
+  modo = "frota",
   onClose,
 }: {
   motoristaId: string;
@@ -28,6 +34,7 @@ export function GerarComissaoModal({
   periodoLabel?: string;
   fechamentos: ViagemFechamento[];
   selecionadosInicial: string[];
+  modo?: "frota" | "terceiro";
   onClose: () => void;
 }) {
   const elegiveis = useMemo(
@@ -52,6 +59,33 @@ export function GerarComissaoModal({
     [selecionados]
   );
 
+  const viagemIds = useMemo(() => elegiveis.map((f) => f.viagem_id), [elegiveis]);
+  const [outrosPorViagem, setOutrosPorViagem] = useState(
+    () => new Map<string, FechamentoOutroDespesa[]>()
+  );
+  const [adiantamentosPorViagem, setAdiantamentosPorViagem] = useState(
+    () => new Map<string, FechamentoAdiantamento[]>()
+  );
+  const [outrosCarregados, setOutrosCarregados] = useState(false);
+
+  useEffect(() => {
+    if (!viagemIds.length) {
+      setOutrosPorViagem(new Map());
+      setAdiantamentosPorViagem(new Map());
+      setOutrosCarregados(true);
+      return;
+    }
+    setOutrosCarregados(false);
+    Promise.all([
+      fetchOutrosDespesasPorViagens(viagemIds),
+      fetchAdiantamentosPorViagens(viagemIds),
+    ]).then(([outros, adiantamentos]) => {
+      setOutrosPorViagem(outros);
+      setAdiantamentosPorViagem(adiantamentos);
+      setOutrosCarregados(true);
+    });
+  }, [viagemIds]);
+
   function toggle(id: string) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -74,7 +108,7 @@ export function GerarComissaoModal({
       await mebAlert("Selecione ao menos uma viagem (finalizada ou pagamento pendente).");
       return;
     }
-    await gerarPdfComissaoMotorista({
+    await gerarPdfFechamentosLote({
       motoristaNome,
       motoristaDocumento,
       periodoLabel,
@@ -93,8 +127,8 @@ export function GerarComissaoModal({
       <div className="shrink-0 border-b border-[#2a2a2a] px-6 py-4">
         <MebModalHeader
           id="comissao-titulo"
-          title="Gerar comissão"
-          description={`Motorista: ${motoristaNome}. Selecione as viagens para juntar gastos, fretes e comissão no relatório.`}
+          title={modo === "frota" ? "Gerar recibo de comissão" : "Gerar recibo terceiro"}
+          description={`Motorista: ${motoristaNome}. Selecione as viagens para o relatório de fechamento.`}
           onClose={onClose}
         />
       </div>
@@ -133,6 +167,11 @@ export function GerarComissaoModal({
                     <ResumoItem
                       label="Reembolso"
                       value={formatarMoeda(resumo.reembolso_valor)}
+                    />
+                    <ResumoItem
+                      label="Adiantamentos"
+                      value={formatarMoeda(resumo.adiantamento_valor)}
+                      destaque={resumo.adiantamento_valor > 0}
                     />
                     <ResumoItem
                       label="Abastecimento"
@@ -196,11 +235,32 @@ export function GerarComissaoModal({
                             {statusLabel}
                           </span>
                         </div>
-                        <span className="shrink-0 text-sm font-semibold text-slate-200">
-                          {formatarMoeda(f.comissao_final)}
+                        <span className="shrink-0 text-right text-sm">
+                          <span className="block font-semibold text-slate-200">
+                            {formatarMoeda(f.comissao_final)}
+                          </span>
+                          {(f.adiantamento_valor ?? 0) > 0 && (
+                            <span className="text-[10px] text-orange-300">
+                              Adv. −{formatarMoeda(f.adiantamento_valor ?? 0)}
+                            </span>
+                          )}
                         </span>
                       </label>
-                      {checked && <FechamentoViagemDetalhe f={f} />}
+                      {checked && (
+                        <FechamentoViagemDetalhe
+                          f={f}
+                          outrosDespesas={
+                            outrosCarregados
+                              ? outrosPorViagem.get(f.viagem_id) ?? []
+                              : undefined
+                          }
+                          adiantamentos={
+                            outrosCarregados
+                              ? adiantamentosPorViagem.get(f.viagem_id) ?? []
+                              : undefined
+                          }
+                        />
+                      )}
                     </article>
                   );
                 })}

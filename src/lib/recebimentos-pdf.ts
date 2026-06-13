@@ -49,7 +49,8 @@ function cabecalhoRelatorio(
   ate: string,
   statusLabel: string,
   resumo: ReturnType<typeof resumirPorStatus>,
-  qtd: number
+  qtd: number,
+  tituloRelatorio: string
 ) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
@@ -58,7 +59,7 @@ function cabecalhoRelatorio(
 
   doc.setFontSize(13);
   doc.setTextColor(30, 30, 30);
-  doc.text("Relatório de Recebimentos", 14, 28);
+  doc.text(tituloRelatorio, 14, 28);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
@@ -90,11 +91,14 @@ export function gerarPdfRecebimentos(
   itens: RecebimentoComCanhotos[],
   de: string,
   ate: string,
-  statusLabel: string
+  statusLabel: string,
+  options?: { titulo?: string; arquivoSlug?: string }
 ) {
+  const titulo = options?.titulo ?? "Relatório de Recebimentos";
+  const slug = options?.arquivoSlug ?? "recebimentos";
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const resumo = resumirPorStatus(itens);
-  const startY = cabecalhoRelatorio(doc, de, ate, statusLabel, resumo, itens.length);
+  const startY = cabecalhoRelatorio(doc, de, ate, statusLabel, resumo, itens.length, titulo);
 
   const body = itens.map((item) => {
     const total = calcularTotalAReceber(item);
@@ -107,6 +111,7 @@ export function gerarPdfRecebimentos(
       formatarMoeda(item.valor_frete_total),
       formatarMoeda(item.valor_frete_liquido),
       formatarMoeda(item.valor_descargas_adicionais || 0),
+      formatarMoeda(item.valor_diarias || 0),
       formatarMoeda(total),
       dataRef ? formatarDataBr(dataRef) : "—",
       RECEBIMENTO_STATUS_LABEL[item.status],
@@ -124,7 +129,8 @@ export function gerarPdfRecebimentos(
         "Fornecedor",
         "Frete total",
         "Frete líquido",
-        "Descargas/+",
+        "Descargas",
+        "Diárias",
         "Total a receber",
         "Data receb.",
         "Status",
@@ -140,12 +146,12 @@ export function gerarPdfRecebimentos(
       1: { cellWidth: 16 },
       2: { cellWidth: 16 },
       3: { cellWidth: 28 },
-      10: { cellWidth: 32 },
+      11: { cellWidth: 32 },
     },
   });
 
   aplicarRodapes(doc);
-  doc.save(`relatorio-recebimentos_${de}_${ate}.pdf`);
+  doc.save(`relatorio-recebimentos-${slug}_${de}_${ate}.pdf`);
 }
 
 export function filtrarRecebimentosRelatorio(

@@ -22,7 +22,10 @@ import {
   VIAGEM_STATUS_CORES,
   VIAGEM_STATUS_LABEL,
 } from "@/lib/viagem-status";
-import { formatarVeiculosLabel } from "@/lib/viagem-crud";
+import { formatarVeiculosLabel, isoParaDatetimeLocal } from "@/lib/viagem-crud";
+import { atualizarChegadaViagem } from "@/lib/viagem-chegada";
+import { formatarDuracaoViagem } from "@/lib/viagem-duracao";
+import { Input } from "@/components/ui/input";
 import { VEICULO_TIPO_OPCOES } from "@/lib/viagem-validation";
 import type { Veiculo } from "@/types";
 
@@ -49,6 +52,8 @@ export function ViagemDetail({
   const [entregaAtualOrdem, setEntregaAtualOrdem] = useState("");
   const [saving, setSaving] = useState(false);
   const [refreshKm, setRefreshKm] = useState(0);
+  const [chegadaEm, setChegadaEm] = useState("");
+  const [salvandoChegada, setSalvandoChegada] = useState(false);
 
   const load = async () => {
     const supabase = createClient();
@@ -67,6 +72,9 @@ export function ViagemDetail({
       );
       setEntregaAtualOrdem(
         v.entrega_atual_ordem != null ? String(v.entrega_atual_ordem) : ""
+      );
+      setChegadaEm(
+        v.chegada_prevista_em ? isoParaDatetimeLocal(v.chegada_prevista_em) : ""
       );
       const vv = v.viagem_veiculos as
         | {
@@ -171,7 +179,28 @@ export function ViagemDetail({
     load();
   }
 
+  async function saveChegada() {
+    if (!chegadaEm) {
+      await mebAlert("Informe a data e hora de chegada.");
+      return;
+    }
+    setSalvandoChegada(true);
+    const err = await atualizarChegadaViagem(viagemId, new Date(chegadaEm).toISOString());
+    setSalvandoChegada(false);
+    if (err) {
+      await mebAlert(err);
+      return;
+    }
+    onUpdated();
+    load();
+  }
+
   if (!viagem) return <p className="text-slate-500">Carregando...</p>;
+
+  const duracaoViagem =
+    viagem.chegada_prevista_em != null
+      ? formatarDuracaoViagem(viagem.saida_em, viagem.chegada_prevista_em)
+      : null;
 
   const m = viagem.motoristas;
   const veiculosLabel = formatarVeiculosLabel(veiculosViagem);
@@ -185,6 +214,12 @@ export function ViagemDetail({
           </h2>
           <p className="text-sm text-slate-500">
             Saída: {new Date(viagem.saida_em).toLocaleString("pt-BR")}
+            {duracaoViagem && (
+              <>
+                {" "}
+                · Duração: <span className="font-medium text-slate-700">{duracaoViagem}</span>
+              </>
+            )}
           </p>
         </div>
         <span
@@ -279,6 +314,52 @@ export function ViagemDetail({
         </p>
       </div>
 
+      <div className={cn(mebFormSubsection, "space-y-3")}>
+        <h3 className="font-semibold text-slate-800">Chegada da viagem</h3>
+        <p className="text-xs text-slate-500">
+          Informe manualmente quando a viagem chegou ao destino final.
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <Input
+            label="Data e hora de chegada"
+            type="datetime-local"
+            tone="light"
+            value={chegadaEm}
+            onChange={(e) => setChegadaEm(e.target.value)}
+            className="min-w-[220px]"
+          />
+          <Button
+            type="button"
+            variant="success"
+            onClick={saveChegada}
+            disabled={
+              salvandoChegada ||
+              chegadaEm ===
+                (viagem.chegada_prevista_em
+                  ? isoParaDatetimeLocal(viagem.chegada_prevista_em)
+                  : "")
+            }
+          >
+            {salvandoChegada ? "Salvando..." : "Salvar chegada"}
+          </Button>
+        </div>
+        {viagem.chegada_prevista_em && (
+          <p className="text-sm text-slate-600">
+            Chegada registrada:{" "}
+            <strong className="text-slate-800">
+              {new Date(viagem.chegada_prevista_em).toLocaleString("pt-BR")}
+            </strong>
+            {duracaoViagem && (
+              <>
+                {" "}
+                · Tempo de viagem:{" "}
+                <strong className="text-emerald-700">{duracaoViagem}</strong>
+              </>
+            )}
+          </p>
+        )}
+      </div>
+
       {veiculosViagem.length > 0 && (
         <div>
           <h3 className="mb-2 text-sm font-semibold text-slate-700">Veículos</h3>
@@ -297,10 +378,6 @@ export function ViagemDetail({
       )}
 
       <dl className="grid gap-2 text-sm sm:grid-cols-2">
-        <div>
-          <dt className="text-slate-500">Chegada prevista</dt>
-          <dd className="text-slate-800">{new Date(viagem.chegada_prevista_em).toLocaleString("pt-BR")}</dd>
-        </div>
         <div>
           <dt className="text-slate-500">Tipo</dt>
           <dd className="text-slate-800">

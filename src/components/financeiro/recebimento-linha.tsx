@@ -1,16 +1,18 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { AnexoArquivoRow } from "@/components/shared/anexo-arquivo-row";
 import { TextoMarquee } from "@/components/shared/texto-marquee";
-import { atualizarRecebimento } from "@/lib/recebimento-viagem";
+import { adicionarEncargoRecebimento, atualizarRecebimento } from "@/lib/recebimento-viagem";
 import { formatarMoeda } from "@/lib/frota-filters";
 import {
   calcularTotalAReceber,
+  RECEBIMENTO_ENCARGO_LABEL,
   RECEBIMENTO_STATUS_LABEL,
+  type RecebimentoEncargoTipo,
   type RecebimentoStatus,
 } from "@/types/recebimento";
 import type { RecebimentoComCanhotos } from "@/lib/recebimento-viagem";
@@ -59,23 +61,35 @@ export function RecebimentoLinha({
   item: RecebimentoComCanhotos;
   onAtualizado: () => void;
 }) {
-  const [descargas, setDescargas] = useState(String(item.valor_descargas_adicionais || 0));
+  const [descargas, setDescargas] = useState(Number(item.valor_descargas_adicionais) || 0);
+  const [diarias, setDiarias] = useState(Number(item.valor_diarias) || 0);
   const [dataRecebimento, setDataRecebimento] = useState(item.data_recebimento ?? "");
   const [status, setStatus] = useState<RecebimentoStatus>(item.status);
   const [observacao, setObservacao] = useState(item.observacao ?? "");
   const [salvando, setSalvando] = useState(false);
-  const [expandido, setExpandido] = useState(false);
+  const [canhotosAbertos, setCanhotosAbertos] = useState(false);
+  const [encargosAbertos, setEncargosAbertos] = useState(false);
+  const [tipoEncargo, setTipoEncargo] = useState<RecebimentoEncargoTipo>("descarga");
+  const [valorEncargo, setValorEncargo] = useState("");
+  const [salvandoEncargo, setSalvandoEncargo] = useState(false);
 
-  const descargasNum = Number(descargas.replace(",", ".")) || 0;
+  useEffect(() => {
+    setDescargas(Number(item.valor_descargas_adicionais) || 0);
+    setDiarias(Number(item.valor_diarias) || 0);
+    setDataRecebimento(item.data_recebimento ?? "");
+    setStatus(item.status);
+    setObservacao(item.observacao ?? "");
+  }, [item]);
+
   const totalReceber = calcularTotalAReceber({
     valor_frete_liquido: item.valor_frete_liquido,
-    valor_descargas_adicionais: descargasNum,
+    valor_descargas_adicionais: descargas,
+    valor_diarias: diarias,
   });
 
   async function salvar() {
     setSalvando(true);
     const err = await atualizarRecebimento(item.id, {
-      valor_descargas_adicionais: descargasNum,
       data_recebimento: dataRecebimento || null,
       status,
       observacao: observacao.trim() || null,
@@ -88,9 +102,26 @@ export function RecebimentoLinha({
     onAtualizado();
   }
 
+  async function handleAdicionarEncargo() {
+    const valor = Number(valorEncargo.replace(",", "."));
+    if (!Number.isFinite(valor) || valor <= 0) {
+      await mebAlert("Informe um valor maior que zero.");
+      return;
+    }
+    setSalvandoEncargo(true);
+    const err = await adicionarEncargoRecebimento(item.id, tipoEncargo, valor);
+    setSalvandoEncargo(false);
+    if (err) {
+      await mebAlert(err);
+      return;
+    }
+    setValorEncargo("");
+    onAtualizado();
+  }
+
   return (
     <div className={cn(mebCard, "min-w-0 overflow-hidden p-4")}>
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 xl:grid-cols-12">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
         <Campo label="Motorista">
           <TextoMarquee text={item.motorista_nome} className="font-medium text-slate-900" />
         </Campo>
@@ -116,15 +147,11 @@ export function RecebimentoLinha({
             {formatarMoeda(item.valor_frete_liquido)}
           </Valor>
         </Campo>
-        <Campo label="Descargas/+">
-          <Input
-            type="number"
-            step="0.01"
-            min="0"
-            value={descargas}
-            onChange={(e) => setDescargas(e.target.value)}
-            className={inputCompact}
-          />
+        <Campo label="Descargas">
+          <Valor className="font-medium text-slate-800">{formatarMoeda(descargas)}</Valor>
+        </Campo>
+        <Campo label="Diárias">
+          <Valor className="font-medium text-slate-800">{formatarMoeda(diarias)}</Valor>
         </Campo>
         <Campo label="Total a receber">
           <Valor className="font-bold text-amber-700">{formatarMoeda(totalReceber)}</Valor>
@@ -160,10 +187,17 @@ export function RecebimentoLinha({
             </Button>
             <button
               type="button"
-              onClick={() => setExpandido((v) => !v)}
+              onClick={() => setCanhotosAbertos((v) => !v)}
               className="text-left text-xs text-cyan-700 hover:underline"
             >
               Canhotos ({item.canhotos.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setEncargosAbertos((v) => !v)}
+              className="text-left text-xs text-cyan-700 hover:underline"
+            >
+              Encargos
             </button>
           </div>
         </Campo>
@@ -179,7 +213,7 @@ export function RecebimentoLinha({
         />
       </div>
 
-      {expandido && (
+      {canhotosAbertos && (
         <div className={cn(mebFormSubsection, "mt-3")}>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
             Canhotos da viagem
@@ -200,6 +234,63 @@ export function RecebimentoLinha({
         </div>
       )}
 
+      {encargosAbertos && (
+        <div className={cn(mebFormSubsection, "mt-3 space-y-3")}>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Lançamento de encargo
+          </p>
+          <div className="flex flex-wrap items-end gap-3">
+            <Select
+              label="Tipo"
+              value={tipoEncargo}
+              onChange={(e) => setTipoEncargo(e.target.value as RecebimentoEncargoTipo)}
+              className={cn(inputCompact, "min-w-[160px]")}
+              options={(
+                Object.entries(RECEBIMENTO_ENCARGO_LABEL) as [RecebimentoEncargoTipo, string][]
+              ).map(([v, l]) => ({ value: v, label: l }))}
+            />
+            <Input
+              label="Valor (R$)"
+              type="number"
+              step="0.01"
+              min="0"
+              value={valorEncargo}
+              onChange={(e) => setValorEncargo(e.target.value)}
+              className={cn(inputCompact, "min-w-[140px]")}
+              placeholder="0,00"
+            />
+            <Button
+              type="button"
+              variant="success"
+              className="h-[34px] text-xs"
+              disabled={salvandoEncargo}
+              onClick={handleAdicionarEncargo}
+            >
+              {salvandoEncargo ? "..." : "Lançar"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-[34px] text-xs"
+              disabled={salvandoEncargo}
+              onClick={() => {
+                setEncargosAbertos(false);
+                setValorEncargo("");
+              }}
+            >
+              Fechar
+            </Button>
+          </div>
+          <p className="text-xs text-slate-500">
+            O valor será somado em{" "}
+            <strong className="text-slate-700">
+              {tipoEncargo === "descarga" ? "Descargas" : "Diárias"}
+            </strong>{" "}
+            e incluído no total a receber.
+          </p>
+        </div>
+      )}
+
       <p
         className={cn(
           "mt-2 text-[10px] text-slate-400",
@@ -207,7 +298,7 @@ export function RecebimentoLinha({
           status === "pago" && "text-emerald-600"
         )}
       >
-        Frete líquido = frete total − 12% ICMS · Total = líquido + descargas/adicionais
+        Frete líquido = frete total − 12% ICMS · Total = líquido + descargas + diárias
       </p>
     </div>
   );

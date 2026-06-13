@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { formatarDuracaoViagem } from "@/lib/viagem-duracao";
 import type { RecursoVinculo } from "@/types";
 import { formatarVeiculosLabel } from "@/lib/viagem-crud";
 import { carregarParceiros, type ParceiroSugestao } from "@/lib/parceiros";
@@ -21,7 +22,7 @@ export type AcompanhamentoViagemItem = {
   id: string;
   status: string;
   saida_em: string;
-  chegada_prevista_em: string;
+  chegada_prevista_em: string | null;
   local_saida: string;
   numero_cte?: string | null;
   fornecedor_atual_ordem?: number | null;
@@ -244,9 +245,18 @@ export function formatarTextoWhatsAppAcompanhamento(
   linhas.push(
     `🚚 *Veículo:* ${viagem.veiculos_label}`,
     `📍 *Status:* ${statusLabel}`,
-    `🏁 *Saída:* ${new Date(viagem.saida_em).toLocaleString("pt-BR")}`,
-    `🕐 *Chegada prevista:* ${new Date(viagem.chegada_prevista_em).toLocaleString("pt-BR")}`
+    `🏁 *Saída:* ${new Date(viagem.saida_em).toLocaleString("pt-BR")}`
   );
+
+  if (viagem.chegada_prevista_em) {
+    linhas.push(
+      `🕐 *Chegada:* ${new Date(viagem.chegada_prevista_em).toLocaleString("pt-BR")}`
+    );
+    const duracao = formatarDuracaoViagem(viagem.saida_em, viagem.chegada_prevista_em);
+    if (duracao) {
+      linhas.push(`⏱ *Duração:* ${duracao}`);
+    }
+  }
 
   if (viagem.numero_cte) {
     linhas.push(`📋 *CTE:* ${viagem.numero_cte}`);

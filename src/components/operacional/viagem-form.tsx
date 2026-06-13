@@ -134,7 +134,9 @@ export function ViagemForm({
     setMotoristaId(viagem.motorista_id);
     setVeiculoIds(viagem.veiculo_ids);
     setSaidaEm(isoParaDatetimeLocal(viagem.saida_em));
-    setChegadaEm(isoParaDatetimeLocal(viagem.chegada_prevista_em));
+    setChegadaEm(
+      viagem.chegada_prevista_em ? isoParaDatetimeLocal(viagem.chegada_prevista_em) : ""
+    );
     setFornecedores(
       viagem.fornecedores.length
         ? viagem.fornecedores
@@ -289,8 +291,8 @@ export function ViagemForm({
       return;
     }
 
-    if (!saidaEm || !chegadaEm) {
-      setError("Informe data/hora de saída e chegada prevista.");
+    if (!saidaEm) {
+      setError("Informe data/hora de saída.");
       return;
     }
 
@@ -317,7 +319,6 @@ export function ViagemForm({
       motorista_id: motoristaId,
       veiculo_id: veiculoPrincipalId,
       saida_em: antesDe,
-      chegada_prevista_em: new Date(chegadaEm).toISOString(),
       local_saida: formatarLocaisParceiros(
         locaisFornecedor.map((texto, i) => ({ ordem: i + 1, texto }))
       ),
@@ -651,12 +652,16 @@ export function ViagemForm({
               required
             />
             <Input
-              label="Data e hora prevista de chegada"
+              label="Data e hora de chegada"
               type="datetime-local"
               value={chegadaEm}
               onChange={(e) => setChegadaEm(e.target.value)}
-              required
+              disabled
+              placeholder="Informado no acompanhamento"
             />
+            <p className="text-xs text-slate-500 sm:col-span-2">
+              A chegada é registrada manualmente no acompanhamento da viagem.
+            </p>
             <Select
               label="Tipo de viagem"
               value={tipoTrajeto}

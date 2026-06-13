@@ -186,6 +186,12 @@ export function ViagemRecursos({
       return;
     }
 
+    const valorNum = parseBrNumber(valor) ?? 0;
+    if (valorNum <= 0) {
+      await mebAlert("Informe um valor maior que zero.");
+      return;
+    }
+
     if (tipoLancamento === "abastecimento") {
       if (!parseBrNumber(kmVeiculo)) {
         await mebAlert("Informe a quilometragem atual do veículo no abastecimento.");
@@ -379,9 +385,16 @@ export function ViagemRecursos({
               { value: "estacionamento", label: "Estacionamento" },
               { value: "seguro", label: "Seguro" },
               { value: "monitoramento", label: "Monitoramento" },
+              { value: "adiantamento", label: "Adiantamento" },
               { value: "outro", label: "Outros (despesa personalizada)" },
             ]}
           />
+          {tipo === "adiantamento" && (
+            <div className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-3 text-xs text-orange-800">
+              Adiantamento de salário ao motorista. O valor será{" "}
+              <strong>descontado da comissão</strong> no fechamento da viagem.
+            </div>
+          )}
           {tipo === "outro" && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-800">
               Registre o custo para o financeiro. Se o motorista pagou do bolso, marque a opção
@@ -503,6 +516,13 @@ export function ViagemRecursos({
                 </span>
               </label>
             </>
+          ) : tipo === "adiantamento" ? (
+            <Textarea
+              label="Observação (opcional)"
+              value={descricao}
+              onChange={(e) => setDescricao(e.target.value)}
+              placeholder="Ex: adiantamento quinzenal, vale salário..."
+            />
           ) : (
             <>
               <Textarea
@@ -769,9 +789,13 @@ function RecursoItem({
                 ? "Seguro"
                 : recurso.tipo === "monitoramento"
                   ? "Monitoramento"
-                  : recurso.tipo === "arla"
+                    : recurso.tipo === "arla"
                     ? "Arla"
-                    : recurso.tipo === "outro"
+                    : recurso.tipo === "adiantamento"
+                      ? recurso.descricao?.trim()
+                        ? `Adiantamento — ${recurso.descricao.trim()}`
+                        : "Adiantamento"
+                      : recurso.tipo === "outro"
                       ? recurso.descricao
                         ? `Outros — ${recurso.descricao}`
                         : "Outros"
@@ -809,8 +833,15 @@ function RecursoItem({
           <> · KM {Number(recurso.km_abastecimento).toLocaleString("pt-BR")}</>
         )}
       </p>
-      {recurso.descricao && recurso.tipo !== "outro" && (
+      {recurso.descricao &&
+        recurso.tipo !== "outro" &&
+        recurso.tipo !== "adiantamento" && (
         <p className="mt-1 text-slate-700">{recurso.descricao}</p>
+      )}
+      {recurso.tipo === "adiantamento" && (
+        <p className="mt-1 text-xs text-orange-700">
+          Descontado da comissão no fechamento da viagem
+        </p>
       )}
       {(recurso.tipo === "pedagio" || recurso.tipo === "estacionamento") &&
         recurso.desconta_motorista === false && (

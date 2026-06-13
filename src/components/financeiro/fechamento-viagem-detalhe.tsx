@@ -1,25 +1,24 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import type { ViagemFechamento } from "@/types/fechamento";
 import {
   totalDespesasFechamento,
   calcularComissionamento,
   calcularConsumoKmLitro,
-  formatConsumoKmLitro,
   getComissaoPercent,
   getIcmsPercent,
 } from "@/types/fechamento";
-import { formatarMoeda } from "@/lib/frota-filters";
-import { useMemo } from "react";
-
-function Linha({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-wrap justify-between gap-1 border-b border-slate-200/80 py-1.5 text-sm">
-      <span className="text-slate-500">{label}</span>
-      <span className="font-medium text-slate-800">{value}</span>
-    </div>
-  );
-}
+import {
+  fetchOutrosDespesasPorViagens,
+  type FechamentoOutroDespesa,
+} from "@/lib/fechamento-outros-despesas";
+import {
+  fetchAdiantamentosPorViagens,
+  type FechamentoAdiantamento,
+} from "@/lib/fechamento-adiantamentos";
+import { FechamentoFrotaDetalhe } from "@/components/financeiro/fechamento-frota-detalhe";
+import { FechamentoTerceiroDetalhe } from "@/components/financeiro/fechamento-terceiro-detalhe";
 
 export function useFechamentoValores(
   f: ViagemFechamento,
@@ -30,7 +29,9 @@ export function useFechamentoValores(
   }
 ) {
   const icms = overrides?.icmsPercent ?? getIcmsPercent(f);
-  const comissaoTipo = overrides?.comissaoTipo ?? ((f.comissao_tipo ?? "PERCENTUAL") as "PERCENTUAL" | "LIQUIDO_TOTAL");
+  const comissaoTipo =
+    overrides?.comissaoTipo ??
+    ((f.comissao_tipo ?? "PERCENTUAL") as "PERCENTUAL" | "LIQUIDO_TOTAL");
   const comissaoPercent = overrides?.comissaoPercent ?? getComissaoPercent(f);
 
   const litrosViagem = Number(f.litros_abastecimento_viagem) || 0;
@@ -40,27 +41,27 @@ export function useFechamentoValores(
   const despesas = totalDespesasFechamento(f);
 
   const valores = useMemo(() => {
-    const { frete_liquido, base_comissao, total_comissao, comissao_final, valor_icms } =
-      calcularComissionamento({
-        valorFrete: Number(f.valor_frete) || 0,
-        icmsPercent: icms,
-        comissaoPercent,
-        comissaoTipo,
-        reembolso: Number(f.reembolso_valor) || 0,
-        motoristaTerceiro: !!f.motorista_terceiro,
-        seguroValor: f.seguro_valor,
-        monitoramentoValor: f.monitoramento_valor,
-        pedagioDescontaMotorista: f.pedagio_desconta_motorista,
-      });
+    const calc = calcularComissionamento({
+      valorFrete: Number(f.valor_frete) || 0,
+      icmsPercent: icms,
+      comissaoPercent,
+      comissaoTipo,
+      reembolso: Number(f.reembolso_valor) || 0,
+      adiantamento: Number(f.adiantamento_valor) || 0,
+      motoristaTerceiro: !!f.motorista_terceiro,
+      totalDespesas: despesas,
+    });
     return {
       icms,
-      frete_liquido,
-      base_comissao,
-      total_comissao,
-      comissao_final,
-      valor_icms,
+      frete_liquido: calc.frete_liquido,
+      frete_menos_gastos: calc.frete_menos_gastos,
+      base_comissao: calc.base_comissao,
+      total_comissao: calc.total_comissao,
+      comissao_bruta: calc.comissao_bruta ?? calc.total_comissao,
+      comissao_final: calc.comissao_final,
+      valor_icms: calc.valor_icms,
     };
-  }, [f, icms, comissaoPercent, comissaoTipo]);
+  }, [f, icms, comissaoPercent, comissaoTipo, despesas]);
 
   return {
     litrosViagem,
@@ -80,6 +81,8 @@ export function FechamentoViagemDetalhe({
   comissaoTipo,
   showHeader = true,
   showComissaoFinal = true,
+  outrosDespesas,
+  adiantamentos,
 }: {
   f: ViagemFechamento;
   icmsPercent?: number;
@@ -87,150 +90,98 @@ export function FechamentoViagemDetalhe({
   comissaoTipo?: "PERCENTUAL" | "LIQUIDO_TOTAL";
   showHeader?: boolean;
   showComissaoFinal?: boolean;
+  outrosDespesas?: FechamentoOutroDespesa[];
+  adiantamentos?: FechamentoAdiantamento[];
 }) {
   const v = useFechamentoValores(f, { icmsPercent, comissaoPercent, comissaoTipo });
+  const [localOutros, setLocalOutros] = useState<FechamentoOutroDespesa[]>([]);
+  const [carregandoOutros, setCarregandoOutros] = useState(false);
+  const [localAdiantamentos, setLocalAdiantamentos] = useState<FechamentoAdiantamento[]>([]);
+  const [carregandoAdiantamentos, setCarregandoAdiantamentos] = useState(false);
+
+  useEffect(() => {
+    if (outrosDespesas !== undefined) return;
+    if ((f.outros_valor ?? 0) <= 0) {
+      setLocalOutros([]);
+      return;
+    }
+    let ativo = true;
+    setCarregandoOutros(true);
+    fetchOutrosDespesasPorViagens([f.viagem_id]).then((map) => {
+      if (!ativo) return;
+      setLocalOutros(map.get(f.viagem_id) ?? []);
+      setCarregandoOutros(false);
+    });
+    return () => {
+      ativo = false;
+    };
+  }, [f.viagem_id, f.outros_valor, outrosDespesas]);
+
+  useEffect(() => {
+    if (adiantamentos !== undefined || f.motorista_terceiro) return;
+    if ((f.adiantamento_valor ?? 0) <= 0) {
+      setLocalAdiantamentos([]);
+      return;
+    }
+    let ativo = true;
+    setCarregandoAdiantamentos(true);
+    fetchAdiantamentosPorViagens([f.viagem_id]).then((map) => {
+      if (!ativo) return;
+      setLocalAdiantamentos(map.get(f.viagem_id) ?? []);
+      setCarregandoAdiantamentos(false);
+    });
+    return () => {
+      ativo = false;
+    };
+  }, [f.viagem_id, f.adiantamento_valor, f.motorista_terceiro, adiantamentos]);
+
+  const listaOutros = outrosDespesas ?? localOutros;
+  const listaAdiantamentos = adiantamentos ?? localAdiantamentos;
+  const carregando = carregandoOutros || carregandoAdiantamentos;
 
   return (
     <div>
       {showHeader && (
-        <header className="mb-3 border-b border-slate-200/80 pb-3">
-          <h3 className="font-semibold text-slate-900">{f.motorista_nome}</h3>
-          <p className="text-xs text-slate-500">
-            Embarque: {new Date(f.data_embarque).toLocaleString("pt-BR")}
-          </p>
+        <header className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+          <div>
+            <h3 className="font-semibold text-slate-900">
+              {f.motorista_terceiro ? "Fechamento terceiro" : "Fechamento frota"}
+            </h3>
+            <p className="text-xs text-slate-500">
+              CTE {f.numero_cte ?? "—"} · {new Date(f.data_embarque).toLocaleDateString("pt-BR")}
+            </p>
+          </div>
+          <span
+            className={
+              f.motorista_terceiro
+                ? "rounded-full bg-cyan-100 px-2.5 py-0.5 text-[10px] font-bold uppercase text-cyan-800"
+                : "rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold uppercase text-emerald-800"
+            }
+          >
+            {f.motorista_terceiro ? "Terceiro" : "Frota"}
+          </span>
         </header>
       )}
 
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-cyan-700">
-        Dados gerais
-      </p>
-      <Linha label="Local do embarque" value={f.local_embarque} />
-      <Linha label="Veículo" value={f.veiculo_label} />
-      <Linha label="CTE" value={f.numero_cte ?? "—"} />
-      <Linha label="Destino" value={f.destino ?? "—"} />
-      <Linha
-        label="KM inicial (odômetro)"
-        value={
-          f.km_odometro_inicial != null
-            ? f.km_odometro_inicial.toLocaleString("pt-BR")
-            : "—"
-        }
-      />
-      <Linha
-        label="KM final (odômetro)"
-        value={
-          f.km_odometro_final != null
-            ? f.km_odometro_final.toLocaleString("pt-BR")
-            : "—"
-        }
-      />
-      <Linha
-        label="KM rodado"
-        value={v.kmRodado != null ? v.kmRodado.toLocaleString("pt-BR") : "—"}
-      />
+      {carregando && outrosDespesas === undefined && (
+        <p className="mb-2 text-xs text-slate-400">Carregando detalhes...</p>
+      )}
 
-      <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-amber-700">
-        Gastos e consumo
-      </p>
-      <Linha
-        label="Litros abastecidos na viagem"
-        value={
-          v.litrosViagem > 0
-            ? v.litrosViagem.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) + " L"
-            : "—"
-        }
-      />
-      <Linha label="Consumo médio (km/L)" value={formatConsumoKmLitro(v.consumoKmLitro)} />
-      <p className="mb-2 text-[10px] text-slate-500">
-        Consumo = KM rodado ÷ litros abastecidos nos gastos da viagem.
-      </p>
-      <Linha label="Abastecimento (valor)" value={formatarMoeda(f.abastecimento_valor)} />
-      <Linha label="Arla" value={formatarMoeda(f.arla_valor)} />
-      <Linha label="Manutenção total" value={formatarMoeda(f.manutencao_total)} />
-      <Linha label="Pedágio / estacionamento" value={formatarMoeda(f.pedagio_valor)} />
-      {(f.pedagio_desconta_motorista ?? 0) > 0 &&
-        (f.pedagio_desconta_motorista ?? 0) < (f.pedagio_valor ?? 0) && (
-          <Linha
-            label="Pedágio (empresa — não desconta motorista)"
-            value={formatarMoeda(
-              (f.pedagio_valor ?? 0) - (f.pedagio_desconta_motorista ?? 0)
-            )}
-          />
-        )}
-      {(f.outros_valor ?? 0) > 0 && (
-        <Linha label="Outras despesas" value={formatarMoeda(f.outros_valor ?? 0)} />
-      )}
-      {!f.motorista_terceiro && (f.seguro_valor ?? 0) > 0 && (
-        <Linha label="Seguro" value={formatarMoeda(f.seguro_valor ?? 0)} />
-      )}
-      {!f.motorista_terceiro && (f.monitoramento_valor ?? 0) > 0 && (
-        <Linha label="Monitoramento" value={formatarMoeda(f.monitoramento_valor ?? 0)} />
-      )}
-      <Linha label="Total gastos" value={formatarMoeda(v.despesas)} />
-
-      <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-violet-700">
-        Reembolso ao motorista
-      </p>
-      <Linha label="Valor a reembolsar" value={formatarMoeda(f.reembolso_valor)} />
-
-      <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-emerald-700">
-        Comissionamento
-        {f.motorista_terceiro && (
-          <span className="ml-2 font-normal normal-case text-amber-700">
-            (motorista terceiro)
-          </span>
-        )}
-      </p>
-      {f.motorista_terceiro && (
-        <Linha label="Valor da carga" value={formatarMoeda(f.valor_carga ?? 0)} />
-      )}
-      <Linha label="Frete bruto" value={formatarMoeda(f.valor_frete)} />
-      <Linha
-        label={`ICMS (${v.icms}%)`}
-        value={formatarMoeda(v.valor_icms)}
-      />
-      {f.motorista_terceiro && (
-        <>
-          <Linha
-            label="Seguro (0,09% da carga)"
-            value={formatarMoeda(f.seguro_valor ?? 0)}
-          />
-          <Linha
-            label="Monitoramento"
-            value={formatarMoeda(f.monitoramento_valor ?? 0)}
-          />
-        </>
-      )}
-      <Linha
-        label={
-          f.motorista_terceiro
-            ? "Frete líquido (bruto − ICMS − seguro − monitoramento)"
-            : `Frete líquido (frete − ICMS ${v.icms}%)`
-        }
-        value={formatarMoeda(v.frete_liquido)}
-      />
-      {(f.pedagio_desconta_motorista ?? 0) > 0 && (
-        <Linha
-          label="Pedágio descontado na comissão"
-          value={`− ${formatarMoeda(f.pedagio_desconta_motorista ?? 0)}`}
+      {f.motorista_terceiro ? (
+        <FechamentoTerceiroDetalhe
+          f={f}
+          v={v}
+          outrosDespesas={listaOutros}
+          showComissaoFinal={showComissaoFinal}
         />
-      )}
-      {(f.pedagio_desconta_motorista ?? 0) > 0 && v.base_comissao != null && (
-        <Linha label="Base da comissão" value={formatarMoeda(v.base_comissao)} />
-      )}
-      <Linha
-        label={
-          v.comissaoTipo === "LIQUIDO_TOTAL"
-            ? "Comissão (frete líquido total)"
-            : `Comissão (${v.comissaoPercent}% do líquido)`
-        }
-        value={formatarMoeda(v.total_comissao)}
-      />
-      {showComissaoFinal && (
-        <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-center">
-          <p className="text-xs text-slate-600">Comissão final (comissão + reembolso)</p>
-          <p className="text-lg font-bold text-emerald-700">{formatarMoeda(v.comissao_final)}</p>
-        </div>
+      ) : (
+        <FechamentoFrotaDetalhe
+          f={f}
+          v={v}
+          outrosDespesas={listaOutros}
+          adiantamentos={listaAdiantamentos}
+          showComissaoFinal={showComissaoFinal}
+        />
       )}
     </div>
   );

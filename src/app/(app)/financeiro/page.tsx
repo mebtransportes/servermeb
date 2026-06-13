@@ -41,7 +41,7 @@ const modulos = [
   {
     href: "/financeiro/recebimentos",
     label: "Recebimentos",
-    desc: "Valores a receber das empresas — viagens arquivadas",
+    desc: "Valores a receber das empresas — viagens arquivadas (frota e terceiros)",
     icon: Banknote,
     cor: "text-amber-400",
   },

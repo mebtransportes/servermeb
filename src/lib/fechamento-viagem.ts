@@ -2,9 +2,12 @@ import { createClient } from "@/lib/supabase/client";
 import { formatarVeiculosLabel } from "@/lib/viagem-crud";
 import { fetchLitrosTotaisVeiculo } from "@/lib/litros-frota-veiculo";
 import { calcularKmRodado } from "@/lib/veiculo-km";
+import type { ViagemFechamento } from "@/types/fechamento";
 import {
   calcularComissionamento,
   calcularConsumoKmLitro,
+  totalDespesasFrota,
+  totalDespesasTerceiro,
 } from "@/types/fechamento";
 import { statusGeraFechamento } from "@/lib/viagem-status";
 import { isFrota } from "@/lib/viagem-validation";
@@ -17,6 +20,7 @@ type RecursoRow = {
   abastecimento_inicial?: boolean;
   combustivel_tipo?: string | null;
   desconta_motorista?: boolean | null;
+  km_abastecimento?: number | null;
 };
 
 function isArlaCombustivel(tipo?: string | null) {
@@ -29,11 +33,14 @@ function somarRecursos(recursos: RecursoRow[]) {
   let arla_valor = 0;
   let manutencao_total = 0;
   let pedagio_valor = 0;
+  let estacionamento_valor = 0;
   let pedagio_desconta_motorista = 0;
   let outros_valor = 0;
   let seguro_valor = 0;
   let monitoramento_valor = 0;
   let reembolso_valor = 0;
+  let adiantamento_valor = 0;
+  let km_final_abastecimento: number | null = null;
 
   for (const r of recursos) {
     const v = Number(r.valor) || 0;
@@ -46,6 +53,13 @@ function somarRecursos(recursos: RecursoRow[]) {
           if (!r.abastecimento_inicial) {
             litros_abastecimento_viagem += Number(r.litros) || 0;
           }
+          const kmAb = Number(r.km_abastecimento);
+          if (Number.isFinite(kmAb) && kmAb > 0) {
+            km_final_abastecimento =
+              km_final_abastecimento == null
+                ? kmAb
+                : Math.max(km_final_abastecimento, kmAb);
+          }
         }
         break;
       case "arla":
@@ -55,8 +69,13 @@ function somarRecursos(recursos: RecursoRow[]) {
         manutencao_total += v;
         break;
       case "pedagio":
-      case "estacionamento":
         pedagio_valor += v;
+        if (r.desconta_motorista !== false) {
+          pedagio_desconta_motorista += v;
+        }
+        break;
+      case "estacionamento":
+        estacionamento_valor += v;
         if (r.desconta_motorista !== false) {
           pedagio_desconta_motorista += v;
         }
@@ -73,6 +92,9 @@ function somarRecursos(recursos: RecursoRow[]) {
       case "reembolso":
         reembolso_valor += v;
         break;
+      case "adiantamento":
+        adiantamento_valor += v;
+        break;
     }
   }
 
@@ -82,11 +104,14 @@ function somarRecursos(recursos: RecursoRow[]) {
     arla_valor,
     manutencao_total,
     pedagio_valor,
+    estacionamento_valor,
     pedagio_desconta_motorista,
+    km_final_abastecimento,
     outros_valor,
     seguro_valor,
     monitoramento_valor,
     reembolso_valor,
+    adiantamento_valor,
   };
 }
 
@@ -104,7 +129,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     .from("viagens")
     .select(
       `
-      id, status, motorista_id, veiculo_id, saida_em, local_saida, km_total,
+      id, status, motorista_id, veiculo_id, saida_em, chegada_prevista_em, local_saida, km_total,
       valor_frete, valor_mercadoria, numero_cte,
       km_odometro_inicial, km_odometro_final,
       motoristas ( nome_completo, vinculo ),
@@ -155,7 +180,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
 
   const { data: recursos } = await supabase
     .from("viagem_recursos")
-    .select("tipo, valor, litros, abastecimento_inicial, combustivel_tipo, desconta_motorista")
+    .select("tipo, valor, litros, abastecimento_inicial, combustivel_tipo, desconta_motorista, km_abastecimento")
     .eq("viagem_id", viagemId);
 
   const gastos = somarRecursos((recursos as RecursoRow[]) ?? []);
@@ -173,17 +198,33 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
       ? 100
       : 12;
 
+  const totalDespesas = motoristaTerceiro
+    ? totalDespesasTerceiro({
+        motorista_terceiro: true,
+        seguro_valor: gastos.seguro_valor,
+        monitoramento_valor: gastos.monitoramento_valor,
+        outros_valor: gastos.outros_valor,
+      } as ViagemFechamento)
+    : totalDespesasFrota({
+        motorista_terceiro: false,
+        abastecimento_valor: gastos.abastecimento_valor,
+        arla_valor: gastos.arla_valor,
+        manutencao_total: gastos.manutencao_total,
+        pedagio_valor: gastos.pedagio_valor,
+        estacionamento_valor: gastos.estacionamento_valor,
+        outros_valor: gastos.outros_valor,
+      } as ViagemFechamento);
+
   const { frete_liquido: freteLiquido, comissao_final: comissaoFinal, valor_icms } =
     calcularComissionamento({
       valorFrete,
       icmsPercent,
       comissaoPercent: comissaoPercentEfetivo,
-      comissaoTipo,
+      comissaoTipo: motoristaTerceiro ? "PERCENTUAL" : comissaoTipo,
       reembolso: gastos.reembolso_valor,
+      adiantamento: gastos.adiantamento_valor,
       motoristaTerceiro,
-      seguroValor: gastos.seguro_valor,
-      monitoramentoValor: gastos.monitoramento_valor,
-      pedagioDescontaMotorista: gastos.pedagio_desconta_motorista,
+      totalDespesas,
     });
   const valorCarga = Number(viagem.valor_mercadoria) || 0;
   const destino =
@@ -210,6 +251,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     motorista_id: viagem.motorista_id,
     motorista_nome: motorista?.nome_completo ?? "—",
     data_embarque: viagem.saida_em,
+    chegada_em: viagem.chegada_prevista_em ?? null,
     local_embarque: viagem.local_saida,
     veiculo_label: formatarVeiculosLabel(listaVeiculos),
     numero_cte: viagem.numero_cte ?? null,
@@ -226,9 +268,12 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     arla_valor: gastos.arla_valor,
     manutencao_total: gastos.manutencao_total,
     pedagio_valor: gastos.pedagio_valor,
+    estacionamento_valor: gastos.estacionamento_valor,
     pedagio_desconta_motorista: gastos.pedagio_desconta_motorista,
+    km_final_abastecimento: gastos.km_final_abastecimento,
     outros_valor: gastos.outros_valor,
     reembolso_valor: gastos.reembolso_valor,
+    adiantamento_valor: gastos.adiantamento_valor,
     motorista_terceiro: motoristaTerceiro,
     valor_carga: valorCarga,
     valor_icms,
