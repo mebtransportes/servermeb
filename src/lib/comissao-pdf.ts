@@ -3,13 +3,16 @@ import autoTable from "jspdf-autotable";
 import { LOGO_SRC } from "@/components/brand/logo";
 import { fetchOutrosDespesasPorViagens } from "@/lib/fechamento-outros-despesas";
 import { fetchAdiantamentosPorViagens } from "@/lib/fechamento-adiantamentos";
+import { desenharRodapeAssinaturasRecibo } from "@/lib/pdf-recibo-rodape";
 import type { ViagemFechamento } from "@/types/fechamento";
 import {
   agruparFechamentosComissao,
   calcularComissionamento,
+  COMISSAO_MOTORISTA_PERCENT,
   getComissaoPercent,
   getIcmsPercent,
   totalDespesasFechamento,
+  totalDespesasMotoristaFrota,
 } from "@/types/fechamento";
 import { formatarDataBr, formatarMoeda } from "@/lib/frota-filters";
 
@@ -51,8 +54,9 @@ function encurtar(texto: string, max = 36): string {
   return `${t.slice(0, max - 1)}…`;
 }
 
-function calcularComissaoSemReembolso(fechamentos: ViagemFechamento[]): number {
+function calcularComissaoBrutaFrota(fechamentos: ViagemFechamento[]): number {
   return fechamentos.reduce((s, f) => {
+    if (f.motorista_terceiro) return s;
     const calc = calcularComissionamento({
       valorFrete: Number(f.valor_frete) || 0,
       icmsPercent: getIcmsPercent(f),
@@ -60,8 +64,9 @@ function calcularComissaoSemReembolso(fechamentos: ViagemFechamento[]): number {
       comissaoTipo: (f.comissao_tipo ?? "PERCENTUAL") as "PERCENTUAL" | "LIQUIDO_TOTAL",
       reembolso: 0,
       adiantamento: 0,
-      motoristaTerceiro: !!f.motorista_terceiro,
+      motoristaTerceiro: false,
       totalDespesas: totalDespesasFechamento(f),
+      totalDespesasMotorista: totalDespesasMotoristaFrota(f),
     });
     return s + (calc.comissao_bruta ?? calc.total_comissao);
   }, 0);
@@ -100,8 +105,9 @@ export async function gerarPdfComissaoMotorista(opts: {
   fechamentos: ViagemFechamento[];
 }) {
   const { motoristaNome, motoristaDocumento, fechamentos } = opts;
+  const ehTerceiro = fechamentos.every((f) => f.motorista_terceiro);
   const resumo = agruparFechamentosComissao(fechamentos);
-  const comissaoSemReembolso = calcularComissaoSemReembolso(fechamentos);
+  const comissaoBrutaFrota = calcularComissaoBrutaFrota(fechamentos);
   const valorPagar = resumo.comissao_final;
   const periodoViagens = opts.periodoLabel ?? periodoDasViagens(fechamentos);
   const geradoEm = new Date().toLocaleString("pt-BR");
@@ -113,7 +119,7 @@ export async function gerarPdfComissaoMotorista(opts: {
     0
   );
   const pedagioTotal = fechamentos.reduce(
-    (s, f) => s + (Number(f.pedagio_valor) || 0),
+    (s, f) => s + (Number(f.pedagio_valor) || 0) + (Number(f.estacionamento_valor) || 0),
     0
   );
   const outrosTotal = fechamentos.reduce(
@@ -146,12 +152,17 @@ export async function gerarPdfComissaoMotorista(opts: {
 
   const tituloX = PAGE_W - MARGIN;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(15);
+  doc.setFontSize(14);
   doc.setTextColor(...COR_PRIMARIA);
-  doc.text("RECIBO DE PAGAMENTO", tituloX, y + 5, { align: "right" });
+  doc.text(
+    ehTerceiro ? "RECIBO DE REPASSE — TERCEIRO" : "RECIBO DE COMISSÃO — FROTA",
+    tituloX,
+    y + 5,
+    { align: "right" }
+  );
   doc.setFontSize(9);
   doc.setTextColor(71, 85, 105);
-  doc.text("Prestação de serviço de transporte rodoviário", tituloX, y + 11, {
+  doc.text("Prestação de serviço de transporte rodoviário de cargas", tituloX, y + 11, {
     align: "right",
   });
   doc.setFont("helvetica", "normal");
@@ -164,10 +175,8 @@ export async function gerarPdfComissaoMotorista(opts: {
   const boxW = (contentW - 4) / 2;
   const beneficiarioLinhas = [
     motoristaNome,
-    motoristaDocumento
-      ? `CPF/CNPJ: ${motoristaDocumento}`
-      : "CPF/CNPJ: —",
-    resumo.motorista_terceiro ? "Pessoa jurídica / terceiro" : "Frota própria",
+    motoristaDocumento ? `CPF/CNPJ: ${motoristaDocumento}` : "CPF/CNPJ: não informado",
+    ehTerceiro ? "Transportador terceiro" : "Motorista — frota própria",
   ];
   desenharCaixa(doc, MARGIN, y, boxW, 24, "Pagador", [
     "MEB Transportes",
@@ -180,7 +189,7 @@ export async function gerarPdfComissaoMotorista(opts: {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(71, 85, 105);
-  doc.text(`Referência: ${periodoViagens}`, MARGIN, y);
+  doc.text(`Período de referência: ${periodoViagens}`, MARGIN, y);
   doc.text(
     `${resumo.viagens} viagem(ns) · ${resumo.km_rodado.toLocaleString("pt-BR")} km rodados`,
     PAGE_W - MARGIN,
@@ -191,38 +200,31 @@ export async function gerarPdfComissaoMotorista(opts: {
 
   const linhasPagamento: (string | { content: string; styles?: object })[][] = [
     ["Frete bruto total", formatarMoeda(resumo.valor_frete)],
-    ["(−) ICMS", formatarMoeda(resumo.valor_icms)],
+    ["(-) ICMS", formatarMoeda(resumo.valor_icms)],
+    ["Frete líquido (sem ICMS)", formatarMoeda(resumo.frete_liquido)],
   ];
 
-  if (resumo.motorista_terceiro) {
+  if (ehTerceiro) {
+    linhasPagamento.push(["(-) Total de despesas", formatarMoeda(resumo.despesas)]);
+  } else {
     linhasPagamento.push(
-      ["(−) Seguro (0,09% da carga)", formatarMoeda(resumo.seguro_valor)],
-      ["(−) Monitoramento", formatarMoeda(resumo.monitoramento_valor)]
+      ["(-) Total de despesas", formatarMoeda(resumo.despesas)],
+      [
+        `Comissão bruta (${COMISSAO_MOTORISTA_PERCENT}% sobre frete líq. − gastos do motorista)`,
+        formatarMoeda(comissaoBrutaFrota),
+      ]
     );
-  }
-
-  linhasPagamento.push(
-    ["Frete líquido", formatarMoeda(resumo.frete_liquido)],
-    ["Comissão sobre frete líquido", formatarMoeda(comissaoSemReembolso)]
-  );
-
-  if (resumo.reembolso_valor > 0) {
-    linhasPagamento.push([
-      "(+) Reembolsos",
-      formatarMoeda(resumo.reembolso_valor),
-    ]);
-  }
-
-  if (resumo.adiantamento_valor > 0) {
-    linhasPagamento.push([
-      "(−) Adiantamentos",
-      formatarMoeda(resumo.adiantamento_valor),
-    ]);
+    if (resumo.reembolso_valor > 0) {
+      linhasPagamento.push(["(+) Reembolsos", formatarMoeda(resumo.reembolso_valor)]);
+    }
+    if (resumo.adiantamento_valor > 0) {
+      linhasPagamento.push(["(-) Adiantamentos", formatarMoeda(resumo.adiantamento_valor)]);
+    }
   }
 
   linhasPagamento.push([
     {
-      content: "VALOR LÍQUIDO A PAGAR",
+      content: ehTerceiro ? "VALOR LÍQUIDO A REPASSAR" : "COMISSÃO LÍQUIDA A PAGAR",
       styles: { fontStyle: "bold", fillColor: COR_PRIMARIA, textColor: 255 },
     },
     {
@@ -251,16 +253,17 @@ export async function gerarPdfComissaoMotorista(opts: {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.setTextColor(...COR_PRIMARIA);
-  doc.text("Viagens incluídas neste pagamento", MARGIN, y);
+  doc.text("Viagens incluídas neste recibo", MARGIN, y);
   y += 3;
 
   const qtdViagens = fechamentos.length;
   const fonteViagens = qtdViagens > 12 ? 6.5 : qtdViagens > 8 ? 7 : 7.5;
   const padViagens = qtdViagens > 12 ? 1.2 : 1.6;
+  const colValor = ehTerceiro ? "Valor líquido" : "Comissão líq.";
 
   autoTable(doc, {
     startY: y + 2,
-    head: [["Data", "CTE", "Trajeto", "Veículo", "Comissão"]],
+    head: [["Data", "CT-e", "Trajeto", "Veículo", colValor]],
     body: fechamentos
       .slice()
       .sort(
@@ -297,9 +300,7 @@ export async function gerarPdfComissaoMotorista(opts: {
         f.numero_cte ?? formatarDataBr(f.data_embarque.split("T")[0]),
         d.nome,
         formatarMoeda(d.valor),
-        d.anexos.length
-          ? d.anexos.map((a) => a.label).join(" · ")
-          : "—",
+        d.anexos.length ? d.anexos.map((a) => a.label).join(" · ") : "—",
       ]);
     }
   }
@@ -308,12 +309,12 @@ export async function gerarPdfComissaoMotorista(opts: {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.setTextColor(...COR_PRIMARIA);
-    doc.text("Outras despesas (detalhamento)", MARGIN, y + 4);
+    doc.text("Outras despesas — detalhamento", MARGIN, y + 4);
     y += 6;
 
     autoTable(doc, {
       startY: y + 2,
-      head: [["Viagem (CTE)", "Despesa", "Valor", "Anexos"]],
+      head: [["Viagem (CT-e)", "Despesa", "Valor", "Anexos"]],
       body: outrosLinhas,
       styles: { fontSize: 7.5, cellPadding: 1.8 },
       headStyles: { fillColor: [51, 65, 85], fontSize: 7.5 },
@@ -330,95 +331,75 @@ export async function gerarPdfComissaoMotorista(opts: {
     y = (docTable.lastAutoTable?.finalY ?? y) + 4;
   }
 
-  const adiantamentoLinhas: string[][] = [];
-  for (const f of fechamentos) {
-    const itens = adiantamentosMap.get(f.viagem_id) ?? [];
-    for (const a of itens) {
-      adiantamentoLinhas.push([
-        f.numero_cte ?? formatarDataBr(f.data_embarque.split("T")[0]),
-        a.descricao?.trim() || "Adiantamento",
-        formatarDataBr(a.realizado_em.split("T")[0]),
-        formatarMoeda(a.valor),
-      ]);
+  if (!ehTerceiro) {
+    const adiantamentoLinhas: string[][] = [];
+    for (const f of fechamentos) {
+      const itens = adiantamentosMap.get(f.viagem_id) ?? [];
+      for (const a of itens) {
+        adiantamentoLinhas.push([
+          f.numero_cte ?? formatarDataBr(f.data_embarque.split("T")[0]),
+          a.descricao?.trim() || "Adiantamento",
+          formatarDataBr(a.realizado_em.split("T")[0]),
+          formatarMoeda(a.valor),
+        ]);
+      }
     }
-  }
 
-  if (adiantamentoLinhas.length) {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(...COR_PRIMARIA);
-    doc.text("Adiantamentos (detalhamento)", MARGIN, y + 4);
-    y += 6;
+    if (adiantamentoLinhas.length) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(...COR_PRIMARIA);
+      doc.text("Adiantamentos — detalhamento", MARGIN, y + 4);
+      y += 6;
 
-    autoTable(doc, {
-      startY: y + 2,
-      head: [["Viagem (CTE)", "Descrição", "Data", "Valor"]],
-      body: adiantamentoLinhas,
-      styles: { fontSize: 7.5, cellPadding: 1.8 },
-      headStyles: { fillColor: [194, 65, 12], fontSize: 7.5 },
-      columnStyles: {
-        0: { cellWidth: 24 },
-        1: { cellWidth: "auto" },
-        2: { cellWidth: 22 },
-        3: { halign: "right", cellWidth: 24 },
-      },
-      margin: { left: MARGIN, right: MARGIN },
-      alternateRowStyles: { fillColor: [255, 247, 237] },
-    });
+      autoTable(doc, {
+        startY: y + 2,
+        head: [["Viagem (CT-e)", "Descrição", "Data", "Valor"]],
+        body: adiantamentoLinhas,
+        styles: { fontSize: 7.5, cellPadding: 1.8 },
+        headStyles: { fillColor: [194, 65, 12], fontSize: 7.5 },
+        columnStyles: {
+          0: { cellWidth: 24 },
+          1: { cellWidth: "auto" },
+          2: { cellWidth: 22 },
+          3: { halign: "right", cellWidth: 24 },
+        },
+        margin: { left: MARGIN, right: MARGIN },
+        alternateRowStyles: { fillColor: [255, 247, 237] },
+      });
 
-    y = (docTable.lastAutoTable?.finalY ?? y) + 4;
+      y = (docTable.lastAutoTable?.finalY ?? y) + 4;
+    }
   }
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
   doc.setTextColor(100, 116, 139);
   const infoDespesas = [
-    `Abast. ${formatarMoeda(resumo.abastecimento_valor)}`,
+    `Abastecimento ${formatarMoeda(resumo.abastecimento_valor)}`,
     `Arla ${formatarMoeda(arlaTotal)}`,
-    `Manut. ${formatarMoeda(manutTotal)}`,
-    `Pedágio ${formatarMoeda(pedagioTotal)}`,
-    `Outros ${formatarMoeda(outrosTotal)}`,
+    `Manutenção ${formatarMoeda(manutTotal)}`,
+    `Pedágio/Estacion. ${formatarMoeda(pedagioTotal)}`,
+    `Outras ${formatarMoeda(outrosTotal)}`,
     `Total ${formatarMoeda(resumo.despesas)}`,
   ].join(" · ");
-  doc.text(`Despesas (informativo): ${infoDespesas}`, MARGIN, y, { maxWidth: contentW });
+  doc.text(`Resumo de despesas (informativo): ${infoDespesas}`, MARGIN, y, {
+    maxWidth: contentW,
+  });
+  y += 8;
 
-  if (resumo.adiantamento_valor > 0) {
-    y += 5;
-    doc.text(
-      `Adiantamentos descontados na comissão: ${formatarMoeda(resumo.adiantamento_valor)}`,
-      MARGIN,
-      y,
-      { maxWidth: contentW }
-    );
-  }
-
-  y += 7;
-  doc.setFontSize(6.5);
-  doc.setTextColor(148, 163, 184);
-  doc.text(
-    "Comprovante de pagamento de comissão de frete — valores consolidados das viagens acima.",
-    MARGIN,
+  desenharRodapeAssinaturasRecibo(doc, {
     y,
-    { maxWidth: contentW }
-  );
-
-  const assinY = Math.min(Math.max(y + 10, 252), 272);
-  const assinW = 75;
-  doc.setDrawColor(180, 190, 200);
-  doc.line(MARGIN, assinY, MARGIN + assinW, assinY);
-  doc.line(PAGE_W - MARGIN - assinW, assinY, PAGE_W - MARGIN, assinY);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(71, 85, 105);
-  doc.text("MEB Transportes", MARGIN, assinY + 5);
-  doc.text("Assinatura do pagador", MARGIN, assinY + 9);
-  doc.text(motoristaNome, PAGE_W - MARGIN - assinW, assinY + 5);
-  doc.text("Assinatura do beneficiário", PAGE_W - MARGIN - assinW, assinY + 9);
+    beneficiarioNome: motoristaNome,
+    ehTerceiro,
+  });
 
   const slug = motoristaNome
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9]+/g, "_")
     .replace(/^_|_$/g, "");
-  doc.save(`recibo-comissao_${slug || "motorista"}.pdf`);
+  doc.save(
+    `recibo-${ehTerceiro ? "terceiro" : "comissao"}_${slug || "motorista"}.pdf`
+  );
 }

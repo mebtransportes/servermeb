@@ -1,7 +1,7 @@
 "use client";
 
 import type { ViagemFechamento } from "@/types/fechamento";
-import { getIcmsPercent } from "@/types/fechamento";
+import { despesasCategoriasTerceiro, getIcmsPercent } from "@/types/fechamento";
 import type { useFechamentoValores } from "@/components/financeiro/fechamento-viagem-detalhe";
 import { formatarMoeda } from "@/lib/frota-filters";
 import {
@@ -33,6 +33,10 @@ export function FechamentoTerceiroDetalhe({
   const outrosItens = outrosDespesas.map((d) => ({
     nome: d.nome,
     valor: formatarMoeda(d.valor),
+  }));
+  const categoriasExtras = despesasCategoriasTerceiro(f).map((c) => ({
+    nome: c.rotulo,
+    valor: formatarMoeda(c.valor),
   }));
 
   return (
@@ -76,7 +80,10 @@ export function FechamentoTerceiroDetalhe({
             { rotulo: "Valor do monitoramento", valor: formatarMoeda(f.monitoramento_valor ?? 0) },
           ]}
         />
-        <FechamentoListaItens titulo="Outros gastos" itens={outrosItens} />
+        <FechamentoListaItens titulo="Outras despesas" itens={outrosItens} />
+        {categoriasExtras.length > 0 && (
+          <FechamentoListaItens titulo="Demais gastos da viagem" itens={categoriasExtras} />
+        )}
       </FechamentoSecao>
 
       <FechamentoSecao titulo="Cálculo geral">
@@ -102,7 +109,7 @@ export function FechamentoTerceiroDetalhe({
           ]}
         />
         <p className="text-[10px] text-slate-500">
-          Valor líquido = frete sem ICMS − despesas (seguro, monitoramento e outros)
+          Valor líquido = frete sem ICMS − todas as despesas lançadas no acompanhamento
         </p>
       </FechamentoSecao>
 

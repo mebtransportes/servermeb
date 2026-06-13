@@ -8,6 +8,7 @@ import {
   calcularConsumoKmLitro,
   totalDespesasFrota,
   totalDespesasTerceiro,
+  totalDespesasMotoristaFrota,
 } from "@/types/fechamento";
 import { statusGeraFechamento } from "@/lib/viagem-status";
 import { isFrota } from "@/lib/viagem-validation";
@@ -198,22 +199,23 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
       ? 100
       : 12;
 
+  const gastosFechamento = {
+    abastecimento_valor: gastos.abastecimento_valor,
+    arla_valor: gastos.arla_valor,
+    manutencao_total: gastos.manutencao_total,
+    pedagio_valor: gastos.pedagio_valor,
+    estacionamento_valor: gastos.estacionamento_valor,
+    outros_valor: gastos.outros_valor,
+    seguro_valor: gastos.seguro_valor,
+    monitoramento_valor: gastos.monitoramento_valor,
+  } as ViagemFechamento;
+
   const totalDespesas = motoristaTerceiro
-    ? totalDespesasTerceiro({
-        motorista_terceiro: true,
-        seguro_valor: gastos.seguro_valor,
-        monitoramento_valor: gastos.monitoramento_valor,
-        outros_valor: gastos.outros_valor,
-      } as ViagemFechamento)
-    : totalDespesasFrota({
-        motorista_terceiro: false,
-        abastecimento_valor: gastos.abastecimento_valor,
-        arla_valor: gastos.arla_valor,
-        manutencao_total: gastos.manutencao_total,
-        pedagio_valor: gastos.pedagio_valor,
-        estacionamento_valor: gastos.estacionamento_valor,
-        outros_valor: gastos.outros_valor,
-      } as ViagemFechamento);
+    ? totalDespesasTerceiro(gastosFechamento)
+    : totalDespesasFrota(gastosFechamento);
+  const totalDespesasMotorista = motoristaTerceiro
+    ? totalDespesas
+    : totalDespesasMotoristaFrota(gastosFechamento);
 
   const { frete_liquido: freteLiquido, comissao_final: comissaoFinal, valor_icms } =
     calcularComissionamento({
@@ -225,6 +227,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
       adiantamento: gastos.adiantamento_valor,
       motoristaTerceiro,
       totalDespesas,
+      totalDespesasMotorista,
     });
   const valorCarga = Number(viagem.valor_mercadoria) || 0;
   const destino =

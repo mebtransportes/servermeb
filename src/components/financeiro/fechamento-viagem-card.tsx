@@ -1,7 +1,7 @@
 "use client";
 
 import type { ViagemFechamento } from "@/types/fechamento";
-import { getComissaoPercent, getIcmsPercent, totalDespesasFechamento } from "@/types/fechamento";
+import { getComissaoPercent, getIcmsPercent, totalDespesasFechamento, totalDespesasMotoristaFrota } from "@/types/fechamento";
 import { formatarMoeda } from "@/lib/frota-filters";
 import { Select } from "@/components/ui/select";
 import { BrNumberInput } from "@/components/ui/br-number-input";
@@ -63,6 +63,9 @@ export function FechamentoViagemCard({
       motoristaTerceiro: isTerceiro,
       adiantamentoValor: f.adiantamento_valor,
       totalDespesas: totalDespesasFechamento(f),
+      totalDespesasMotorista: isTerceiro
+        ? totalDespesasFechamento(f)
+        : totalDespesasMotoristaFrota(f),
     });
     setSaving(false);
     if (result.error) {

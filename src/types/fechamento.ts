@@ -60,13 +60,37 @@ export function totalDespesasFrota(f: ViagemFechamento) {
   );
 }
 
-/** Gastos operacionais viagem terceiro. */
+/** Gastos do motorista na frota — exclui abastecimento e manutenção (base da comissão). */
+export function totalDespesasMotoristaFrota(f: ViagemFechamento) {
+  return (
+    totalDespesasFrota(f) -
+    (Number(f.abastecimento_valor) || 0) -
+    (Number(f.manutencao_total) || 0)
+  );
+}
+
+/** Gastos operacionais viagem terceiro (todas despesas lançadas no acompanhamento). */
 export function totalDespesasTerceiro(f: ViagemFechamento) {
   return (
+    totalDespesasFrota(f) +
     (Number(f.seguro_valor) || 0) +
-    (Number(f.monitoramento_valor) || 0) +
-    (Number(f.outros_valor) || 0)
+    (Number(f.monitoramento_valor) || 0)
   );
+}
+
+/** Despesas categorizadas da viagem terceiro (exceto seguro, monitoramento e "outros" detalhados). */
+export function despesasCategoriasTerceiro(f: ViagemFechamento) {
+  const cats: { rotulo: string; valor: number }[] = [];
+  const add = (rotulo: string, valor?: number | null) => {
+    const v = Number(valor) || 0;
+    if (v > 0) cats.push({ rotulo, valor: v });
+  };
+  add("Abastecimento", f.abastecimento_valor);
+  add("Arla", f.arla_valor);
+  add("Manutenção", f.manutencao_total);
+  add("Pedágio", f.pedagio_valor);
+  add("Estacionamento", f.estacionamento_valor);
+  return cats;
 }
 
 /** Gastos operacionais da viagem (sem reembolso). */
@@ -161,22 +185,25 @@ export function calcularComissionamento(opts: {
   monitoramentoValor?: number;
   /** @deprecated Pedágio na base — fórmula frota usa frete líquido − todas despesas. */
   pedagioDescontaMotorista?: number;
+  /** Total de despesas (frota: todas; terceiro: todas). */
   totalDespesas?: number;
+  /** Frota: despesas do motorista (sem abastecimento e manutenção). */
+  totalDespesasMotorista?: number;
 }) {
   const valor_icms = calcularValorIcms(opts.valorFrete, opts.icmsPercent);
-  const despesas =
-    opts.totalDespesas ??
-    (opts.motoristaTerceiro
-      ? (Number(opts.seguroValor) || 0) +
-        (Number(opts.monitoramentoValor) || 0)
-      : 0);
+  const despesasFallback = opts.motoristaTerceiro
+    ? (Number(opts.seguroValor) || 0) + (Number(opts.monitoramentoValor) || 0)
+    : 0;
+  const totalDespesas = opts.totalDespesas ?? despesasFallback;
 
   if (opts.motoristaTerceiro) {
     const frete_liquido = calcularFreteLiquido(opts.valorFrete, opts.icmsPercent);
-    const liquido_repassar = Math.round((frete_liquido - despesas) * 100) / 100;
+    const liquido_repassar = Math.round((frete_liquido - totalDespesas) * 100) / 100;
     return {
       frete_liquido: Math.round(frete_liquido * 100) / 100,
       frete_menos_gastos: liquido_repassar,
+      frete_menos_gastos_totais: liquido_repassar,
+      frete_menos_gastos_motorista: liquido_repassar,
       base_comissao: liquido_repassar,
       valor_icms,
       total_comissao: liquido_repassar,
@@ -186,13 +213,17 @@ export function calcularComissionamento(opts: {
   }
 
   const frete_liquido = calcularFreteLiquido(opts.valorFrete, opts.icmsPercent);
-  const totalDespesas = opts.totalDespesas ?? despesas;
-  const frete_menos_gastos = Math.max(
+  const despesasMotorista = opts.totalDespesasMotorista ?? totalDespesas;
+  const frete_menos_gastos_totais = Math.max(
     0,
     Math.round((frete_liquido - totalDespesas) * 100) / 100
   );
+  const frete_menos_gastos_motorista = Math.max(
+    0,
+    Math.round((frete_liquido - despesasMotorista) * 100) / 100
+  );
   const comissao_bruta = calcularTotalComissao(
-    frete_menos_gastos,
+    frete_menos_gastos_motorista,
     opts.comissaoPercent,
     opts.comissaoTipo ?? "PERCENTUAL"
   );
@@ -203,8 +234,10 @@ export function calcularComissionamento(opts: {
   );
   return {
     frete_liquido: Math.round(frete_liquido * 100) / 100,
-    frete_menos_gastos,
-    base_comissao: frete_menos_gastos,
+    frete_menos_gastos: frete_menos_gastos_totais,
+    frete_menos_gastos_totais,
+    frete_menos_gastos_motorista,
+    base_comissao: frete_menos_gastos_motorista,
     valor_icms,
     total_comissao: comissao_bruta,
     comissao_bruta,
@@ -268,6 +301,9 @@ export function agruparFechamentosComissao(
         adiantamento: Number(f.adiantamento_valor) || 0,
         motoristaTerceiro: !!f.motorista_terceiro,
         totalDespesas: despesas,
+        totalDespesasMotorista: f.motorista_terceiro
+          ? despesas
+          : totalDespesasMotoristaFrota(f),
       });
       return {
         viagens: acc.viagens + 1,

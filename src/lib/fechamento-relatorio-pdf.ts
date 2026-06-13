@@ -13,11 +13,14 @@ import type { ViagemFechamento } from "@/types/fechamento";
 import {
   calcularComissionamento,
   formatConsumoKmLitro,
+  despesasCategoriasTerceiro,
   getComissaoPercent,
   getIcmsPercent,
   totalDespesasFechamento,
+  totalDespesasMotoristaFrota,
 } from "@/types/fechamento";
 import { formatarMoeda } from "@/lib/frota-filters";
+import { desenharRodapeAssinaturasRecibo } from "@/lib/pdf-recibo-rodape";
 
 const COR: [number, number, number] = [0, 120, 140];
 const MARGIN = 12;
@@ -76,6 +79,9 @@ function linhaCampos(
 export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
   const icms = getIcmsPercent(f);
   const despesas = totalDespesasFechamento(f);
+  const despesasMotorista = f.motorista_terceiro
+    ? despesas
+    : totalDespesasMotoristaFrota(f);
   const calc = calcularComissionamento({
     valorFrete: Number(f.valor_frete) || 0,
     icmsPercent: icms,
@@ -85,6 +91,7 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
     adiantamento: Number(f.adiantamento_valor) || 0,
     motoristaTerceiro: !!f.motorista_terceiro,
     totalDespesas: despesas,
+    totalDespesasMotorista: despesasMotorista,
   });
 
   const outrosMap = await fetchOutrosDespesasPorViagens([f.viagem_id]);
@@ -103,8 +110,8 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
   doc.setFontSize(14);
   doc.setTextColor(...COR);
   const titulo = f.motorista_terceiro
-    ? "FECHAMENTO DE VIAGEM — TERCEIRO"
-    : "FECHAMENTO DE VIAGEM — FROTA";
+    ? "RECIBO DE FECHAMENTO — TERCEIRO"
+    : "RECIBO DE FECHAMENTO — FROTA";
   doc.text(titulo, PAGE_W - MARGIN, y + 5, { align: "right" });
   doc.setFontSize(8);
   doc.setTextColor(100, 116, 139);
@@ -123,7 +130,7 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
       { rotulo: "Período", valor: formatPeriodoViagem(f.data_embarque, f.chegada_em) },
       { rotulo: "Saída", valor: f.local_embarque },
       { rotulo: "Entrega", valor: f.destino ?? "—" },
-      { rotulo: "CTE", valor: f.numero_cte ?? "—" },
+      { rotulo: "CT-e", valor: f.numero_cte ?? "—" },
     ],
     3
   );
@@ -134,9 +141,9 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
       doc,
       y,
       [
-        { rotulo: "Seguro (0,09% carga)", valor: formatarMoeda(f.seguro_valor ?? 0) },
+        { rotulo: "Seguro (0,09% da carga)", valor: formatarMoeda(f.seguro_valor ?? 0) },
         { rotulo: "Monitoramento", valor: formatarMoeda(f.monitoramento_valor ?? 0) },
-        { rotulo: "Total despesas", valor: formatarMoeda(despesas) },
+        { rotulo: "Total de despesas", valor: formatarMoeda(despesas) },
       ],
       3
     );
@@ -144,10 +151,23 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
     if (outros.length) {
       autoTable(doc, {
         startY: y,
-        head: [["Outros gastos", "Valor (R$)"]],
+        head: [["Outras despesas", "Valor (R$)"]],
         body: outros.map((o) => [o.nome, formatarMoeda(o.valor)]),
         styles: { fontSize: 7.5, cellPadding: 1.5 },
         headStyles: { fillColor: COR, fontSize: 7.5 },
+        margin: { left: MARGIN, right: MARGIN },
+      });
+      y = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable!.finalY + 4;
+    }
+
+    const categorias = despesasCategoriasTerceiro(f);
+    if (categorias.length) {
+      autoTable(doc, {
+        startY: y,
+        head: [["Demais gastos", "Valor (R$)"]],
+        body: categorias.map((c) => [c.rotulo, formatarMoeda(c.valor)]),
+        styles: { fontSize: 7.5, cellPadding: 1.5 },
+        headStyles: { fillColor: [51, 65, 85], fontSize: 7.5 },
         margin: { left: MARGIN, right: MARGIN },
       });
       y = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable!.finalY + 4;
@@ -160,10 +180,10 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
       [
         { rotulo: "Frete bruto", valor: formatarMoeda(f.valor_frete) },
         { rotulo: `Frete líquido (− ${icms}% ICMS)`, valor: formatarMoeda(calc.frete_liquido) },
-        { rotulo: "Valor ICMS", valor: formatarMoeda(calc.valor_icms) },
-        { rotulo: "Total despesas", valor: formatarMoeda(despesas) },
+        { rotulo: "Valor do ICMS", valor: formatarMoeda(calc.valor_icms) },
+        { rotulo: "Total de despesas", valor: formatarMoeda(despesas) },
         {
-          rotulo: "Líquido repasse terceiro",
+          rotulo: "Valor líquido para repasse ao terceiro",
           valor: formatarMoeda(calc.comissao_final),
         },
       ],
@@ -175,16 +195,16 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
       doc,
       y,
       [
-        { rotulo: "KM inicial", valor: formatKm(f.km_odometro_inicial) },
+        { rotulo: "KM inicial da viagem", valor: formatKm(f.km_odometro_inicial) },
         {
-          rotulo: "KM final abastecimento",
+          rotulo: "KM final após abastecimento",
           valor: formatKm(f.km_final_abastecimento ?? f.km_odometro_final),
         },
-        { rotulo: "KM rodado", valor: formatKm(f.km_rodado ?? f.km_total) },
-        { rotulo: "Abastecimento", valor: formatarMoeda(f.abastecimento_valor) },
-        { rotulo: "Litros", valor: formatLitros(f.litros_abastecimento_viagem) },
+        { rotulo: "Total KM rodado", valor: formatKm(f.km_rodado ?? f.km_total) },
+        { rotulo: "Total abastecimento", valor: formatarMoeda(f.abastecimento_valor) },
+        { rotulo: "Total litros abastecidos", valor: formatLitros(f.litros_abastecimento_viagem) },
         {
-          rotulo: "Consumo km/L",
+          rotulo: "Consumo (km/L)",
           valor: formatConsumoKmLitro(
             f.consumo_km_litro ??
               (f.km_rodado && f.litros_abastecimento_viagem
@@ -192,7 +212,7 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
                 : null)
           ),
         },
-        { rotulo: "Arla", valor: formatarMoeda(f.arla_valor) },
+        { rotulo: "Total Arla", valor: formatarMoeda(f.arla_valor) },
         { rotulo: "Manutenção", valor: formatarMoeda(f.manutencao_total) },
         { rotulo: "Pedágio", valor: formatarMoeda(f.pedagio_valor) },
         { rotulo: "Estacionamento", valor: formatarMoeda(f.estacionamento_valor ?? 0) },
@@ -248,18 +268,26 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
       [
         { rotulo: "Frete bruto", valor: formatarMoeda(f.valor_frete) },
         { rotulo: `Frete líquido (− ${icms}% ICMS)`, valor: formatarMoeda(calc.frete_liquido) },
-        { rotulo: "Valor ICMS", valor: formatarMoeda(calc.valor_icms) },
-        { rotulo: "Total despesas", valor: formatarMoeda(despesas) },
+        { rotulo: "Valor do ICMS", valor: formatarMoeda(calc.valor_icms) },
+        { rotulo: "Total de despesas", valor: formatarMoeda(despesas) },
         {
-          rotulo: "Frete líquido − gastos",
-          valor: formatarMoeda(calc.frete_menos_gastos ?? 0),
+          rotulo: "Despesas do motorista (sem abast. e manut.)",
+          valor: formatarMoeda(despesasMotorista),
+        },
+        {
+          rotulo: "Frete líquido retirando os gastos totais",
+          valor: formatarMoeda(calc.frete_menos_gastos_totais ?? calc.frete_menos_gastos ?? 0),
+        },
+        {
+          rotulo: "Frete líquido retirando os gastos do motorista",
+          valor: formatarMoeda(calc.frete_menos_gastos_motorista ?? 0),
         },
         {
           rotulo: `Comissão bruta (${comPct}%)`,
           valor: formatarMoeda(calc.comissao_bruta ?? calc.total_comissao),
         },
         {
-          rotulo: "Comissão líquida",
+          rotulo: "Comissão líquida para recebimento",
           valor: formatarMoeda(calc.comissao_final),
         },
       ],
@@ -268,7 +296,12 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
   }
 
   const valorFinal = calc.comissao_final;
-  const boxY = Math.min(y + 6, 255);
+  const pageH = doc.internal.pageSize.getHeight();
+  let boxY = y + 6;
+  if (boxY + 14 + 40 > pageH - MARGIN) {
+    doc.addPage();
+    boxY = MARGIN + 4;
+  }
   doc.setFillColor(...COR);
   doc.roundedRect(MARGIN, boxY, PAGE_W - MARGIN * 2, 14, 2, 2, "F");
   doc.setFont("helvetica", "bold");
@@ -280,6 +313,12 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
   doc.text(labelFinal, MARGIN + 4, boxY + 6);
   doc.setFontSize(12);
   doc.text(formatarMoeda(valorFinal), PAGE_W - MARGIN - 4, boxY + 10, { align: "right" });
+
+  desenharRodapeAssinaturasRecibo(doc, {
+    y: boxY + 18,
+    beneficiarioNome: f.motorista_nome,
+    ehTerceiro: !!f.motorista_terceiro,
+  });
 
   const slug = (f.numero_cte ?? f.motorista_nome)
     .normalize("NFD")
