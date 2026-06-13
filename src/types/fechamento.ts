@@ -60,11 +60,12 @@ export function totalDespesasFrota(f: ViagemFechamento) {
   );
 }
 
-/** Gastos do motorista na frota — exclui abastecimento e manutenção (base da comissão). */
+/** Gastos do motorista na frota — exclui combustível (abastecimento, arla) e manutenção (base da comissão). */
 export function totalDespesasMotoristaFrota(f: ViagemFechamento) {
   return (
     totalDespesasFrota(f) -
     (Number(f.abastecimento_valor) || 0) -
+    (Number(f.arla_valor) || 0) -
     (Number(f.manutencao_total) || 0)
   );
 }
@@ -187,7 +188,7 @@ export function calcularComissionamento(opts: {
   pedagioDescontaMotorista?: number;
   /** Total de despesas (frota: todas; terceiro: todas). */
   totalDespesas?: number;
-  /** Frota: despesas do motorista (sem abastecimento e manutenção). */
+  /** Frota: despesas do motorista (sem combustível e manutenção). */
   totalDespesasMotorista?: number;
 }) {
   const valor_icms = calcularValorIcms(opts.valorFrete, opts.icmsPercent);

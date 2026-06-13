@@ -154,7 +154,7 @@ export function FechamentoFrotaDetalhe({
           campos={[
             { rotulo: "Valor total de despesas", valor: formatarMoeda(v.despesas) },
             {
-              rotulo: "Despesas do motorista (sem abast. e manut.)",
+              rotulo: "Despesas do motorista (sem combustível e manut.)",
               valor: formatarMoeda(v.despesasMotorista),
             },
           ]}
@@ -186,7 +186,7 @@ export function FechamentoFrotaDetalhe({
           ]}
         />
         <p className="text-[10px] text-slate-500">
-          Comissão bruta = {comPct}% sobre frete líquido − gastos do motorista (sem abastecimento e
+          Comissão bruta = {comPct}% sobre frete líquido − gastos do motorista (sem combustível e
           manutenção). Comissão líquida = comissão bruta + reembolsos − adiantamentos.
         </p>
       </FechamentoSecao>

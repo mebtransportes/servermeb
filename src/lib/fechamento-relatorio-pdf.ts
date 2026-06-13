@@ -271,7 +271,7 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
         { rotulo: "Valor do ICMS", valor: formatarMoeda(calc.valor_icms) },
         { rotulo: "Total de despesas", valor: formatarMoeda(despesas) },
         {
-          rotulo: "Despesas do motorista (sem abast. e manut.)",
+          rotulo: "Despesas do motorista (sem combustível e manut.)",
           valor: formatarMoeda(despesasMotorista),
         },
         {
