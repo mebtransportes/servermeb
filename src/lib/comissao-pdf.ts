@@ -188,7 +188,7 @@ export async function gerarPdfComissaoMotorista(opts: {
     linhasPagamento.push(
       ["(-) Total de despesas", formatarMoeda(resumo.despesas)],
       [
-        `Comissão bruta (${COMISSAO_MOTORISTA_PERCENT}% sobre frete líq. − gastos do motorista)`,
+        `Comissão bruta (${COMISSAO_MOTORISTA_PERCENT}%)`,
         formatarMoeda(comissaoBrutaFrota),
       ]
     );
@@ -215,11 +215,11 @@ export async function gerarPdfComissaoMotorista(opts: {
     startY: y,
     head: [["Descrição", "Valor (R$)"]],
     body: linhasPagamento,
-    styles: { fontSize: 9, cellPadding: 2.5 },
+    styles: { fontSize: 9, cellPadding: 2.5, overflow: "linebreak" },
     headStyles: { fillColor: COR_PRIMARIA, textColor: 255, fontStyle: "bold" },
     columnStyles: {
-      0: { cellWidth: 118 },
-      1: { halign: "right", cellWidth: "auto" },
+      0: { cellWidth: 118, overflow: "linebreak" },
+      1: { halign: "right", cellWidth: "auto", overflow: "linebreak" },
     },
     margin: { left: MARGIN, right: MARGIN },
     theme: "striped",
