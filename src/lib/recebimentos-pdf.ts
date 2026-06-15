@@ -50,7 +50,8 @@ function cabecalhoRelatorio(
   statusLabel: string,
   resumo: ReturnType<typeof resumirPorStatus>,
   qtd: number,
-  tituloRelatorio: string
+  tituloRelatorio: string,
+  fornecedorLabel?: string
 ) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
@@ -66,9 +67,14 @@ function cabecalhoRelatorio(
   doc.setTextColor(80);
   doc.text(`Período: ${formatarDataBr(de)} até ${formatarDataBr(ate)}`, 14, 36);
   doc.text(`Status: ${statusLabel}`, 14, 42);
-  doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 14, 48);
+  let y = 48;
+  if (fornecedorLabel) {
+    doc.text(`Fornecedor: ${fornecedorLabel}`, 14, y);
+    y += 6;
+  }
+  doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 14, y);
+  y += 8;
 
-  let y = 56;
   doc.setFont("helvetica", "bold");
   doc.setTextColor(50);
   doc.text("Resumo", 14, y);
@@ -92,13 +98,22 @@ export function gerarPdfRecebimentos(
   de: string,
   ate: string,
   statusLabel: string,
-  options?: { titulo?: string; arquivoSlug?: string }
+  options?: { titulo?: string; arquivoSlug?: string; fornecedorLabel?: string }
 ) {
   const titulo = options?.titulo ?? "Relatório de Recebimentos";
   const slug = options?.arquivoSlug ?? "recebimentos";
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const resumo = resumirPorStatus(itens);
-  const startY = cabecalhoRelatorio(doc, de, ate, statusLabel, resumo, itens.length, titulo);
+  const startY = cabecalhoRelatorio(
+    doc,
+    de,
+    ate,
+    statusLabel,
+    resumo,
+    itens.length,
+    titulo,
+    options?.fornecedorLabel
+  );
 
   const body = itens.map((item) => {
     const total = calcularTotalAReceber(item);
@@ -158,10 +173,12 @@ export function filtrarRecebimentosRelatorio(
   itens: RecebimentoComCanhotos[],
   de: string,
   ate: string,
-  status: RecebimentoStatus | "todos"
+  status: RecebimentoStatus | "todos",
+  fornecedor?: string
 ): RecebimentoComCanhotos[] {
   return itens.filter((item) => {
     if (status !== "todos" && item.status !== status) return false;
+    if (fornecedor && item.empresa !== fornecedor) return false;
     const dataRef = item.data_recebimento ?? item.created_at ?? "";
     if (!dataRef) return false;
     const ref = dataRef.includes("T") ? dataRef : `${dataRef}T12:00:00`;

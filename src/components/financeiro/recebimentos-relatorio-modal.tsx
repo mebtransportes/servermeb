@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { FileDown } from "lucide-react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
@@ -49,8 +49,23 @@ export function RecebimentosRelatorioModal({
   const [de, setDe] = useState(padraoDatas().de);
   const [ate, setAte] = useState(padraoDatas().ate);
   const [status, setStatus] = useState<RecebimentoStatus | "todos">("todos");
+  const [fornecedor, setFornecedor] = useState("");
   const [erro, setErro] = useState("");
   const [gerando, setGerando] = useState(false);
+
+  const fornecedorOpcoes = useMemo(() => {
+    const nomes = new Set<string>();
+    for (const item of itens) {
+      const nome = item.empresa?.trim();
+      if (nome && nome !== "—") nomes.add(nome);
+    }
+    return [
+      { value: "", label: "Todos os fornecedores" },
+      ...[...nomes]
+        .sort((a, b) => a.localeCompare(b, "pt-BR"))
+        .map((nome) => ({ value: nome, label: nome })),
+    ];
+  }, [itens]);
 
   function validar(): boolean {
     if (!de || !ate) {
@@ -69,7 +84,7 @@ export function RecebimentosRelatorioModal({
     if (!validar()) return;
     setGerando(true);
     try {
-      const filtrados = filtrarRecebimentosRelatorio(itens, de, ate, status);
+      const filtrados = filtrarRecebimentosRelatorio(itens, de, ate, status, fornecedor || undefined);
       if (!filtrados.length) {
         setErro("Nenhum recebimento encontrado para o período e filtros selecionados.");
         return;
@@ -79,6 +94,7 @@ export function RecebimentosRelatorioModal({
       gerarPdfRecebimentos(filtrados, de, ate, statusLabel, {
         titulo,
         arquivoSlug: pdfSlug,
+        fornecedorLabel: fornecedor || undefined,
       });
       onClose();
     } catch (e) {
@@ -94,7 +110,7 @@ export function RecebimentosRelatorioModal({
         <MebModalHeader
           id="recebimentos-relatorio-titulo"
           title={titulo}
-          description="Escolha o intervalo de datas e, se quiser, filtre por status. O PDF inclui motorista, fornecedor, valores e observações."
+          description="Escolha o intervalo de datas e, se quiser, filtre por status e fornecedor. O PDF inclui motorista, fornecedor, valores e observações."
           onClose={onClose}
         />
 
@@ -124,6 +140,14 @@ export function RecebimentosRelatorioModal({
             value={status}
             onChange={(e) => setStatus(e.target.value as RecebimentoStatus | "todos")}
             options={STATUS_OPCOES.map((s) => ({ value: s.value, label: s.label }))}
+          />
+
+          <Select
+            label="Fornecedor"
+            tone="light"
+            value={fornecedor}
+            onChange={(e) => setFornecedor(e.target.value)}
+            options={fornecedorOpcoes}
           />
 
           {erro && <p className="text-sm text-red-600">{erro}</p>}
