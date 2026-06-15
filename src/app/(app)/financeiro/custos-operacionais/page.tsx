@@ -9,6 +9,7 @@ import {
   Receipt,
   Droplets,
   ParkingCircle,
+  Landmark,
   FileBarChart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -152,6 +153,13 @@ export default function CustosOperacionaisPage() {
               valor={resumo.arla}
               icon={Droplets}
               onClick={() => setDetalheCategoria("arla")}
+            />
+            <CardCusto
+              label="ICMS"
+              valor={resumo.icms}
+              icon={Landmark}
+              sub="Imposto sobre frete das viagens · Fora do total operacional"
+              onClick={() => setDetalheCategoria("icms")}
             />
             {resumo.outros > 0 && (
               <CardCusto

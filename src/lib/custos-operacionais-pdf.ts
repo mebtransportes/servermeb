@@ -13,6 +13,7 @@ const CATEGORIAS_RELATORIO: CustoOperacionalCategoria[] = [
   "pedagios",
   "arla",
   "outros",
+  "icms",
   "reembolsos",
 ];
 
@@ -61,6 +62,8 @@ function valorCategoria(
       return resumo.arla;
     case "outros":
       return resumo.outros;
+    case "icms":
+      return resumo.icms;
   }
 }
 
@@ -75,6 +78,8 @@ function detalheResumoCategoria(
       return `Preventiva ${formatarMoeda(resumo.manutencoesPreventivas)} · Viagem ${formatarMoeda(resumo.manutencoesViagem)}`;
     case "reembolsos":
       return "Não compõe o total operacional";
+    case "icms":
+      return "Imposto sobre frete · Não compõe o total operacional";
     case "outros":
       return "Estacionamento, seguro e monitoramento";
     default:
@@ -132,6 +137,11 @@ function cabecalhoRelatorio(
         detalheResumoCategoria(resumo, "reembolsos"),
         formatarMoeda(resumo.reembolsos),
       ],
+      [
+        CUSTO_CATEGORIA_LABEL.icms,
+        detalheResumoCategoria(resumo, "icms"),
+        formatarMoeda(resumo.icms),
+      ],
     ],
     styles: { fontSize: 9, cellPadding: 2 },
     headStyles: { fillColor: [0, 120, 140], textColor: 255 },
@@ -151,7 +161,7 @@ function cabecalhoRelatorio(
   doc.setFontSize(9);
   doc.setTextColor(100);
   doc.text(
-    `${totalLancamentos} lançamento(s) no período · Reembolsos listados à parte do total operacional`,
+    `${totalLancamentos} lançamento(s) no período · Reembolsos e ICMS listados à parte do total operacional`,
     14,
     y
   );

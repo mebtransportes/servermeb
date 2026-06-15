@@ -17,7 +17,8 @@ export type CustoOperacionalCategoria =
   | "pedagios"
   | "reembolsos"
   | "arla"
-  | "outros";
+  | "outros"
+  | "icms";
 
 export type CustoOperacionalLinha = {
   id: string;
@@ -40,6 +41,7 @@ export type CustosOperacionaisResumo = {
   reembolsos: number;
   arla: number;
   outros: number;
+  icms: number;
   linhas: Record<CustoOperacionalCategoria, CustoOperacionalLinha[]>;
 };
 
@@ -59,6 +61,7 @@ export async function fetchCustosOperacionais(
     reembolsos: [],
     arla: [],
     outros: [],
+    icms: [],
   };
 
   const resumo: CustosOperacionaisResumo = {
@@ -73,6 +76,7 @@ export async function fetchCustosOperacionais(
     reembolsos: 0,
     arla: 0,
     outros: 0,
+    icms: 0,
     linhas,
   };
 
@@ -249,6 +253,38 @@ export async function fetchCustosOperacionais(
     }
   }
 
+  const { data: fechamentos } = await supabase
+    .from("viagem_fechamentos")
+    .select(
+      "id, data_embarque, motorista_nome, numero_cte, valor_icms, valor_frete, icms_percent, veiculo_label"
+    )
+    .order("data_embarque", { ascending: false });
+
+  for (const f of fechamentos ?? []) {
+    if (!dataNoPeriodoConfig(f.data_embarque, periodo)) continue;
+    const v = Number(f.valor_icms) || 0;
+    if (v <= 0) continue;
+    resumo.icms += v;
+    const pct = Number(f.icms_percent);
+    const pctLabel = Number.isFinite(pct) ? `${pct}%` : "—";
+    linhas.icms.push({
+      id: `fech-icms-${f.id}`,
+      data: f.data_embarque,
+      descricao: f.numero_cte?.trim()
+        ? `ICMS — CT-e ${f.numero_cte.trim()}`
+        : "ICMS sobre frete",
+      valor: v,
+      origem: "Fechamento viagem",
+      detalhe: [
+        f.motorista_nome,
+        f.veiculo_label,
+        `Frete ${formatarMoeda(Number(f.valor_frete) || 0)} · ${pctLabel} ICMS`,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    });
+  }
+
   resumo.total =
     resumo.abastecimentos +
     resumo.manutencoes +
@@ -322,4 +358,5 @@ export const CUSTO_CATEGORIA_LABEL: Record<CustoOperacionalCategoria, string> = 
   reembolsos: "Reembolsos",
   arla: "Arla",
   outros: "Outras despesas / Estacionamento / Seguro / Monitoramento",
+  icms: "ICMS (imposto sobre frete)",
 };
