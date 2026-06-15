@@ -9,7 +9,9 @@ import { Button } from "@/components/ui/button";
 import { MebModal, MebModalBody, MebModalFooter, MebModalHeader } from "@/components/ui/modal";
 import {
   filtrarRecebimentosRelatorio,
+  filtrarEncargosRelatorio,
   gerarPdfRecebimentos,
+  gerarPdfEncargosRecebimentos,
 } from "@/lib/recebimentos-pdf";
 import type { RecebimentoComCanhotos } from "@/lib/recebimento-viagem";
 import {
@@ -39,12 +41,14 @@ export function RecebimentosRelatorioModal({
   onClose,
   titulo = "Relatório de Recebimentos",
   pdfSlug = "recebimentos",
+  modo = "recebimentos",
 }: {
   itens: RecebimentoComCanhotos[];
   open: boolean;
   onClose: () => void;
   titulo?: string;
   pdfSlug?: string;
+  modo?: "recebimentos" | "encargos";
 }) {
   const [de, setDe] = useState(padraoDatas().de);
   const [ate, setAte] = useState(padraoDatas().ate);
@@ -84,18 +88,37 @@ export function RecebimentosRelatorioModal({
     if (!validar()) return;
     setGerando(true);
     try {
-      const filtrados = filtrarRecebimentosRelatorio(itens, de, ate, status, fornecedor || undefined);
-      if (!filtrados.length) {
-        setErro("Nenhum recebimento encontrado para o período e filtros selecionados.");
-        return;
-      }
       const statusLabel =
         status === "todos" ? "Todos" : RECEBIMENTO_STATUS_LABEL[status];
-      gerarPdfRecebimentos(filtrados, de, ate, statusLabel, {
-        titulo,
-        arquivoSlug: pdfSlug,
-        fornecedorLabel: fornecedor || undefined,
-      });
+
+      if (modo === "encargos") {
+        const linhas = filtrarEncargosRelatorio(itens, de, ate, status, fornecedor || undefined);
+        if (!linhas.length) {
+          setErro("Nenhum encargo encontrado para o período e filtros selecionados.");
+          return;
+        }
+        gerarPdfEncargosRecebimentos(linhas, de, ate, statusLabel, {
+          arquivoSlug: pdfSlug,
+          fornecedorLabel: fornecedor || undefined,
+        });
+      } else {
+        const filtrados = filtrarRecebimentosRelatorio(
+          itens,
+          de,
+          ate,
+          status,
+          fornecedor || undefined
+        );
+        if (!filtrados.length) {
+          setErro("Nenhum recebimento encontrado para o período e filtros selecionados.");
+          return;
+        }
+        gerarPdfRecebimentos(filtrados, de, ate, statusLabel, {
+          titulo,
+          arquivoSlug: pdfSlug,
+          fornecedorLabel: fornecedor || undefined,
+        });
+      }
       onClose();
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Erro ao gerar PDF.");
@@ -110,7 +133,11 @@ export function RecebimentosRelatorioModal({
         <MebModalHeader
           id="recebimentos-relatorio-titulo"
           title={titulo}
-          description="Escolha o intervalo de datas e, se quiser, filtre por status e fornecedor. O PDF inclui motorista, fornecedor, valores e observações."
+          description={
+            modo === "encargos"
+              ? "Escolha o intervalo de datas e, se quiser, filtre por status do recebimento e fornecedor. O PDF lista cada encargo lançado (diária/descarga)."
+              : "Escolha o intervalo de datas e, se quiser, filtre por status e fornecedor. O PDF inclui motorista, fornecedor, valores e observações."
+          }
           onClose={onClose}
         />
 

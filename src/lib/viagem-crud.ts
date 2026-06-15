@@ -1,6 +1,46 @@
 import { createClient } from "@/lib/supabase/client";
 import type { Viagem } from "@/types";
 
+export type ViagemCteDuplicada = {
+  id: string;
+  saida_em: string;
+  motorista_nome: string;
+};
+
+/** Verifica se o CT-e já está em outra viagem (comparação sem diferenciar maiúsculas). */
+export async function buscarViagemComMesmoCte(
+  numeroCte: string,
+  excludeViagemId?: string
+): Promise<ViagemCteDuplicada | null> {
+  const cte = numeroCte.trim();
+  if (!cte) return null;
+
+  const supabase = createClient();
+  let query = supabase
+    .from("viagens")
+    .select("id, saida_em, motoristas ( nome_completo )")
+    .ilike("numero_cte", cte);
+
+  if (excludeViagemId) {
+    query = query.neq("id", excludeViagemId);
+  }
+
+  const { data, error } = await query.limit(1).maybeSingle();
+  if (error || !data) return null;
+
+  const m = data.motoristas as
+    | { nome_completo: string }
+    | { nome_completo: string }[]
+    | null;
+  const motorista = Array.isArray(m) ? m[0] : m;
+
+  return {
+    id: data.id,
+    saida_em: data.saida_em,
+    motorista_nome: motorista?.nome_completo ?? "—",
+  };
+}
+
 export type ViagemListItem = {
   id: string;
   status: string;

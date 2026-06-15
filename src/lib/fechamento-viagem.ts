@@ -6,9 +6,7 @@ import type { ViagemFechamento } from "@/types/fechamento";
 import {
   calcularComissionamento,
   calcularConsumoKmLitro,
-  totalDespesasFrota,
-  totalDespesasTerceiro,
-  totalDespesasMotoristaFrota,
+  paramsComissionamentoFechamento,
 } from "@/types/fechamento";
 import { statusGeraFechamento } from "@/lib/viagem-status";
 import { isFrota } from "@/lib/viagem-validation";
@@ -205,17 +203,15 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     manutencao_total: gastos.manutencao_total,
     pedagio_valor: gastos.pedagio_valor,
     estacionamento_valor: gastos.estacionamento_valor,
+    pedagio_desconta_motorista: gastos.pedagio_desconta_motorista,
     outros_valor: gastos.outros_valor,
     seguro_valor: gastos.seguro_valor,
     monitoramento_valor: gastos.monitoramento_valor,
+    motorista_terceiro: motoristaTerceiro,
   } as ViagemFechamento;
 
-  const totalDespesas = motoristaTerceiro
-    ? totalDespesasTerceiro(gastosFechamento)
-    : totalDespesasFrota(gastosFechamento);
-  const totalDespesasMotorista = motoristaTerceiro
-    ? totalDespesas
-    : totalDespesasMotoristaFrota(gastosFechamento);
+  const { totalDespesasCalc, totalDespesasMotoristaCalc } =
+    paramsComissionamentoFechamento(gastosFechamento);
 
   const { frete_liquido: freteLiquido, comissao_final: comissaoFinal, valor_icms } =
     calcularComissionamento({
@@ -226,8 +222,8 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
       reembolso: gastos.reembolso_valor,
       adiantamento: gastos.adiantamento_valor,
       motoristaTerceiro,
-      totalDespesas,
-      totalDespesasMotorista,
+      totalDespesas: totalDespesasCalc,
+      totalDespesasMotorista: totalDespesasMotoristaCalc,
     });
   const valorCarga = Number(viagem.valor_mercadoria) || 0;
   const destino =

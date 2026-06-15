@@ -108,13 +108,13 @@ export const COMBUSTIVEL_TIPOS = [
 export type CombustivelTipo = (typeof COMBUSTIVEL_TIPOS)[number];
 
 export const ANEXOS_VIAGEM_CATEGORIAS_UNICAS = [
-  "CTE",
   "CIOT",
   "MDFE",
   "ENTREGAS",
 ] as const;
 
 export const ANEXOS_VIAGEM_CATEGORIAS_MULTIPLAS = [
+  "CTE",
   "ROMANEIO",
   "NOTAS_FISCAIS",
 ] as const;

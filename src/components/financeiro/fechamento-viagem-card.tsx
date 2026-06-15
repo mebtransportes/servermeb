@@ -1,7 +1,7 @@
 "use client";
 
 import type { ViagemFechamento } from "@/types/fechamento";
-import { getComissaoPercent, getIcmsPercent, totalDespesasFechamento, totalDespesasMotoristaFrota } from "@/types/fechamento";
+import { getComissaoPercent, getIcmsPercent, paramsComissionamentoFechamento } from "@/types/fechamento";
 import { formatarMoeda } from "@/lib/frota-filters";
 import { Select } from "@/components/ui/select";
 import { BrNumberInput } from "@/components/ui/br-number-input";
@@ -53,6 +53,7 @@ export function FechamentoViagemCard({
   async function handleSalvar() {
     setSaving(true);
     setSalvoMsg(false);
+    const comissaoParams = paramsComissionamentoFechamento(f);
     const result = await atualizarFechamentoConfig({
       id: f.id,
       valorFrete: Number(f.valor_frete) || 0,
@@ -62,10 +63,8 @@ export function FechamentoViagemCard({
       comissaoPercent: comPerc,
       motoristaTerceiro: isTerceiro,
       adiantamentoValor: f.adiantamento_valor,
-      totalDespesas: totalDespesasFechamento(f),
-      totalDespesasMotorista: isTerceiro
-        ? totalDespesasFechamento(f)
-        : totalDespesasMotoristaFrota(f),
+      totalDespesas: comissaoParams.totalDespesasCalc,
+      totalDespesasMotorista: comissaoParams.totalDespesasMotoristaCalc,
     });
     setSaving(false);
     if (result.error) {

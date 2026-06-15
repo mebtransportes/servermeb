@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Plus, Pencil, Trash2, LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CadastroBuscaInput } from "@/components/cadastro/cadastro-busca-input";
 import { LocalEntityForm } from "@/components/cadastro/local-entity-form";
+import { matchNomeOuDocumento } from "@/lib/cadastro-busca";
 import type { EnderecoEntidade } from "@/types";
 import { mebConfirm } from "@/lib/meb-dialog";
 
@@ -33,6 +35,7 @@ export function LocalEntityPage({
     null
   );
   const [showForm, setShowForm] = useState(false);
+  const [busca, setBusca] = useState("");
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -44,6 +47,12 @@ export function LocalEntityPage({
   useEffect(() => {
     load();
   }, [load]);
+
+  const filtrados = useMemo(
+    () =>
+      lista.filter((item) => matchNomeOuDocumento(item.nome, item.documento, busca)),
+    [lista, busca]
+  );
 
   async function handleDelete(id: string) {
     if (
@@ -100,11 +109,29 @@ export function LocalEntityPage({
         </Button>
       </header>
 
+      {!loading && lista.length > 0 && (
+        <div className="mb-4">
+          <CadastroBuscaInput
+            value={busca}
+            onChange={setBusca}
+            placeholder="Buscar por nome ou CPF/CNPJ..."
+          />
+        </div>
+      )}
+
       {loading ? (
         <p className="text-slate-400">Carregando...</p>
       ) : lista.length === 0 ? (
         <p className="text-slate-500">Nenhum registro cadastrado.</p>
+      ) : filtrados.length === 0 ? (
+        <p className="text-slate-500">Nenhum registro encontrado para &quot;{busca.trim()}&quot;.</p>
       ) : (
+        <>
+          {busca.trim() && (
+            <p className="mb-2 text-sm text-slate-500">
+              {filtrados.length} registro(s) encontrado(s)
+            </p>
+          )}
         <div className="overflow-x-auto rounded-xl border border-slate-200/80 bg-white/60">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
@@ -117,7 +144,7 @@ export function LocalEntityPage({
               </tr>
             </thead>
             <tbody>
-              {lista.map((item) => (
+              {filtrados.map((item) => (
                 <tr key={item.id} className="border-t border-slate-100 hover:bg-white/50">
                   <td className="px-4 py-3 text-slate-800">{item.nome}</td>
                   <td className="px-4 py-3 text-slate-700">{item.documento ?? "—"}</td>
@@ -149,6 +176,7 @@ export function LocalEntityPage({
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );

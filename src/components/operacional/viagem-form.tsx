@@ -25,7 +25,9 @@ import {
 } from "@/lib/viagem-validation";
 import { uploadFile } from "@/lib/storage";
 import { calcularIdade, cn, mebFormSection, mebFormSubsection } from "@/lib/utils";
-import { isoParaDatetimeLocal, type ViagemParaEdicao } from "@/lib/viagem-crud";
+import { isoParaDatetimeLocal, buscarViagemComMesmoCte, type ViagemParaEdicao } from "@/lib/viagem-crud";
+import { formatarDataHoraBr } from "@/lib/frota-filters";
+import { mebAlert } from "@/lib/meb-dialog";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
 import { statusGeraFechamento } from "@/lib/viagem-status";
 import { formatarLocaisParceiros } from "@/lib/viagem-parceiros-viagem";
@@ -68,6 +70,13 @@ function classificarAnexo(nome: string): "CNH" | "TOXICOLOGICO" | "CRLV" | null 
   return null;
 }
 
+function labelAnexoMultiplo(categoria: string): string {
+  if (categoria === "NOTAS_FISCAIS") return "Notas fiscais";
+  if (categoria === "ROMANEIO") return "Romaneios";
+  if (categoria === "CTE") return "CT-e";
+  return categoria;
+}
+
 export function ViagemForm({
   viagem,
   onSaved,
@@ -102,6 +111,7 @@ export function ViagemForm({
     ANEXOS_VIAGEM_CATEGORIAS_UNICAS.map((c) => ({ categoria: c, file: null }))
   );
   const [uploadsMultiplos, setUploadsMultiplos] = useState<Record<string, File[]>>({
+    CTE: [],
     ROMANEIO: [],
     NOTAS_FISCAIS: [],
   });
@@ -160,7 +170,7 @@ export function ViagemForm({
     setNumeroCte(viagem.numero_cte ?? "");
     setDescMercadoria(viagem.descricao_mercadoria ?? "");
     setUploads(ANEXOS_VIAGEM_CATEGORIAS_UNICAS.map((c) => ({ categoria: c, file: null })));
-    setUploadsMultiplos({ ROMANEIO: [], NOTAS_FISCAIS: [] });
+    setUploadsMultiplos({ CTE: [], ROMANEIO: [], NOTAS_FISCAIS: [] });
   }, [viagem]);
 
   function labelTipoVeiculo(tipo: Veiculo["tipo"] | undefined) {
@@ -300,6 +310,20 @@ export function ViagemForm({
     if (motorista && !isFrota(motorista.vinculo) && valorCargaNum <= 0) {
       setError("Para motorista terceiro, informe o valor da carga.");
       return;
+    }
+
+    const cteInformado = numeroCte.trim();
+    if (cteInformado) {
+      const duplicada = await buscarViagemComMesmoCte(
+        cteInformado,
+        isEdit ? viagem?.id : undefined
+      );
+      if (duplicada) {
+        await mebAlert(
+          `O CT-e ${cteInformado} já está vinculado a outra viagem (${duplicada.motorista_nome}, saída ${formatarDataHoraBr(duplicada.saida_em)}). Informe um número diferente.`
+        );
+        return;
+      }
     }
 
     setSaving(true);
@@ -852,7 +876,7 @@ export function ViagemForm({
           <h2 className="text-lg font-semibold text-slate-800">3. Anexos da viagem</h2>
           <p className="text-sm text-slate-500">
             CNH, Toxicológico e CRLV são vinculados automaticamente do cadastro.
-            Romaneios e notas fiscais aceitam vários arquivos.
+            CT-e, romaneios e notas fiscais aceitam vários arquivos.
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             {uploads.map((slot, i) => (
@@ -870,7 +894,7 @@ export function ViagemForm({
             {ANEXOS_VIAGEM_CATEGORIAS_MULTIPLAS.map((categoria) => (
               <FileUploadMultiple
                 key={categoria}
-                label={categoria === "NOTAS_FISCAIS" ? "Notas fiscais" : "Romaneios"}
+                label={labelAnexoMultiplo(categoria)}
                 files={uploadsMultiplos[categoria] ?? []}
                 onChange={(files) =>
                   setUploadsMultiplos((prev) => ({ ...prev, [categoria]: files }))

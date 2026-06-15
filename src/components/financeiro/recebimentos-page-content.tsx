@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Banknote, FileBarChart, RefreshCw } from "lucide-react";
+import { Banknote, FileBarChart, RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { PeriodoFilter } from "@/components/frota/periodo-filter";
 import { RecebimentoLinha } from "@/components/financeiro/recebimento-linha";
 import { RecebimentosRelatorioModal } from "@/components/financeiro/recebimentos-relatorio-modal";
@@ -90,6 +91,13 @@ function matchEncargoFiltros(
   );
 }
 
+function matchBuscaCte(item: RecebimentoComCanhotos, termo: string): boolean {
+  const q = termo.trim().toLowerCase();
+  if (!q) return true;
+  if (item.numero_cte?.toLowerCase().includes(q)) return true;
+  return item.encargos.some((e) => e.numero_cte?.toLowerCase().includes(q));
+}
+
 export function RecebimentosPageContent() {
   const [itens, setItens] = useState<RecebimentoComCanhotos[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,6 +107,8 @@ export function RecebimentosPageContent() {
   const [filtroEncargoStatus, setFiltroEncargoStatus] = useState<FiltroEncargoStatus>("todos");
   const [periodo, setPeriodo] = useState<PeriodoFiltroState>(PERIODO_FILTRO_INICIAL);
   const [showRelatorio, setShowRelatorio] = useState(false);
+  const [modoRelatorio, setModoRelatorio] = useState<"recebimentos" | "encargos">("recebimentos");
+  const [buscaCte, setBuscaCte] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -131,8 +141,11 @@ export function RecebimentosPageContent() {
         matchEncargoFiltros(i, filtroEncargoTipo, filtroEncargoStatus)
       );
     }
+    if (buscaCte.trim()) {
+      lista = lista.filter((i) => matchBuscaCte(i, buscaCte));
+    }
     return lista;
-  }, [noPeriodo, filtroStatus, filtroEncargoTipo, filtroEncargoStatus]);
+  }, [noPeriodo, filtroStatus, filtroEncargoTipo, filtroEncargoStatus, buscaCte]);
 
   const resumo = useMemo(() => {
     let pendente = 0;
@@ -164,9 +177,27 @@ export function RecebimentosPageContent() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="secondary" onClick={() => setShowRelatorio(true)}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              setModoRelatorio("recebimentos");
+              setShowRelatorio(true);
+            }}
+          >
             <FileBarChart className="mr-2 h-4 w-4" />
             Gerar relatório
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              setModoRelatorio("encargos");
+              setShowRelatorio(true);
+            }}
+          >
+            <FileBarChart className="mr-2 h-4 w-4" />
+            Relatório de encargos
           </Button>
           <Button type="button" variant="secondary" onClick={load} disabled={loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
@@ -278,6 +309,22 @@ export function RecebimentosPageContent() {
 
         <div>
           <p className="mb-2 text-xs font-medium text-slate-500">
+            Buscar por CT-e (viagem ou encargo)
+          </p>
+          <div className="relative max-w-md">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              type="search"
+              value={buscaCte}
+              onChange={(e) => setBuscaCte(e.target.value)}
+              placeholder="Digite o número do CT-e..."
+              className="pl-9"
+            />
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-2 text-xs font-medium text-slate-500">
             Período (data para recebimento)
           </p>
           <PeriodoFilter value={periodo} onChange={setPeriodo} />
@@ -295,6 +342,7 @@ export function RecebimentosPageContent() {
           {filtroEncargoStatus !== "todos" && (
             <> · Encargo {RECEBIMENTO_ENCARGO_STATUS_LABEL[filtroEncargoStatus]}</>
           )}
+          {buscaCte.trim() && <> · CT-e: {buscaCte.trim()}</>}
           {periodo.preset !== "todos" && <> · {labelPeriodoConfig(periodo)}</>}
           {" · "}
           total listado{" "}
@@ -324,6 +372,9 @@ export function RecebimentosPageContent() {
         itens={porVinculo}
         open={showRelatorio}
         onClose={() => setShowRelatorio(false)}
+        modo={modoRelatorio}
+        titulo={modoRelatorio === "encargos" ? "Relatório de Encargos" : "Relatório de Recebimentos"}
+        pdfSlug={modoRelatorio === "encargos" ? "encargos-recebimentos" : "recebimentos"}
       />
     </div>
   );

@@ -16,8 +16,8 @@ import {
   despesasCategoriasTerceiro,
   getComissaoPercent,
   getIcmsPercent,
+  paramsComissionamentoFechamento,
   totalDespesasFechamento,
-  totalDespesasMotoristaFrota,
 } from "@/types/fechamento";
 import { formatarMoeda } from "@/lib/frota-filters";
 import { desenharRodapeAssinaturasRecibo, RODAPE_ASSINATURA_ALTURA } from "@/lib/pdf-recibo-rodape";
@@ -116,9 +116,8 @@ function linhaCampos(
 export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
   const icms = getIcmsPercent(f);
   const despesas = totalDespesasFechamento(f);
-  const despesasMotorista = f.motorista_terceiro
-    ? despesas
-    : totalDespesasMotoristaFrota(f);
+  const { totalDespesasCalc, totalDespesasMotoristaCalc } = paramsComissionamentoFechamento(f);
+  const despesasMotorista = totalDespesasMotoristaCalc;
   const calc = calcularComissionamento({
     valorFrete: Number(f.valor_frete) || 0,
     icmsPercent: icms,
@@ -127,8 +126,8 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
     reembolso: Number(f.reembolso_valor) || 0,
     adiantamento: Number(f.adiantamento_valor) || 0,
     motoristaTerceiro: !!f.motorista_terceiro,
-    totalDespesas: despesas,
-    totalDespesasMotorista: despesasMotorista,
+    totalDespesas: totalDespesasCalc,
+    totalDespesasMotorista: totalDespesasMotoristaCalc,
   });
 
   const outrosMap = await fetchOutrosDespesasPorViagens([f.viagem_id]);

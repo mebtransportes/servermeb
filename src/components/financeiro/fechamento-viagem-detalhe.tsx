@@ -8,7 +8,7 @@ import {
   calcularConsumoKmLitro,
   getComissaoPercent,
   getIcmsPercent,
-  totalDespesasMotoristaFrota,
+  paramsComissionamentoFechamento,
 } from "@/types/fechamento";
 import {
   fetchOutrosDespesasPorViagens,
@@ -40,9 +40,8 @@ export function useFechamentoValores(
   const consumoKmLitro =
     f.consumo_km_litro ?? calcularConsumoKmLitro(kmRodado, litrosViagem);
   const despesas = totalDespesasFechamento(f);
-  const despesasMotorista = f.motorista_terceiro
-    ? despesas
-    : totalDespesasMotoristaFrota(f);
+  const { totalDespesasCalc, totalDespesasMotoristaCalc } = paramsComissionamentoFechamento(f);
+  const despesasMotorista = totalDespesasMotoristaCalc;
 
   const valores = useMemo(() => {
     const calc = calcularComissionamento({
@@ -53,8 +52,8 @@ export function useFechamentoValores(
       reembolso: Number(f.reembolso_valor) || 0,
       adiantamento: Number(f.adiantamento_valor) || 0,
       motoristaTerceiro: !!f.motorista_terceiro,
-      totalDespesas: despesas,
-      totalDespesasMotorista: despesasMotorista,
+      totalDespesas: totalDespesasCalc,
+      totalDespesasMotorista: totalDespesasMotoristaCalc,
     });
     return {
       icms,
@@ -68,7 +67,7 @@ export function useFechamentoValores(
       comissao_final: calc.comissao_final,
       valor_icms: calc.valor_icms,
     };
-  }, [f, icms, comissaoPercent, comissaoTipo, despesas, despesasMotorista]);
+  }, [f, icms, comissaoPercent, comissaoTipo, despesas, totalDespesasCalc, totalDespesasMotoristaCalc]);
 
   return {
     litrosViagem,

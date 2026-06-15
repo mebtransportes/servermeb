@@ -60,14 +60,37 @@ export function totalDespesasFrota(f: ViagemFechamento) {
   );
 }
 
-/** Gastos do motorista na frota — exclui combustível (abastecimento, arla) e manutenção (base da comissão). */
+/** Pedágio + estacionamento que reduzem comissão/repasse do motorista. */
+export function despesasPedagioEstacionamentoMotorista(
+  f: Pick<ViagemFechamento, "pedagio_valor" | "estacionamento_valor" | "pedagio_desconta_motorista">
+) {
+  if (f.pedagio_desconta_motorista != null) {
+    return Number(f.pedagio_desconta_motorista) || 0;
+  }
+  return (Number(f.pedagio_valor) || 0) + (Number(f.estacionamento_valor) || 0);
+}
+
+/** Gastos do motorista na frota — exclui combustível, manutenção e pedágio/estacionamento não descontados. */
 export function totalDespesasMotoristaFrota(f: ViagemFechamento) {
-  return (
-    totalDespesasFrota(f) -
-    (Number(f.abastecimento_valor) || 0) -
-    (Number(f.arla_valor) || 0) -
-    (Number(f.manutencao_total) || 0)
-  );
+  return despesasPedagioEstacionamentoMotorista(f) + (Number(f.outros_valor) || 0);
+}
+
+/** Despesas terceiro que entram no repasse (exclui pedágio/estacionamento marcados como não descontar). */
+export function totalDespesasRepasseTerceiro(f: ViagemFechamento) {
+  const full = totalDespesasTerceiro(f);
+  const pedEstTotal = (Number(f.pedagio_valor) || 0) + (Number(f.estacionamento_valor) || 0);
+  const pedEstMotorista = despesasPedagioEstacionamentoMotorista(f);
+  return full - pedEstTotal + pedEstMotorista;
+}
+
+/** Parâmetros de despesas para cálculo de comissão/repasse (totais exibidos vs. usados no cálculo). */
+export function paramsComissionamentoFechamento(f: ViagemFechamento) {
+  const despesas = totalDespesasFechamento(f);
+  const totalDespesasCalc = f.motorista_terceiro ? totalDespesasRepasseTerceiro(f) : despesas;
+  const totalDespesasMotoristaCalc = f.motorista_terceiro
+    ? totalDespesasRepasseTerceiro(f)
+    : totalDespesasMotoristaFrota(f);
+  return { despesas, totalDespesasCalc, totalDespesasMotoristaCalc };
 }
 
 /** Gastos operacionais viagem terceiro (todas despesas lançadas no acompanhamento). */
@@ -288,7 +311,7 @@ export type ResumoFechamentosAgrupados = {
 
 /** Recalcula comissão/repasse de um fechamento (mesma fórmula da tela de detalhe). */
 export function comissionamentoFechamento(f: ViagemFechamento) {
-  const despesas = totalDespesasFechamento(f);
+  const { totalDespesasCalc, totalDespesasMotoristaCalc } = paramsComissionamentoFechamento(f);
   return calcularComissionamento({
     valorFrete: Number(f.valor_frete) || 0,
     icmsPercent: getIcmsPercent(f),
@@ -297,8 +320,8 @@ export function comissionamentoFechamento(f: ViagemFechamento) {
     reembolso: Number(f.reembolso_valor) || 0,
     adiantamento: Number(f.adiantamento_valor) || 0,
     motoristaTerceiro: !!f.motorista_terceiro,
-    totalDespesas: despesas,
-    totalDespesasMotorista: f.motorista_terceiro ? despesas : totalDespesasMotoristaFrota(f),
+    totalDespesas: totalDespesasCalc,
+    totalDespesasMotorista: totalDespesasMotoristaCalc,
   });
 }
 

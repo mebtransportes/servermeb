@@ -184,6 +184,56 @@ export async function adicionarEncargoRecebimento(
   return sincronizarTotaisEncargos(id);
 }
 
+export async function atualizarEncargoRecebimento(
+  encargoId: string,
+  recebimentoId: string,
+  opts: {
+    tipo: RecebimentoEncargoTipo;
+    valor: number;
+    numero_cte?: string | null;
+    data_recebimento?: string | null;
+    status?: RecebimentoEncargoStatus;
+  }
+): Promise<string | null> {
+  const valor = opts.valor;
+  if (!Number.isFinite(valor) || valor <= 0) {
+    return "Informe um valor maior que zero.";
+  }
+
+  const supabase = createClient();
+  const dataReceb = opts.data_recebimento?.trim() || null;
+  const status: RecebimentoEncargoStatus =
+    opts.status ?? (dataReceb ? "pendente" : "sem_data");
+
+  const { error } = await supabase
+    .from("viagem_recebimento_encargos")
+    .update({
+      tipo: opts.tipo,
+      valor: Math.round(valor * 100) / 100,
+      numero_cte: opts.numero_cte?.trim() || null,
+      data_recebimento: dataReceb,
+      status,
+    })
+    .eq("id", encargoId);
+
+  if (error) return error.message;
+  return sincronizarTotaisEncargos(recebimentoId);
+}
+
+export async function excluirEncargoRecebimento(
+  encargoId: string,
+  recebimentoId: string
+): Promise<string | null> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("viagem_recebimento_encargos")
+    .delete()
+    .eq("id", encargoId);
+
+  if (error) return error.message;
+  return sincronizarTotaisEncargos(recebimentoId);
+}
+
 export async function atualizarRecebimento(
   id: string,
   patch: Partial<{

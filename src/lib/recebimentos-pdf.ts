@@ -4,9 +4,18 @@ import { formatarDataBr, formatarMoeda, dataNoIntervalo } from "@/lib/frota-filt
 import type { RecebimentoComCanhotos } from "@/lib/recebimento-viagem";
 import {
   calcularTotalAReceber,
+  RECEBIMENTO_ENCARGO_LABEL,
+  RECEBIMENTO_ENCARGO_STATUS_LABEL,
   RECEBIMENTO_STATUS_LABEL,
+  type RecebimentoEncargoStatus,
   type RecebimentoStatus,
+  type ViagemRecebimentoEncargo,
 } from "@/types/recebimento";
+
+export type EncargoRelatorioLinha = {
+  encargo: ViagemRecebimentoEncargo;
+  recebimento: RecebimentoComCanhotos;
+};
 
 function rodape(doc: jsPDF, pagina: number, total: number) {
   const y = doc.internal.pageSize.getHeight() - 10;
@@ -184,4 +193,156 @@ export function filtrarRecebimentosRelatorio(
     const ref = dataRef.includes("T") ? dataRef : `${dataRef}T12:00:00`;
     return dataNoIntervalo(ref, de, ate);
   });
+}
+
+function resumirEncargos(linhas: EncargoRelatorioLinha[]) {
+  let semData = 0;
+  let pendente = 0;
+  let pago = 0;
+  let total = 0;
+  for (const { encargo } of linhas) {
+    const v = Number(encargo.valor) || 0;
+    total += v;
+    if (encargo.status === "pago") pago += v;
+    else if (encargo.status === "pendente") pendente += v;
+    else semData += v;
+  }
+  return { semData, pendente, pago, total, qtd: linhas.length };
+}
+
+function cabecalhoRelatorioEncargos(
+  doc: jsPDF,
+  de: string,
+  ate: string,
+  statusLabel: string,
+  resumo: ReturnType<typeof resumirEncargos>,
+  fornecedorLabel?: string
+) {
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.setTextColor(0, 100, 120);
+  doc.text("MEB Gestão de Transporte", 14, 18);
+
+  doc.setFontSize(13);
+  doc.setTextColor(30, 30, 30);
+  doc.text("Relatório de Encargos", 14, 28);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(80);
+  doc.text(`Período: ${formatarDataBr(de)} até ${formatarDataBr(ate)}`, 14, 36);
+  doc.text(`Status recebimento: ${statusLabel}`, 14, 42);
+  let y = 48;
+  if (fornecedorLabel) {
+    doc.text(`Fornecedor: ${fornecedorLabel}`, 14, y);
+    y += 6;
+  }
+  doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 14, y);
+  y += 8;
+
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(50);
+  doc.text("Resumo", 14, y);
+  y += 6;
+  doc.setFont("helvetica", "normal");
+  [
+    `Total de encargos: ${resumo.qtd}`,
+    `Sem data: ${formatarMoeda(resumo.semData)}`,
+    `Pendente: ${formatarMoeda(resumo.pendente)}`,
+    `Pago: ${formatarMoeda(resumo.pago)}`,
+    `Valor total: ${formatarMoeda(resumo.total)}`,
+  ].forEach((linha) => {
+    doc.text(linha, 14, y);
+    y += 5;
+  });
+  return y + 4;
+}
+
+export function filtrarEncargosRelatorio(
+  itens: RecebimentoComCanhotos[],
+  de: string,
+  ate: string,
+  status: RecebimentoStatus | "todos",
+  fornecedor?: string
+): EncargoRelatorioLinha[] {
+  const linhas: EncargoRelatorioLinha[] = [];
+  for (const recebimento of itens) {
+    if (status !== "todos" && recebimento.status !== status) continue;
+    if (fornecedor && recebimento.empresa !== fornecedor) continue;
+    for (const encargo of recebimento.encargos) {
+      const dataRef =
+        encargo.data_recebimento ?? encargo.created_at ?? recebimento.created_at ?? "";
+      if (!dataRef) continue;
+      const ref = dataRef.includes("T") ? dataRef : `${dataRef}T12:00:00`;
+      if (!dataNoIntervalo(ref, de, ate)) continue;
+      linhas.push({ encargo, recebimento });
+    }
+  }
+  return linhas;
+}
+
+export function gerarPdfEncargosRecebimentos(
+  linhas: EncargoRelatorioLinha[],
+  de: string,
+  ate: string,
+  statusLabel: string,
+  options?: { arquivoSlug?: string; fornecedorLabel?: string }
+) {
+  const slug = options?.arquivoSlug ?? "encargos";
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const resumo = resumirEncargos(linhas);
+  const startY = cabecalhoRelatorioEncargos(
+    doc,
+    de,
+    ate,
+    statusLabel,
+    resumo,
+    options?.fornecedorLabel
+  );
+
+  const body = linhas.map(({ encargo, recebimento }) => {
+    const dataRef = encargo.data_recebimento ?? encargo.created_at ?? "";
+    return [
+      recebimento.motorista_nome,
+      recebimento.numero_cte?.trim() || "—",
+      encargo.numero_cte?.trim() || "—",
+      recebimento.empresa,
+      RECEBIMENTO_ENCARGO_LABEL[encargo.tipo],
+      formatarMoeda(encargo.valor),
+      dataRef ? formatarDataBr(dataRef.split("T")[0]) : "—",
+      RECEBIMENTO_ENCARGO_STATUS_LABEL[encargo.status],
+      recebimento.veiculos_placas,
+    ];
+  });
+
+  autoTable(doc, {
+    startY,
+    head: [
+      [
+        "Motorista",
+        "CTE viagem",
+        "CTE encargo",
+        "Fornecedor",
+        "Tipo",
+        "Valor",
+        "Data receb.",
+        "Status encargo",
+        "Placas",
+      ],
+    ],
+    body,
+    styles: { fontSize: 7, cellPadding: 1.5, overflow: "linebreak" },
+    headStyles: { fillColor: [0, 100, 120], textColor: 255, fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [245, 248, 250] },
+    columnStyles: {
+      0: { cellWidth: 28 },
+      1: { cellWidth: 16 },
+      2: { cellWidth: 16 },
+      3: { cellWidth: 30 },
+      8: { cellWidth: 18 },
+    },
+  });
+
+  aplicarRodapes(doc);
+  doc.save(`relatorio-encargos-${slug}_${de}_${ate}.pdf`);
 }

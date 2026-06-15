@@ -6,7 +6,12 @@ import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { AnexoArquivoRow } from "@/components/shared/anexo-arquivo-row";
 import { TextoMarquee } from "@/components/shared/texto-marquee";
-import { adicionarEncargoRecebimento, atualizarRecebimento } from "@/lib/recebimento-viagem";
+import {
+  adicionarEncargoRecebimento,
+  atualizarEncargoRecebimento,
+  excluirEncargoRecebimento,
+  atualizarRecebimento,
+} from "@/lib/recebimento-viagem";
 import { formatarMoeda } from "@/lib/frota-filters";
 import {
   calcularTotalAReceber,
@@ -16,10 +21,11 @@ import {
   type RecebimentoEncargoStatus,
   type RecebimentoEncargoTipo,
   type RecebimentoStatus,
+  type ViagemRecebimentoEncargo,
 } from "@/types/recebimento";
 import type { RecebimentoComCanhotos } from "@/lib/recebimento-viagem";
 import { cn, mebCard, mebFormSubsection } from "@/lib/utils";
-import { mebAlert } from "@/lib/meb-dialog";
+import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 
 const inputCompact = "py-1.5 text-sm";
 
@@ -83,6 +89,7 @@ export function RecebimentoLinha({
   const [cteEncargo, setCteEncargo] = useState("");
   const [dataEncargo, setDataEncargo] = useState("");
   const [statusEncargo, setStatusEncargo] = useState<RecebimentoEncargoStatus>("sem_data");
+  const [encargoEditandoId, setEncargoEditandoId] = useState<string | null>(null);
   const [salvandoEncargo, setSalvandoEncargo] = useState(false);
 
   const descargas = somaEncargosPorTipo(item.encargos, "descarga") || Number(item.valor_descargas_adicionais) || 0;
@@ -116,29 +123,68 @@ export function RecebimentoLinha({
     onAtualizado();
   }
 
-  async function handleAdicionarEncargo() {
+  function limparFormEncargo() {
+    setEncargoEditandoId(null);
+    setTipoEncargo("descarga");
+    setValorEncargo("");
+    setCteEncargo("");
+    setDataEncargo("");
+    setStatusEncargo("sem_data");
+  }
+
+  function iniciarEdicaoEncargo(e: ViagemRecebimentoEncargo) {
+    setEncargoEditandoId(e.id);
+    setTipoEncargo(e.tipo);
+    setValorEncargo(String(e.valor));
+    setCteEncargo(e.numero_cte?.trim() ?? "");
+    setDataEncargo(e.data_recebimento?.split("T")[0] ?? "");
+    setStatusEncargo(e.status);
+    setEncargosAbertos(true);
+  }
+
+  async function handleSalvarEncargo() {
     const valor = Number(valorEncargo.replace(",", "."));
     if (!Number.isFinite(valor) || valor <= 0) {
       await mebAlert("Informe um valor maior que zero.");
       return;
     }
     setSalvandoEncargo(true);
-    const err = await adicionarEncargoRecebimento(item.id, {
+    const payload = {
       tipo: tipoEncargo,
       valor,
       numero_cte: cteEncargo.trim() || null,
       data_recebimento: dataEncargo.trim() || null,
-      status: dataEncargo.trim() ? statusEncargo : "sem_data",
-    });
+      status: dataEncargo.trim() ? statusEncargo : ("sem_data" as RecebimentoEncargoStatus),
+    };
+    const err = encargoEditandoId
+      ? await atualizarEncargoRecebimento(encargoEditandoId, item.id, payload)
+      : await adicionarEncargoRecebimento(item.id, payload);
     setSalvandoEncargo(false);
     if (err) {
       await mebAlert(err);
       return;
     }
-    setValorEncargo("");
-    setCteEncargo("");
-    setDataEncargo("");
-    setStatusEncargo("sem_data");
+    limparFormEncargo();
+    onAtualizado();
+  }
+
+  async function handleExcluirEncargo(e: ViagemRecebimentoEncargo) {
+    if (
+      !(await mebConfirm(
+        `Excluir encargo de ${RECEBIMENTO_ENCARGO_LABEL[e.tipo]} (${formatarMoeda(e.valor)})?`,
+        { variant: "danger", confirmLabel: "Excluir" }
+      ))
+    ) {
+      return;
+    }
+    setSalvandoEncargo(true);
+    const err = await excluirEncargoRecebimento(e.id, item.id);
+    setSalvandoEncargo(false);
+    if (err) {
+      await mebAlert(err);
+      return;
+    }
+    if (encargoEditandoId === e.id) limparFormEncargo();
     onAtualizado();
   }
 
@@ -262,7 +308,7 @@ export function RecebimentoLinha({
       {encargosAbertos && (
         <div className={cn(mebFormSubsection, "mt-3 space-y-3")}>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Lançamento de encargo
+            {encargoEditandoId ? "Editar encargo" : "Lançamento de encargo"}
           </p>
           <div className="flex flex-wrap items-end gap-3">
             <Select
@@ -319,10 +365,21 @@ export function RecebimentoLinha({
               variant="success"
               className="h-[34px] text-xs"
               disabled={salvandoEncargo}
-              onClick={handleAdicionarEncargo}
+              onClick={handleSalvarEncargo}
             >
-              {salvandoEncargo ? "..." : "Lançar"}
+              {salvandoEncargo ? "..." : encargoEditandoId ? "Salvar" : "Lançar"}
             </Button>
+            {encargoEditandoId && (
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-[34px] text-xs"
+                disabled={salvandoEncargo}
+                onClick={limparFormEncargo}
+              >
+                Cancelar edição
+              </Button>
+            )}
             <Button
               type="button"
               variant="ghost"
@@ -330,10 +387,7 @@ export function RecebimentoLinha({
               disabled={salvandoEncargo}
               onClick={() => {
                 setEncargosAbertos(false);
-                setValorEncargo("");
-                setCteEncargo("");
-                setDataEncargo("");
-                setStatusEncargo("sem_data");
+                limparFormEncargo();
               }}
             >
               Fechar
@@ -350,11 +404,18 @@ export function RecebimentoLinha({
                     <th className="px-3 py-2 font-semibold">Valor</th>
                     <th className="px-3 py-2 font-semibold">Data receb.</th>
                     <th className="px-3 py-2 font-semibold">Status</th>
+                    <th className="px-3 py-2 font-semibold text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {item.encargos.map((e) => (
-                    <tr key={e.id} className="border-t border-slate-100">
+                    <tr
+                      key={e.id}
+                      className={cn(
+                        "border-t border-slate-100",
+                        encargoEditandoId === e.id && "bg-cyan-50/60"
+                      )}
+                    >
                       <td className="px-3 py-2">{RECEBIMENTO_ENCARGO_LABEL[e.tipo]}</td>
                       <td className="px-3 py-2 font-mono">{e.numero_cte?.trim() || "—"}</td>
                       <td className="px-3 py-2 font-medium">{formatarMoeda(e.valor)}</td>
@@ -364,6 +425,26 @@ export function RecebimentoLinha({
                           : "—"}
                       </td>
                       <td className="px-3 py-2">{RECEBIMENTO_ENCARGO_STATUS_LABEL[e.status]}</td>
+                      <td className="px-3 py-2 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            className="text-cyan-700 hover:underline"
+                            disabled={salvandoEncargo}
+                            onClick={() => iniciarEdicaoEncargo(e)}
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            className="text-red-600 hover:underline"
+                            disabled={salvandoEncargo}
+                            onClick={() => handleExcluirEncargo(e)}
+                          >
+                            Excluir
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

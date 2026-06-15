@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Car, Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CadastroBuscaInput } from "@/components/cadastro/cadastro-busca-input";
 import { VeiculosForm } from "@/components/cadastro/veiculos-form";
+import { matchPlaca } from "@/lib/cadastro-busca";
 import type { Veiculo } from "@/types";
 import { labelVinculo, VEICULO_TIPO_OPCOES } from "@/lib/viagem-validation";
 import { mebConfirm } from "@/lib/meb-dialog";
@@ -18,6 +20,7 @@ export default function VeiculosPage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Veiculo | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [busca, setBusca] = useState("");
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -32,6 +35,11 @@ export default function VeiculosPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const filtrados = useMemo(
+    () => lista.filter((v) => matchPlaca(v.placa, busca)),
+    [lista, busca]
+  );
 
   async function handleDelete(id: string) {
     if (
@@ -102,11 +110,29 @@ export default function VeiculosPage() {
         </Button>
       </header>
 
+      {!loading && lista.length > 0 && (
+        <div className="mb-4">
+          <CadastroBuscaInput
+            value={busca}
+            onChange={setBusca}
+            placeholder="Buscar por placa..."
+          />
+        </div>
+      )}
+
       {loading ? (
         <p className="text-slate-400">Carregando...</p>
       ) : lista.length === 0 ? (
         <p className="text-slate-500">Nenhum veículo cadastrado.</p>
+      ) : filtrados.length === 0 ? (
+        <p className="text-slate-500">Nenhum veículo encontrado para &quot;{busca.trim()}&quot;.</p>
       ) : (
+        <>
+          {busca.trim() && (
+            <p className="mb-2 text-sm text-slate-500">
+              {filtrados.length} veículo(s) encontrado(s)
+            </p>
+          )}
         <div className="overflow-x-auto rounded-xl border border-slate-200/80 bg-white/60">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
@@ -121,7 +147,7 @@ export default function VeiculosPage() {
               </tr>
             </thead>
             <tbody>
-              {lista.map((v) => (
+              {filtrados.map((v) => (
                 <tr key={v.id} className="border-t border-slate-100 hover:bg-white/50">
                   <td className="px-4 py-3 text-slate-800">{v.nome}</td>
                   <td className="px-4 py-3 text-slate-700">{labelVinculo(v.vinculo)}</td>
@@ -152,6 +178,7 @@ export default function VeiculosPage() {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );
