@@ -56,6 +56,11 @@ export function CustosOperacionaisDetalheModal({
                     {l.detalhe && (
                       <p className="mt-0.5 text-xs text-slate-400">{l.detalhe}</p>
                     )}
+                    {l.desconto != null && l.desconto > 0 && (
+                      <p className="mt-0.5 text-xs text-emerald-400">
+                        Desconto: {formatarMoeda(l.desconto)}
+                      </p>
+                    )}
                   </div>
                   <span className="shrink-0 font-semibold text-slate-200">
                     {formatarMoeda(l.valor)}

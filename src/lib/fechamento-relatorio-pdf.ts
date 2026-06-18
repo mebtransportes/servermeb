@@ -209,6 +209,20 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
       y = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable!.finalY + 4;
     }
 
+    if ((f.abastecimento_desconto_total ?? 0) > 0) {
+      y = linhaCampos(
+        doc,
+        y,
+        [
+          {
+            rotulo: "Total desconto em abastecimentos",
+            valor: formatarMoeda(f.abastecimento_desconto_total ?? 0),
+          },
+        ],
+        1
+      );
+    }
+
     y = secao(doc, y, "Cálculo geral");
     y = linhaCampos(
       doc,
@@ -238,6 +252,10 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
         },
         { rotulo: "Total KM rodado", valor: formatKm(f.km_rodado ?? f.km_total) },
         { rotulo: "Total abastecimento", valor: formatarMoeda(f.abastecimento_valor) },
+        {
+          rotulo: "Total desconto em abastecimentos",
+          valor: formatarMoeda(f.abastecimento_desconto_total ?? 0),
+        },
         { rotulo: "Total litros abastecidos", valor: formatLitros(f.litros_abastecimento_viagem) },
         {
           rotulo: "Consumo (km/L)",

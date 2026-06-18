@@ -27,6 +27,7 @@ export type CustoOperacionalLinha = {
   valor: number;
   origem: string;
   detalhe?: string;
+  desconto?: number;
 };
 
 export type CustosOperacionaisResumo = {
@@ -127,7 +128,7 @@ export async function fetchCustosOperacionais(
   const { data: recursos } = await supabase
     .from("viagem_recursos")
     .select(
-      "id, tipo, valor, realizado_em, descricao, combustivel_tipo, viagens(motoristas(nome_completo), veiculos(nome, placa))"
+      "id, tipo, valor, realizado_em, descricao, combustivel_tipo, litros, km_abastecimento, teve_desconto_combustivel, valor_desconto_combustivel, postos(nome), viagens(motoristas(nome_completo), veiculos(nome, placa))"
     )
     .order("realizado_em", { ascending: false });
 
@@ -151,7 +152,20 @@ export async function fetchCustosOperacionais(
     const veiculo = veiculoInfo
       ? `${veiculoInfo.nome} — ${veiculoInfo.placa}`
       : undefined;
-    const detalhe = [motorista, veiculo, r.descricao].filter(Boolean).join(" · ");
+    const posto = relOne(r.postos as { nome: string } | { nome: string }[] | null)?.nome;
+    const desconto =
+      r.teve_desconto_combustivel && r.valor_desconto_combustivel != null
+        ? Number(r.valor_desconto_combustivel) || 0
+        : undefined;
+    const detalheParts = [motorista, veiculo, posto ? `Posto: ${posto}` : null];
+    if (r.tipo === "abastecimento") {
+      if (r.litros != null) detalheParts.push(`${Number(r.litros).toLocaleString("pt-BR")} L`);
+      if (r.km_abastecimento != null) {
+        detalheParts.push(`KM ${Number(r.km_abastecimento).toLocaleString("pt-BR")}`);
+      }
+    }
+    if (r.descricao) detalheParts.push(r.descricao);
+    const detalhe = detalheParts.filter(Boolean).join(" · ");
 
     if (r.tipo === "abastecimento" && isArlaCombustivel(r.combustivel_tipo)) {
       resumo.arla += v;
@@ -179,6 +193,7 @@ export async function fetchCustosOperacionais(
           valor: v,
           origem: "Viagem",
           detalhe,
+          desconto,
         });
         break;
       case "manutencao":

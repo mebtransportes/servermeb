@@ -46,6 +46,8 @@ type Recurso = {
   comprovante_nome?: string | null;
   recurso_par_id?: string | null;
   desconta_motorista?: boolean;
+  teve_desconto_combustivel?: boolean;
+  valor_desconto_combustivel?: number | null;
   postos?: { nome: string } | null;
   oficinas?: { nome: string } | null;
 };
@@ -89,6 +91,8 @@ export function ViagemRecursos({
   const [kmOdometroInicial, setKmOdometroInicial] = useState<number | null>(null);
   const [motoristaAdiantou, setMotoristaAdiantou] = useState(false);
   const [naoDescontaMotorista, setNaoDescontaMotorista] = useState(false);
+  const [teveDescontoCombustivel, setTeveDescontoCombustivel] = useState(false);
+  const [valorDescontoCombustivel, setValorDescontoCombustivel] = useState("");
 
   const load = async () => {
     const supabase = createClient();
@@ -175,6 +179,8 @@ export function ViagemRecursos({
     setFiles([]);
     setMotoristaAdiantou(false);
     setNaoDescontaMotorista(false);
+    setTeveDescontoCombustivel(false);
+    setValorDescontoCombustivel("");
   }
 
   async function handleAdd(e: React.FormEvent, tipoFixo?: "reembolso") {
@@ -205,6 +211,17 @@ export function ViagemRecursos({
         await mebAlert("Selecione o tipo de combustível.");
         return;
       }
+      if (teveDescontoCombustivel) {
+        const descontoNum = parseBrNumber(valorDescontoCombustivel) ?? 0;
+        if (descontoNum <= 0) {
+          await mebAlert("Informe o valor do desconto obtido no abastecimento.");
+          return;
+        }
+        if (descontoNum > valorNum) {
+          await mebAlert("O valor do desconto não pode ser maior que o valor pago.");
+          return;
+        }
+      }
     }
 
     setSaving(true);
@@ -227,6 +244,10 @@ export function ViagemRecursos({
     if (tipoLancamento === "abastecimento") {
       if (litros) payload.litros = parseBrNumber(litros);
       if (combustivelTipo) payload.combustivel_tipo = combustivelTipo;
+      payload.teve_desconto_combustivel = teveDescontoCombustivel;
+      payload.valor_desconto_combustivel = teveDescontoCombustivel
+        ? parseBrNumber(valorDescontoCombustivel) ?? 0
+        : null;
     }
     if (tipoLancamento === "manutencao") payload.status_frota = "FINALIZADO";
     if (tipoLancamento === "pedagio" || tipoLancamento === "estacionamento") {
@@ -374,6 +395,8 @@ export function ViagemRecursos({
               if (t !== "abastecimento") {
                 setLitros("");
                 setCombustivelTipo("");
+                setTeveDescontoCombustivel(false);
+                setValorDescontoCombustivel("");
               }
               if (t !== "outro") setMotoristaAdiantou(false);
               if (t !== "pedagio" && t !== "estacionamento") setNaoDescontaMotorista(false);
@@ -476,6 +499,35 @@ export function ViagemRecursos({
                 placeholder="Ex: 150,50"
                 required
               />
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={teveDescontoCombustivel}
+                  onChange={(e) => {
+                    setTeveDescontoCombustivel(e.target.checked);
+                    if (!e.target.checked) setValorDescontoCombustivel("");
+                  }}
+                  className="mt-0.5 rounded border-slate-300"
+                />
+                <span>
+                  <span className="font-medium text-slate-800">
+                    Teve desconto no abastecimento
+                  </span>
+                  <span className="mt-0.5 block text-xs text-slate-600">
+                    Marque se obteve desconto no posto (controle financeiro).
+                  </span>
+                </span>
+              </label>
+              {teveDescontoCombustivel && (
+                <BrNumberInput
+                  label="Valor do desconto (R$)"
+                  decimalPlaces={2}
+                  value={valorDescontoCombustivel}
+                  onChange={setValorDescontoCombustivel}
+                  placeholder="Ex: 50,00"
+                  required
+                />
+              )}
             </>
           )}
           {tipo === "manutencao" && (
@@ -831,6 +883,15 @@ function RecursoItem({
         )}
         {recurso.tipo === "abastecimento" && recurso.km_abastecimento != null && (
           <> · KM {Number(recurso.km_abastecimento).toLocaleString("pt-BR")}</>
+        )}
+        {recurso.tipo === "abastecimento" && recurso.teve_desconto_combustivel && (
+          <>
+            {" "}
+            · Desconto R${" "}
+            {Number(recurso.valor_desconto_combustivel ?? 0).toLocaleString("pt-BR", {
+              minimumFractionDigits: 2,
+            })}
+          </>
         )}
       </p>
       {recurso.descricao &&

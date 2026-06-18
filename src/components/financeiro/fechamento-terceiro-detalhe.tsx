@@ -80,6 +80,17 @@ export function FechamentoTerceiroDetalhe({
             { rotulo: "Valor do monitoramento", valor: formatarMoeda(f.monitoramento_valor ?? 0) },
           ]}
         />
+        {(f.abastecimento_desconto_total ?? 0) > 0 && (
+          <FechamentoLinhaCampos
+            cols={1}
+            campos={[
+              {
+                rotulo: "Total desconto em abastecimentos",
+                valor: formatarMoeda(f.abastecimento_desconto_total ?? 0),
+              },
+            ]}
+          />
+        )}
         <FechamentoListaItens titulo="Outras despesas" itens={outrosItens} />
         {categoriasExtras.length > 0 && (
           <FechamentoListaItens titulo="Demais gastos da viagem" itens={categoriasExtras} />

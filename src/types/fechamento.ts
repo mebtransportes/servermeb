@@ -19,6 +19,7 @@ export type ViagemFechamento = {
   litros_abastecimento_viagem?: number | null;
   abastecimento_litros: number;
   abastecimento_valor: number;
+  abastecimento_desconto_total?: number;
   arla_valor: number;
   manutencao_total: number;
   pedagio_valor: number;

@@ -8,7 +8,7 @@ import { BrNumberInput } from "@/components/ui/br-number-input";
 import { EntregaAutocomplete } from "@/components/ui/entrega-autocomplete";
 import { MotoristaAutocomplete } from "@/components/ui/motorista-autocomplete";
 import { VeiculosViagemPicker } from "@/components/ui/veiculos-viagem-picker";
-import { FileUploadField, FileUploadMultiple } from "@/components/ui/file-upload";
+import { FileUploadMultiple } from "@/components/ui/file-upload";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -16,7 +16,6 @@ import { AptoBadge } from "@/components/operacional/apto-badge";
 import {
   validarMotorista,
   validarVeiculo,
-  ANEXOS_VIAGEM_CATEGORIAS_UNICAS,
   ANEXOS_VIAGEM_CATEGORIAS_MULTIPLAS,
   isFrota,
   labelVinculo,
@@ -52,11 +51,6 @@ type AnexoRef = {
   origem: string;
 };
 
-type UploadSlot = {
-  categoria: string;
-  file: File | null;
-};
-
 type VeiculoSelecionado = {
   veiculo: Veiculo;
   validacao: ReturnType<typeof validarVeiculo>;
@@ -70,11 +64,22 @@ function classificarAnexo(nome: string): "CNH" | "TOXICOLOGICO" | "CRLV" | null 
   return null;
 }
 
+function criarUploadsMultiplosVazios(): Record<string, File[]> {
+  return Object.fromEntries(
+    ANEXOS_VIAGEM_CATEGORIAS_MULTIPLAS.map((c) => [c, [] as File[]])
+  );
+}
+
 function labelAnexoMultiplo(categoria: string): string {
-  if (categoria === "NOTAS_FISCAIS") return "Notas fiscais";
-  if (categoria === "ROMANEIO") return "Romaneios";
-  if (categoria === "CTE") return "CT-e";
-  return categoria;
+  const labels: Record<string, string> = {
+    NOTAS_FISCAIS: "Notas fiscais",
+    ROMANEIO: "Romaneios",
+    CTE: "CT-e",
+    CIOT: "CIOT",
+    MDFE: "Manifesto (MDF-e)",
+    ENTREGAS: "Entregas",
+  };
+  return labels[categoria] ?? categoria;
 }
 
 export function ViagemForm({
@@ -107,14 +112,9 @@ export function ViagemForm({
   const [descMercadoria, setDescMercadoria] = useState("");
   const [tanqueVeiculo, setTanqueVeiculo] = useState<LitrosTanqueVeiculo | null>(null);
   const [ultimoKmVeiculo, setUltimoKmVeiculo] = useState<UltimoKmVeiculo | null>(null);
-  const [uploads, setUploads] = useState<UploadSlot[]>(
-    ANEXOS_VIAGEM_CATEGORIAS_UNICAS.map((c) => ({ categoria: c, file: null }))
+  const [uploadsMultiplos, setUploadsMultiplos] = useState<Record<string, File[]>>(
+    criarUploadsMultiplosVazios
   );
-  const [uploadsMultiplos, setUploadsMultiplos] = useState<Record<string, File[]>>({
-    CTE: [],
-    ROMANEIO: [],
-    NOTAS_FISCAIS: [],
-  });
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -169,8 +169,7 @@ export function ViagemForm({
     setValorFrete(rawNumberStringToBrInput(viagem.valor_frete, 2));
     setNumeroCte(viagem.numero_cte ?? "");
     setDescMercadoria(viagem.descricao_mercadoria ?? "");
-    setUploads(ANEXOS_VIAGEM_CATEGORIAS_UNICAS.map((c) => ({ categoria: c, file: null })));
-    setUploadsMultiplos({ CTE: [], ROMANEIO: [], NOTAS_FISCAIS: [] });
+    setUploadsMultiplos(criarUploadsMultiplosVazios());
   }, [viagem]);
 
   function labelTipoVeiculo(tipo: Veiculo["tipo"] | undefined) {
@@ -453,22 +452,6 @@ export function ViagemForm({
           file_name: a.file_name,
           mime_type: "application/pdf",
           origem: a.origem,
-        });
-      }
-    }
-
-    for (const slot of uploads) {
-      if (!slot.file) continue;
-      const up = await uploadFile(slot.file, `viagens/${viagemId}`);
-      if (up) {
-        anexosInsert.push({
-          viagem_id: viagemId,
-          categoria: slot.categoria,
-          nome: slot.categoria,
-          storage_path: up.path,
-          file_name: up.fileName,
-          mime_type: up.mimeType,
-          origem: "upload",
         });
       }
     }
@@ -876,21 +859,9 @@ export function ViagemForm({
           <h2 className="text-lg font-semibold text-slate-800">3. Anexos da viagem</h2>
           <p className="text-sm text-slate-500">
             CNH, Toxicológico e CRLV são vinculados automaticamente do cadastro.
-            CT-e, romaneios e notas fiscais aceitam vários arquivos.
+            Todos os demais campos aceitam vários arquivos (PDF ou imagem).
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
-            {uploads.map((slot, i) => (
-              <FileUploadField
-                key={slot.categoria}
-                label={slot.categoria}
-                file={slot.file}
-                onChange={(file) => {
-                  const next = [...uploads];
-                  next[i] = { ...slot, file };
-                  setUploads(next);
-                }}
-              />
-            ))}
             {ANEXOS_VIAGEM_CATEGORIAS_MULTIPLAS.map((categoria) => (
               <FileUploadMultiple
                 key={categoria}

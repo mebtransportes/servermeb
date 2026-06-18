@@ -107,22 +107,19 @@ export const COMBUSTIVEL_TIPOS = [
 
 export type CombustivelTipo = (typeof COMBUSTIVEL_TIPOS)[number];
 
-export const ANEXOS_VIAGEM_CATEGORIAS_UNICAS = [
+export const ANEXOS_VIAGEM_CATEGORIAS_MULTIPLAS = [
   "CIOT",
   "MDFE",
   "ENTREGAS",
-] as const;
-
-export const ANEXOS_VIAGEM_CATEGORIAS_MULTIPLAS = [
   "CTE",
   "ROMANEIO",
   "NOTAS_FISCAIS",
 ] as const;
 
-export const ANEXOS_VIAGEM_CATEGORIAS = [
-  ...ANEXOS_VIAGEM_CATEGORIAS_UNICAS,
-  ...ANEXOS_VIAGEM_CATEGORIAS_MULTIPLAS,
-] as const;
+/** @deprecated Todos os anexos de viagem aceitam múltiplos arquivos. */
+export const ANEXOS_VIAGEM_CATEGORIAS_UNICAS = [] as const;
+
+export const ANEXOS_VIAGEM_CATEGORIAS = [...ANEXOS_VIAGEM_CATEGORIAS_MULTIPLAS] as const;
 
 export const VEICULO_TIPO_OPCOES = [
   { value: "caminhao", label: "Caminhão" },

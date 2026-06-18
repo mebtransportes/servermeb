@@ -5,13 +5,10 @@ import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
 import { Logo } from "@/components/brand/logo";
 import {
-  getDefaultHome,
   isActiveProfileRole,
   normalizeProfileRole,
-  normalizeRole,
 } from "@/lib/roles";
 
 const supabaseConfigured =
@@ -23,7 +20,6 @@ function LoginPageContent() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -140,8 +136,7 @@ function LoginPageContent() {
       return;
     }
 
-    router.push(getDefaultHome(normalizeRole(roleAfter)));
-    router.refresh();
+    window.location.href = "/";
   }
 
   return (

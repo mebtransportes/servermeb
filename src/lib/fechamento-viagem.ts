@@ -20,6 +20,8 @@ type RecursoRow = {
   combustivel_tipo?: string | null;
   desconta_motorista?: boolean | null;
   km_abastecimento?: number | null;
+  teve_desconto_combustivel?: boolean | null;
+  valor_desconto_combustivel?: number | null;
 };
 
 function isArlaCombustivel(tipo?: string | null) {
@@ -29,6 +31,7 @@ function isArlaCombustivel(tipo?: string | null) {
 function somarRecursos(recursos: RecursoRow[]) {
   let litros_abastecimento_viagem = 0;
   let abastecimento_valor = 0;
+  let abastecimento_desconto_total = 0;
   let arla_valor = 0;
   let manutencao_total = 0;
   let pedagio_valor = 0;
@@ -49,6 +52,9 @@ function somarRecursos(recursos: RecursoRow[]) {
           arla_valor += v;
         } else {
           abastecimento_valor += v;
+          if (r.teve_desconto_combustivel) {
+            abastecimento_desconto_total += Number(r.valor_desconto_combustivel) || 0;
+          }
           if (!r.abastecimento_inicial) {
             litros_abastecimento_viagem += Number(r.litros) || 0;
           }
@@ -100,6 +106,7 @@ function somarRecursos(recursos: RecursoRow[]) {
   return {
     litros_abastecimento_viagem,
     abastecimento_valor,
+    abastecimento_desconto_total,
     arla_valor,
     manutencao_total,
     pedagio_valor,
@@ -179,7 +186,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
 
   const { data: recursos } = await supabase
     .from("viagem_recursos")
-    .select("tipo, valor, litros, abastecimento_inicial, combustivel_tipo, desconta_motorista, km_abastecimento")
+    .select("tipo, valor, litros, abastecimento_inicial, combustivel_tipo, desconta_motorista, km_abastecimento, teve_desconto_combustivel, valor_desconto_combustivel")
     .eq("viagem_id", viagemId);
 
   const gastos = somarRecursos((recursos as RecursoRow[]) ?? []);
@@ -264,6 +271,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     litros_abastecimento_viagem,
     abastecimento_litros,
     abastecimento_valor: gastos.abastecimento_valor,
+    abastecimento_desconto_total: gastos.abastecimento_desconto_total,
     arla_valor: gastos.arla_valor,
     manutencao_total: gastos.manutencao_total,
     pedagio_valor: gastos.pedagio_valor,

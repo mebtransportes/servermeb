@@ -94,9 +94,16 @@ export function FechamentoFrotaDetalhe({
           cols={3}
           campos={[
             { rotulo: "Total gasto com abastecimento", valor: formatarMoeda(f.abastecimento_valor) },
+            {
+              rotulo: "Total desconto em abastecimentos",
+              valor: formatarMoeda(f.abastecimento_desconto_total ?? 0),
+            },
             { rotulo: "Total litros abastecidos", valor: formatLitros(v.litrosViagem) },
-            { rotulo: "KM por litro", valor: formatConsumoKmLitro(v.consumoKmLitro) },
           ]}
+        />
+        <FechamentoLinhaCampos
+          cols={1}
+          campos={[{ rotulo: "KM por litro", valor: formatConsumoKmLitro(v.consumoKmLitro) }]}
         />
         <FechamentoLinhaCampos
           cols={2}
