@@ -79,6 +79,7 @@ export function validarVeiculo(v: Veiculo): ResultadoApto {
 
 /** Status disponíveis para seleção em acompanhamento / cadastro. */
 export const VIAGEM_STATUS = [
+  "AGENDADA",
   "EM CARREGAMENTO",
   "EM ROTA",
   "EM MANUTENÇÃO",
@@ -93,6 +94,15 @@ export const VIAGEM_STATUS = [
 export const VIAGEM_STATUS_FILTRO_ACOMPANHAMENTO = VIAGEM_STATUS;
 
 export type ViagemStatus = (typeof VIAGEM_STATUS)[number];
+
+export function isViagemAgendada(status: string | null | undefined): boolean {
+  return status === "AGENDADA";
+}
+
+/** Quando false (AGENDADA), cadastro aceita só motorista e veículo. */
+export function viagemExigeProgramacaoCompleta(status: string | null | undefined): boolean {
+  return !isViagemAgendada(status);
+}
 
 export const COMBUSTIVEL_TIPOS = [
   "Arla",

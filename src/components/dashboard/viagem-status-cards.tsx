@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  CalendarClock,
   Package,
   Route,
   Wrench,
@@ -18,6 +19,7 @@ import { cn, mebCardSm } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 
 const CARD_ICONS: Record<string, LucideIcon> = {
+  AGENDADA: CalendarClock,
   "EM CARREGAMENTO": Package,
   "EM ROTA": Route,
   "EM MANUTENÇÃO": Wrench,

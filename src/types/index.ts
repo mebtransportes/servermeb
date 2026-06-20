@@ -54,6 +54,7 @@ export interface Motorista {
 }
 
 export type ViagemStatus =
+  | "AGENDADA"
   | "EM CARREGAMENTO"
   | "EM ROTA"
   | "EM MANUTENÇÃO"
@@ -86,9 +87,9 @@ export interface Viagem {
   id: string;
   motorista_id: string;
   veiculo_id: string;
-  saida_em: string;
+  saida_em: string | null;
   chegada_prevista_em: string | null;
-  local_saida: string;
+  local_saida: string | null;
   tipo_trajeto: ViagemTipoTrajeto;
   peso_kg?: number | null;
   valor_mercadoria?: number | null;

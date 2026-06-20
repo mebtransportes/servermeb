@@ -198,7 +198,7 @@ export function ViagemDetail({
   if (!viagem) return <p className="text-slate-500">Carregando...</p>;
 
   const duracaoViagem =
-    viagem.chegada_prevista_em != null
+    viagem.saida_em && viagem.chegada_prevista_em != null
       ? formatarDuracaoViagem(viagem.saida_em, viagem.chegada_prevista_em)
       : null;
 
@@ -213,7 +213,10 @@ export function ViagemDetail({
             {m?.nome_completo ?? "Motorista"} · {veiculosLabel}
           </h2>
           <p className="text-sm text-slate-500">
-            Saída: {new Date(viagem.saida_em).toLocaleString("pt-BR")}
+            Saída:{" "}
+            {viagem.saida_em
+              ? new Date(viagem.saida_em).toLocaleString("pt-BR")
+              : "A definir (viagem agendada)"}
             {duracaoViagem && (
               <>
                 {" "}

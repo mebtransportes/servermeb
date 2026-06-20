@@ -44,8 +44,9 @@ export async function buscarViagemComMesmoCte(
 export type ViagemListItem = {
   id: string;
   status: string;
-  saida_em: string;
+  saida_em: string | null;
   local_saida: string;
+  fornecedores: string[];
   numero_cte?: string | null;
   valor_frete?: number | null;
   motorista_nome: string;
@@ -74,7 +75,8 @@ export async function fetchViagensLista(): Promise<ViagemListItem[]> {
       id, status, saida_em, local_saida, numero_cte, valor_frete,
       motoristas ( nome_completo ),
       veiculos ( nome, placa ),
-      viagem_veiculos ( ordem, veiculos ( nome, placa ) )
+      viagem_veiculos ( ordem, veiculos ( nome, placa ) ),
+      viagem_fornecedores ( ordem, local_fornecedor )
     `
     )
     .order("saida_em", { ascending: false });
@@ -108,11 +110,19 @@ export async function fetchViagensLista(): Promise<ViagemListItem[]> {
         : veiculoFallback
           ? [veiculoFallback]
           : [];
+    const fornecedoresDb = row.viagem_fornecedores as
+      | { ordem: number; local_fornecedor: string }[]
+      | null;
+    const fornecedores = (fornecedoresDb ?? [])
+      .sort((a, b) => a.ordem - b.ordem)
+      .map((f) => f.local_fornecedor)
+      .filter(Boolean);
     return {
       id: row.id,
       status: row.status,
       saida_em: row.saida_em,
       local_saida: row.local_saida,
+      fornecedores,
       numero_cte: row.numero_cte,
       valor_frete: row.valor_frete,
       motorista_nome: motorista?.nome_completo ?? "—",

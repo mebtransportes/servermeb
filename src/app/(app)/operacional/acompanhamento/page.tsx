@@ -2,10 +2,9 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { MapPinned, Printer } from "lucide-react";
+import { MapPinned } from "lucide-react";
 import { ViagemAcompanhamentoCard } from "@/components/operacional/viagem-acompanhamento-card";
 import { Select } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
 import {
   fetchFornecedoresAcompanhamento,
   fetchViagensAcompanhamento,
@@ -100,10 +99,6 @@ function AcompanhamentoContent() {
             </p>
           </div>
         </div>
-        <Button type="button" variant="secondary" onClick={() => window.print()}>
-          <Printer className="mr-2 h-4 w-4" />
-          Imprimir / print
-        </Button>
       </header>
 
       <div className={`flex flex-wrap items-end gap-3 p-4 print:hidden ${mebCard}`}>
@@ -149,7 +144,7 @@ function AcompanhamentoContent() {
         <p className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 print:border-gray-400 print:bg-gray-50 print:text-black">
           Exibindo viagens que incluem <strong>{fornecedorSelecionado.nome}</strong> como
           fornecedor (origem). Nos cards com vários fornecedores ou entregas, selecione qual
-          parada está ativa antes de copiar para o WhatsApp ou tirar print.
+          parada está ativa antes de copiar para o WhatsApp.
         </p>
       )}
 
@@ -161,7 +156,7 @@ function AcompanhamentoContent() {
         <>
           <p className="text-sm text-slate-400 print:text-gray-600">
             {visiveis.length} viagem(ns) · selecione fornecedor/entrega atuais quando houver
-            mais de um · <strong>Copiar p/ WhatsApp</strong> ou imprima a tela
+            mais de um · use <strong>Copiar p/ WhatsApp</strong> para compartilhar
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 print:grid-cols-2">
             {visiveis.map((v) => (

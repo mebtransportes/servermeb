@@ -17,6 +17,7 @@ export function statusElegivelComissao(status: string): boolean {
 }
 
 export const VIAGEM_STATUS_LABEL: Record<string, string> = {
+  AGENDADA: "Agendada",
   "EM CARREGAMENTO": "Em carregamento",
   "EM ROTA": "Em rota",
   "EM MANUTENÇÃO": "Em manutenção",
@@ -35,6 +36,7 @@ export const VIAGEM_STATUS_LABEL: Record<string, string> = {
 
 /** Badges coloridos (tema claro) — acompanhamento e listagens */
 export const VIAGEM_STATUS_CORES: Record<string, string> = {
+  AGENDADA: "bg-indigo-100 text-indigo-800",
   "EM CARREGAMENTO": "bg-amber-100 text-amber-800",
   "EM ROTA": "bg-sky-100 text-sky-800",
   "EM MANUTENÇÃO": "bg-rose-100 text-rose-800",

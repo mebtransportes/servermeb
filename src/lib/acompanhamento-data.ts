@@ -21,7 +21,7 @@ export type AcompanhamentoFornecedor = ParceiroViagemLinha & {
 export type AcompanhamentoViagemItem = {
   id: string;
   status: string;
-  saida_em: string;
+  saida_em: string | null;
   chegada_prevista_em: string | null;
   local_saida: string;
   numero_cte?: string | null;
@@ -149,15 +149,25 @@ function textoMatchParceiro(textos: string[], parceiro: Pick<ParceiroSugestao, "
 }
 
 /** Viagem que inclui o fornecedor em alguma origem. */
+export function viagemMatchFornecedorLocais(
+  locaisFornecedor: string[],
+  localSaida: string,
+  fornecedor: Pick<ParceiroSugestao, "nome" | "textoCompleto">
+): boolean {
+  const textos = locaisFornecedor.length > 0 ? locaisFornecedor : [localSaida];
+  return textoMatchParceiro(textos, fornecedor);
+}
+
+/** Viagem que inclui o fornecedor em alguma origem. */
 export function viagemMatchFornecedor(
   viagem: AcompanhamentoViagemItem,
   fornecedor: Pick<ParceiroSugestao, "nome" | "textoCompleto">
 ): boolean {
-  const textos =
-    viagem.fornecedores.length > 0
-      ? viagem.fornecedores.map((f) => f.local_fornecedor)
-      : [viagem.local_saida];
-  return textoMatchParceiro(textos, fornecedor);
+  return viagemMatchFornecedorLocais(
+    viagem.fornecedores.map((f) => f.local_fornecedor),
+    viagem.local_saida,
+    fornecedor
+  );
 }
 
 function encurtarTexto(texto: string, max = 42): string {
@@ -245,16 +255,22 @@ export function formatarTextoWhatsAppAcompanhamento(
   linhas.push(
     `🚚 *Veículo:* ${viagem.veiculos_label}`,
     `📍 *Status:* ${statusLabel}`,
-    `🏁 *Saída:* ${new Date(viagem.saida_em).toLocaleString("pt-BR")}`
+    `🏁 *Saída:* ${
+      viagem.saida_em
+        ? new Date(viagem.saida_em).toLocaleString("pt-BR")
+        : "A definir"
+    }`
   );
 
   if (viagem.chegada_prevista_em) {
     linhas.push(
       `🕐 *Chegada:* ${new Date(viagem.chegada_prevista_em).toLocaleString("pt-BR")}`
     );
-    const duracao = formatarDuracaoViagem(viagem.saida_em, viagem.chegada_prevista_em);
-    if (duracao) {
-      linhas.push(`⏱ *Duração:* ${duracao}`);
+    if (viagem.saida_em) {
+      const duracao = formatarDuracaoViagem(viagem.saida_em, viagem.chegada_prevista_em);
+      if (duracao) {
+        linhas.push(`⏱ *Duração:* ${duracao}`);
+      }
     }
   }
 

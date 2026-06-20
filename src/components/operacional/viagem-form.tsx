@@ -21,7 +21,9 @@ import {
   labelVinculo,
   VEICULO_TIPO_OPCOES,
   TIPOS_TRAJETO,
+  VIAGEM_STATUS,
 } from "@/lib/viagem-validation";
+import { VIAGEM_STATUS_LABEL } from "@/lib/viagem-status";
 import { uploadFile } from "@/lib/storage";
 import { calcularIdade, cn, mebFormSection, mebFormSubsection } from "@/lib/utils";
 import { isoParaDatetimeLocal, buscarViagemComMesmoCte, type ViagemParaEdicao } from "@/lib/viagem-crud";
@@ -39,7 +41,7 @@ import {
   type UltimoKmVeiculo,
 } from "@/lib/veiculo-km";
 import { parseBrNumber, rawNumberStringToBrInput } from "@/lib/number-format";
-import type { Motorista, Veiculo } from "@/types";
+import type { Motorista, Veiculo, ViagemStatus } from "@/types";
 import { Plus, Trash2, FileText, AlertTriangle } from "lucide-react";
 
 type AnexoRef = {
@@ -118,6 +120,11 @@ export function ViagemForm({
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [cadastroAgendado, setCadastroAgendado] = useState(false);
+  const [statusViagem, setStatusViagem] = useState<ViagemStatus>("EM CARREGAMENTO");
+
+  const emModoAgendada = cadastroAgendado || statusViagem === "AGENDADA";
+  const exigeProgramacao = !emModoAgendada;
 
   const valMotorista = motorista ? validarMotorista(motorista) : null;
   const todosVeiculosAptos =
@@ -143,7 +150,9 @@ export function ViagemForm({
     if (!viagem) return;
     setMotoristaId(viagem.motorista_id);
     setVeiculoIds(viagem.veiculo_ids);
-    setSaidaEm(isoParaDatetimeLocal(viagem.saida_em));
+    setSaidaEm(viagem.saida_em ? isoParaDatetimeLocal(viagem.saida_em) : "");
+    setStatusViagem(viagem.status as ViagemStatus);
+    setCadastroAgendado(viagem.status === "AGENDADA");
     setChegadaEm(
       viagem.chegada_prevista_em ? isoParaDatetimeLocal(viagem.chegada_prevista_em) : ""
     );
@@ -295,20 +304,23 @@ export function ViagemForm({
 
     const locaisFornecedor = fornecedores.map((l) => l.trim()).filter(Boolean);
     const locaisEntrega = entregas.map((l) => l.trim()).filter(Boolean);
-    if (locaisFornecedor.length === 0 || locaisEntrega.length === 0) {
-      setError("Informe ao menos um fornecedor (origem) e um local de entrega.");
-      return;
-    }
 
-    if (!saidaEm) {
-      setError("Informe data/hora de saída.");
-      return;
-    }
+    if (exigeProgramacao) {
+      if (locaisFornecedor.length === 0 || locaisEntrega.length === 0) {
+        setError("Informe ao menos um fornecedor (origem) e um local de entrega.");
+        return;
+      }
 
-    const valorCargaNum = parseBrNumber(valorMercadoria) ?? 0;
-    if (motorista && !isFrota(motorista.vinculo) && valorCargaNum <= 0) {
-      setError("Para motorista terceiro, informe o valor da carga.");
-      return;
+      if (!saidaEm) {
+        setError("Informe data/hora de saída.");
+        return;
+      }
+
+      const valorCargaNum = parseBrNumber(valorMercadoria) ?? 0;
+      if (motorista && !isFrota(motorista.vinculo) && valorCargaNum <= 0) {
+        setError("Para motorista terceiro, informe o valor da carga.");
+        return;
+      }
     }
 
     const cteInformado = numeroCte.trim();
@@ -332,19 +344,30 @@ export function ViagemForm({
     } = await supabase.auth.getUser();
 
     const veiculoPrincipalId = veiculoIds[0];
-    const antesDe = new Date(saidaEm).toISOString();
-    const kmInicial =
-      ultimoKmVeiculo?.km ??
-      (await fetchUltimoKmVeiculo(veiculoPrincipalId, antesDe))?.km ??
-      null;
+    let kmInicial: number | null = null;
+    if (saidaEm) {
+      const antesDe = new Date(saidaEm).toISOString();
+      kmInicial =
+        ultimoKmVeiculo?.km ??
+        (await fetchUltimoKmVeiculo(veiculoPrincipalId, antesDe))?.km ??
+        null;
+    }
+
+    const statusFinal: ViagemStatus = isEdit
+      ? statusViagem
+      : cadastroAgendado
+        ? "AGENDADA"
+        : "EM CARREGAMENTO";
 
     const payloadViagem = {
       motorista_id: motoristaId,
       veiculo_id: veiculoPrincipalId,
-      saida_em: antesDe,
-      local_saida: formatarLocaisParceiros(
-        locaisFornecedor.map((texto, i) => ({ ordem: i + 1, texto }))
-      ),
+      saida_em: saidaEm ? new Date(saidaEm).toISOString() : null,
+      local_saida: locaisFornecedor.length
+        ? formatarLocaisParceiros(
+            locaisFornecedor.map((texto, i) => ({ ordem: i + 1, texto }))
+          )
+        : null,
       tipo_trajeto: tipoTrajeto,
       peso_kg: parseBrNumber(pesoKg),
       valor_mercadoria: parseBrNumber(valorMercadoria),
@@ -354,6 +377,7 @@ export function ViagemForm({
       km_odometro_inicial: kmInicial,
       motorista_apto: true,
       veiculo_apto: true,
+      status: statusFinal,
     };
 
     let viagemId = viagem?.id;
@@ -379,15 +403,11 @@ export function ViagemForm({
         setSaving(false);
         return;
       }
-
-      await supabase.from("viagem_entregas").delete().eq("viagem_id", viagemId);
-      await supabase.from("viagem_fornecedores").delete().eq("viagem_id", viagemId);
     } else {
       const { data: nova, error: viagemErr } = await supabase
         .from("viagens")
         .insert({
           ...payloadViagem,
-          status: "EM CARREGAMENTO",
           created_by: user?.id,
         })
         .select("id")
@@ -407,21 +427,27 @@ export function ViagemForm({
       return;
     }
 
-    await supabase.from("viagem_fornecedores").insert(
-      locaisFornecedor.map((local, i) => ({
-        viagem_id: viagemId,
-        ordem: i + 1,
-        local_fornecedor: local,
-      }))
-    );
+    await supabase.from("viagem_fornecedores").delete().eq("viagem_id", viagemId);
+    if (locaisFornecedor.length) {
+      await supabase.from("viagem_fornecedores").insert(
+        locaisFornecedor.map((local, i) => ({
+          viagem_id: viagemId,
+          ordem: i + 1,
+          local_fornecedor: local,
+        }))
+      );
+    }
 
-    await supabase.from("viagem_entregas").insert(
-      locaisEntrega.map((local, i) => ({
-        viagem_id: viagemId,
-        ordem: i + 1,
-        local_entrega: local,
-      }))
-    );
+    await supabase.from("viagem_entregas").delete().eq("viagem_id", viagemId);
+    if (locaisEntrega.length) {
+      await supabase.from("viagem_entregas").insert(
+        locaisEntrega.map((local, i) => ({
+          viagem_id: viagemId,
+          ordem: i + 1,
+          local_entrega: local,
+        }))
+      );
+    }
 
     await supabase.from("viagem_veiculos").delete().eq("viagem_id", viagemId);
     await supabase.from("viagem_veiculos").insert(
@@ -478,7 +504,7 @@ export function ViagemForm({
       await supabase.from("viagem_anexos").insert(anexosInsert);
     }
 
-    if (isEdit && viagem?.status && statusGeraFechamento(viagem.status)) {
+    if (isEdit && statusGeraFechamento(statusFinal)) {
       await syncFechamentoViagem(viagemId);
     }
 
@@ -638,6 +664,54 @@ export function ViagemForm({
         )}
       </section>
 
+      <section className={cn(mebFormSection, emModoAgendada && "border-indigo-200/80 bg-indigo-50/30")}>
+        <h2 className="text-lg font-semibold text-slate-800">
+          {emModoAgendada ? "Agendamento" : "Opções"}
+        </h2>
+        {!isEdit ? (
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-indigo-200 bg-white/80 px-3 py-3 text-sm">
+            <input
+              type="checkbox"
+              checked={cadastroAgendado}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setCadastroAgendado(checked);
+                setStatusViagem(checked ? "AGENDADA" : "EM CARREGAMENTO");
+              }}
+              className="mt-0.5 rounded border-slate-300"
+            />
+            <span>
+              <span className="font-medium text-slate-900">Viagem agendada (sem programação)</span>
+              <span className="mt-0.5 block text-xs text-slate-600">
+                Use quando motorista e veículo já estão definidos, mas ainda não há fornecedor,
+                entrega, CT-e ou demais dados. Salve agora e complete depois, ao receber a nota
+                fiscal de carregamento.
+              </span>
+            </span>
+          </label>
+        ) : (
+          <Select
+            label="Status da viagem"
+            value={statusViagem}
+            onChange={(e) => {
+              const next = e.target.value as ViagemStatus;
+              setStatusViagem(next);
+              setCadastroAgendado(next === "AGENDADA");
+            }}
+            options={VIAGEM_STATUS.map((s) => ({
+              value: s,
+              label: VIAGEM_STATUS_LABEL[s] ?? s,
+            }))}
+          />
+        )}
+        {emModoAgendada && (
+          <p className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
+            Enquanto o status for <strong>Agendada</strong>, apenas motorista e veículo são
+            obrigatórios. Preencha o restante quando tiver a programação e altere o status.
+          </p>
+        )}
+      </section>
+
       {!aptoGeral && (motoristaId || veiculoIds.length > 0) && (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           Resolva as pendências acima para liberar o cadastro da viagem.
@@ -649,14 +723,19 @@ export function ViagemForm({
         className="space-y-8 disabled:opacity-50"
       >
         <section className={mebFormSection}>
-          <h2 className="text-lg font-semibold text-slate-800">2. Dados da viagem</h2>
+          <h2 className="text-lg font-semibold text-slate-800">
+            2. Dados da viagem
+            {emModoAgendada && (
+              <span className="ml-2 text-sm font-normal text-indigo-700">(opcional)</span>
+            )}
+          </h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
               label="Data e hora de saída"
               type="datetime-local"
               value={saidaEm}
               onChange={(e) => setSaidaEm(e.target.value)}
-              required
+              required={exigeProgramacao}
             />
             <Input
               label="Data e hora de chegada"
@@ -710,7 +789,7 @@ export function ViagemForm({
                   className="flex-1"
                   tipoParceiro="fornecedor"
                   placeholder="Digite o nome do fornecedor"
-                  required={i === 0}
+                  required={exigeProgramacao && i === 0}
                 />
                 {fornecedores.length > 1 && (
                   <Button
@@ -780,7 +859,7 @@ export function ViagemForm({
               decimalPlaces={2}
               value={valorMercadoria}
               onChange={setValorMercadoria}
-              required={!!motorista && !isFrota(motorista.vinculo)}
+              required={exigeProgramacao && !!motorista && !isFrota(motorista.vinculo)}
             />
             <BrNumberInput
               label="Valor do frete (R$)"
@@ -888,8 +967,12 @@ export function ViagemForm({
             {saving
               ? "Salvando..."
               : isEdit
-                ? "Salvar alterações"
-                : "Cadastrar viagem"}
+                ? emModoAgendada
+                  ? "Salvar agendamento"
+                  : "Salvar alterações"
+                : emModoAgendada
+                  ? "Cadastrar agendamento"
+                  : "Cadastrar viagem"}
           </Button>
         </div>
       </fieldset>

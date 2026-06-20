@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Route, Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { ViagemForm } from "@/components/operacional/viagem-form";
 import {
   excluirViagem,
@@ -11,9 +12,14 @@ import {
   type ViagemListItem,
   type ViagemParaEdicao,
 } from "@/lib/viagem-crud";
+import {
+  fetchFornecedoresAcompanhamento,
+  viagemMatchFornecedorLocais,
+} from "@/lib/acompanhamento-data";
 import { formatarMoeda, formatarDataHoraBr } from "@/lib/frota-filters";
-import { cn } from "@/lib/utils";
-import { VIAGEM_STATUS_CORES } from "@/lib/viagem-status";
+import { cn, mebCard } from "@/lib/utils";
+import { VIAGEM_STATUS_CORES, VIAGEM_STATUS_LABEL } from "@/lib/viagem-status";
+import { VIAGEM_STATUS_FILTRO_ACOMPANHAMENTO } from "@/lib/viagem-validation";
 import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 
 export default function CadastroViagensPage() {
@@ -22,6 +28,11 @@ export default function CadastroViagensPage() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<ViagemParaEdicao | null>(null);
   const [msgSucesso, setMsgSucesso] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState("");
+  const [filtroFornecedorId, setFiltroFornecedorId] = useState("");
+  const [fornecedores, setFornecedores] = useState<
+    Awaited<ReturnType<typeof fetchFornecedoresAcompanhamento>>
+  >([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -32,6 +43,32 @@ export default function CadastroViagensPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    fetchFornecedoresAcompanhamento().then(setFornecedores);
+  }, []);
+
+  const fornecedorSelecionado = useMemo(
+    () => fornecedores.find((f) => f.id === filtroFornecedorId),
+    [fornecedores, filtroFornecedorId]
+  );
+
+  const filtradas = useMemo(() => {
+    return lista.filter((v) => {
+      if (filtroStatus) {
+        const statusViagem =
+          v.status === "DESCARREGANDO" ? "DESCARGA EM ANDAMENTO" : v.status;
+        if (statusViagem !== filtroStatus) return false;
+      }
+      if (
+        fornecedorSelecionado &&
+        !viagemMatchFornecedorLocais(v.fornecedores, v.local_saida, fornecedorSelecionado)
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [lista, filtroStatus, fornecedorSelecionado]);
 
   function abrirNova() {
     setEditing(null);
@@ -53,7 +90,7 @@ export default function CadastroViagensPage() {
   async function handleExcluir(item: ViagemListItem) {
     if (
       !(await mebConfirm(
-        `Excluir a viagem de ${item.motorista_nome} (${formatarDataHoraBr(item.saida_em)})? Todos os recursos e anexos vinculados serão removidos.`,
+        `Excluir a viagem de ${item.motorista_nome}${item.saida_em ? ` (${formatarDataHoraBr(item.saida_em)})` : " (agendada)"}? Todos os recursos e anexos vinculados serão removidos.`,
         { variant: "danger", confirmLabel: "Excluir" }
       ))
     ) {
@@ -141,11 +178,52 @@ export default function CadastroViagensPage() {
         </p>
       )}
 
+      {!loading && lista.length > 0 && (
+        <div className={`mb-4 flex flex-wrap items-end gap-3 p-4 ${mebCard}`}>
+          <Select
+            label="Status"
+            value={filtroStatus}
+            onChange={(e) => setFiltroStatus(e.target.value)}
+            options={[
+              { value: "", label: "Todos os status" },
+              ...VIAGEM_STATUS_FILTRO_ACOMPANHAMENTO.map((s) => ({
+                value: s,
+                label: VIAGEM_STATUS_LABEL[s] ?? s,
+              })),
+            ]}
+            className="min-w-[200px]"
+          />
+          <Select
+            label="Fornecedor"
+            value={filtroFornecedorId}
+            onChange={(e) => setFiltroFornecedorId(e.target.value)}
+            options={[
+              { value: "", label: "Todos os fornecedores" },
+              ...fornecedores.map((f) => ({
+                value: f.id,
+                label: f.nome,
+              })),
+            ]}
+            className="min-w-[240px]"
+          />
+        </div>
+      )}
+
       {loading ? (
         <p className="text-slate-400">Carregando...</p>
       ) : lista.length === 0 ? (
         <p className="text-slate-500">Nenhuma viagem cadastrada.</p>
+      ) : filtradas.length === 0 ? (
+        <p className="text-slate-500">Nenhuma viagem encontrada com os filtros selecionados.</p>
       ) : (
+        <>
+          {(filtroStatus || filtroFornecedorId) && (
+            <p className="mb-3 text-sm text-slate-500">
+              {filtradas.length} viagem(ns) encontrada(s)
+              {filtroStatus && <> · {VIAGEM_STATUS_LABEL[filtroStatus] ?? filtroStatus}</>}
+              {fornecedorSelecionado && <> · {fornecedorSelecionado.nome}</>}
+            </p>
+          )}
         <div className="overflow-x-auto rounded-xl border border-slate-200/80 bg-white/60">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
@@ -161,10 +239,10 @@ export default function CadastroViagensPage() {
               </tr>
             </thead>
             <tbody>
-              {lista.map((v) => (
+              {filtradas.map((v) => (
                 <tr key={v.id} className="border-t border-slate-100 hover:bg-white/50">
                   <td className="px-4 py-3 whitespace-nowrap">
-                    {formatarDataHoraBr(v.saida_em)}
+                    {v.saida_em ? formatarDataHoraBr(v.saida_em) : "—"}
                   </td>
                   <td className="px-4 py-3">{v.motorista_nome}</td>
                   <td className="px-4 py-3">{v.veiculo_label}</td>
@@ -206,6 +284,7 @@ export default function CadastroViagensPage() {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );

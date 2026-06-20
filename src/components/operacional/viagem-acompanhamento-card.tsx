@@ -46,7 +46,7 @@ export function ViagemAcompanhamentoCard({
   const precisaSelecionar = viagemPrecisaSelecionarParada(viagem);
   const editarHref = `/operacional/acompanhamento/${viagem.id}`;
   const duracaoViagem =
-    viagem.chegada_prevista_em != null
+    viagem.saida_em && viagem.chegada_prevista_em != null
       ? formatarDuracaoViagem(viagem.saida_em, viagem.chegada_prevista_em)
       : null;
 
@@ -126,10 +126,12 @@ export function ViagemAcompanhamentoCard({
         {viagem.numero_cte && <p>📋 CTE {viagem.numero_cte}</p>}
         <p>
           🏁{" "}
-          {new Date(viagem.saida_em).toLocaleString("pt-BR", {
-            dateStyle: "short",
-            timeStyle: "short",
-          })}
+          {viagem.saida_em
+            ? new Date(viagem.saida_em).toLocaleString("pt-BR", {
+                dateStyle: "short",
+                timeStyle: "short",
+              })
+            : "Saída a definir"}
         </p>
         {viagem.chegada_prevista_em && (
           <p>
