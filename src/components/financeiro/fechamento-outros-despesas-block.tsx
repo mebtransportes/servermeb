@@ -1,20 +1,46 @@
 "use client";
 
+import { useState } from "react";
 import { AnexoArquivoRow } from "@/components/shared/anexo-arquivo-row";
 import { formatarMoeda } from "@/lib/frota-filters";
-import type { FechamentoOutroDespesa } from "@/lib/fechamento-outros-despesas";
+import {
+  atualizarOutroDespesaDescontaMotorista,
+  type FechamentoOutroDespesa,
+} from "@/lib/fechamento-outros-despesas";
 import { cn } from "@/lib/utils";
+import { mebAlert } from "@/lib/meb-dialog";
 
 export function FechamentoOutrosDespesasBlock({
   despesas,
   className,
   compact,
+  editavel = false,
+  onAlterado,
 }: {
   despesas: FechamentoOutroDespesa[];
   className?: string;
   compact?: boolean;
+  editavel?: boolean;
+  onAlterado?: () => void | Promise<void>;
 }) {
+  const [salvandoId, setSalvandoId] = useState<string | null>(null);
+
   if (!despesas.length) return null;
+
+  async function toggleDesconto(d: FechamentoOutroDespesa, checked: boolean) {
+    setSalvandoId(d.id);
+    const err = await atualizarOutroDespesaDescontaMotorista(
+      d.id,
+      d.viagem_id,
+      checked
+    );
+    setSalvandoId(null);
+    if (err) {
+      await mebAlert(err);
+      return;
+    }
+    await onAlterado?.();
+  }
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -45,6 +71,25 @@ export function FechamentoOutrosDespesasBlock({
           <p className={cn("text-slate-500", compact ? "text-[10px]" : "text-xs")}>
             {new Date(d.realizado_em).toLocaleString("pt-BR")}
           </p>
+          {editavel && (
+            <label className="mt-2 flex cursor-pointer items-start gap-2">
+              <input
+                type="checkbox"
+                checked={d.desconta_motorista}
+                disabled={salvandoId === d.id}
+                onChange={(e) => toggleDesconto(d, e.target.checked)}
+                className="mt-0.5 rounded border-slate-300"
+              />
+              <span className={cn("text-slate-700", compact ? "text-[10px]" : "text-xs")}>
+                Descontar do motorista na comissão
+              </span>
+            </label>
+          )}
+          {!editavel && d.desconta_motorista && (
+            <p className={cn("mt-1 text-amber-700", compact ? "text-[10px]" : "text-xs")}>
+              Desconta da comissão do motorista
+            </p>
+          )}
           {d.anexos.length > 0 ? (
             <ul className="mt-2 space-y-1">
               {d.anexos.map((a, i) => (

@@ -9,6 +9,7 @@ import {
   formatPeriodoViagem,
 } from "@/lib/fechamento-format";
 import type { FechamentoOutroDespesa } from "@/lib/fechamento-outros-despesas";
+import { FechamentoOutrosDespesasBlock } from "@/components/financeiro/fechamento-outros-despesas-block";
 import {
   FechamentoDestaque,
   FechamentoLinhaCampos,
@@ -21,19 +22,19 @@ export function FechamentoTerceiroDetalhe({
   v,
   outrosDespesas = [],
   showComissaoFinal = true,
+  editavelOutros = false,
+  onOutrosAlterados,
 }: {
   f: ViagemFechamento;
   v: ReturnType<typeof useFechamentoValores>;
   outrosDespesas?: FechamentoOutroDespesa[];
   showComissaoFinal?: boolean;
+  editavelOutros?: boolean;
+  onOutrosAlterados?: () => void | Promise<void>;
 }) {
   const placa = extrairPlacaVeiculo(f.veiculo_label);
   const icmsPct = getIcmsPercent(f);
 
-  const outrosItens = outrosDespesas.map((d) => ({
-    nome: d.nome,
-    valor: formatarMoeda(d.valor),
-  }));
   const categoriasExtras = despesasCategoriasTerceiro(f).map((c) => ({
     nome: c.rotulo,
     valor: formatarMoeda(c.valor),
@@ -91,7 +92,19 @@ export function FechamentoTerceiroDetalhe({
             ]}
           />
         )}
-        <FechamentoListaItens titulo="Outras despesas" itens={outrosItens} />
+        {(f.outros_valor ?? 0) > 0 && (
+          <FechamentoLinhaCampos
+            cols={1}
+            campos={[
+              { rotulo: "Total outras despesas", valor: formatarMoeda(f.outros_valor ?? 0) },
+            ]}
+          />
+        )}
+        <FechamentoOutrosDespesasBlock
+          despesas={outrosDespesas}
+          editavel={editavelOutros}
+          onAlterado={onOutrosAlterados}
+        />
         {categoriasExtras.length > 0 && (
           <FechamentoListaItens titulo="Demais gastos da viagem" itens={categoriasExtras} />
         )}

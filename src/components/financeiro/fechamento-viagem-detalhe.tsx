@@ -14,6 +14,7 @@ import {
   fetchOutrosDespesasPorViagens,
   type FechamentoOutroDespesa,
 } from "@/lib/fechamento-outros-despesas";
+import { fetchFechamentoPorId } from "@/lib/fechamento-data";
 import {
   fetchAdiantamentosPorViagens,
   type FechamentoAdiantamento,
@@ -90,6 +91,8 @@ export function FechamentoViagemDetalhe({
   showComissaoFinal = true,
   outrosDespesas,
   adiantamentos,
+  editavelOutros = false,
+  onFechamentoAlterado,
 }: {
   f: ViagemFechamento;
   icmsPercent?: number;
@@ -99,6 +102,8 @@ export function FechamentoViagemDetalhe({
   showComissaoFinal?: boolean;
   outrosDespesas?: FechamentoOutroDespesa[];
   adiantamentos?: FechamentoAdiantamento[];
+  editavelOutros?: boolean;
+  onFechamentoAlterado?: (atualizado: ViagemFechamento) => void;
 }) {
   const v = useFechamentoValores(f, { icmsPercent, comissaoPercent, comissaoTipo });
   const [localOutros, setLocalOutros] = useState<FechamentoOutroDespesa[]>([]);
@@ -146,6 +151,20 @@ export function FechamentoViagemDetalhe({
   const listaAdiantamentos = adiantamentos ?? localAdiantamentos;
   const carregando = carregandoOutros || carregandoAdiantamentos;
 
+  async function recarregarAposOutros() {
+    const map = await fetchOutrosDespesasPorViagens([f.viagem_id]);
+    if (outrosDespesas === undefined) {
+      setLocalOutros(map.get(f.viagem_id) ?? []);
+    }
+    const atualizado = await fetchFechamentoPorId(f.id);
+    if (atualizado) {
+      onFechamentoAlterado?.({
+        ...atualizado,
+        viagem_status: f.viagem_status,
+      });
+    }
+  }
+
   return (
     <div>
       {showHeader && (
@@ -180,6 +199,8 @@ export function FechamentoViagemDetalhe({
           v={v}
           outrosDespesas={listaOutros}
           showComissaoFinal={showComissaoFinal}
+          editavelOutros={editavelOutros}
+          onOutrosAlterados={recarregarAposOutros}
         />
       ) : (
         <FechamentoFrotaDetalhe
@@ -188,6 +209,8 @@ export function FechamentoViagemDetalhe({
           outrosDespesas={listaOutros}
           adiantamentos={listaAdiantamentos}
           showComissaoFinal={showComissaoFinal}
+          editavelOutros={editavelOutros}
+          onOutrosAlterados={recarregarAposOutros}
         />
       )}
     </div>

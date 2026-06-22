@@ -28,6 +28,7 @@ export type ViagemFechamento = {
   pedagio_desconta_motorista?: number;
   km_final_abastecimento?: number | null;
   outros_valor?: number;
+  outros_desconta_motorista?: number;
   reembolso_valor: number;
   adiantamento_valor?: number;
   valor_frete: number;
@@ -80,9 +81,11 @@ export function despesasPedagioEstacionamentoMotorista(
   );
 }
 
-/** Gastos do motorista na frota — exclui combustível, manutenção e pedágio/estacionamento não descontados. */
+/** Gastos do motorista na frota — exclui combustível, manutenção e despesas não marcadas para desconto. */
 export function totalDespesasMotoristaFrota(f: ViagemFechamento) {
-  return despesasPedagioEstacionamentoMotorista(f) + (Number(f.outros_valor) || 0);
+  return (
+    despesasPedagioEstacionamentoMotorista(f) + (Number(f.outros_desconta_motorista) || 0)
+  );
 }
 
 /** Despesas terceiro que entram no repasse (exclui pedágio/estacionamento/descarga marcados como não descontar). */
@@ -93,7 +96,9 @@ export function totalDespesasRepasseTerceiro(f: ViagemFechamento) {
     (Number(f.estacionamento_valor) || 0) +
     (Number(f.descarga_valor) || 0);
   const pedEstMotorista = despesasPedagioEstacionamentoMotorista(f);
-  return full - pedEstTotal + pedEstMotorista;
+  const outrosTotal = Number(f.outros_valor) || 0;
+  const outrosMotorista = Number(f.outros_desconta_motorista) || 0;
+  return full - pedEstTotal - outrosTotal + pedEstMotorista + outrosMotorista;
 }
 
 /** Parâmetros de despesas para cálculo de comissão/repasse (totais exibidos vs. usados no cálculo). */

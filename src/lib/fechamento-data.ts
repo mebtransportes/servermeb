@@ -40,6 +40,18 @@ export async function fetchViagemFechamentos(): Promise<ViagemFechamento[]> {
   }));
 }
 
+export async function fetchFechamentoPorId(id: string): Promise<ViagemFechamento | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("viagem_fechamentos")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data as ViagemFechamento;
+}
+
 export async function fetchMotoristasOptions() {
   const supabase = createClient();
   const { data } = await supabase

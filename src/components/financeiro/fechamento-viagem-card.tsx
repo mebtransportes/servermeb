@@ -109,6 +109,8 @@ export function FechamentoViagemCard({
         comissaoTipo={comissaoTipo}
         showHeader
         showComissaoFinal={false}
+        editavelOutros
+        onFechamentoAlterado={onUpdated}
       />
 
       {!isTerceiro && (

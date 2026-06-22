@@ -39,6 +39,7 @@ function somarRecursos(recursos: RecursoRow[]) {
   let descarga_valor = 0;
   let pedagio_desconta_motorista = 0;
   let outros_valor = 0;
+  let outros_desconta_motorista = 0;
   let seguro_valor = 0;
   let monitoramento_valor = 0;
   let reembolso_valor = 0;
@@ -94,6 +95,9 @@ function somarRecursos(recursos: RecursoRow[]) {
         break;
       case "outro":
         outros_valor += v;
+        if (r.desconta_motorista === true) {
+          outros_desconta_motorista += v;
+        }
         break;
       case "seguro":
         seguro_valor += v;
@@ -122,6 +126,7 @@ function somarRecursos(recursos: RecursoRow[]) {
     pedagio_desconta_motorista,
     km_final_abastecimento,
     outros_valor,
+    outros_desconta_motorista,
     seguro_valor,
     monitoramento_valor,
     reembolso_valor,
@@ -221,6 +226,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     descarga_valor: gastos.descarga_valor,
     pedagio_desconta_motorista: gastos.pedagio_desconta_motorista,
     outros_valor: gastos.outros_valor,
+    outros_desconta_motorista: gastos.outros_desconta_motorista,
     seguro_valor: gastos.seguro_valor,
     monitoramento_valor: gastos.monitoramento_valor,
     motorista_terceiro: motoristaTerceiro,
@@ -289,6 +295,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     pedagio_desconta_motorista: gastos.pedagio_desconta_motorista,
     km_final_abastecimento: gastos.km_final_abastecimento,
     outros_valor: gastos.outros_valor,
+    outros_desconta_motorista: gastos.outros_desconta_motorista,
     reembolso_valor: gastos.reembolso_valor,
     adiantamento_valor: gastos.adiantamento_valor,
     motorista_terceiro: motoristaTerceiro,

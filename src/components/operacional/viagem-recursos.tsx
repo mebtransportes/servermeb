@@ -253,6 +253,9 @@ export function ViagemRecursos({
     if (tipoLancamento === "pedagio" || tipoLancamento === "estacionamento" || tipoLancamento === "descarga") {
       payload.desconta_motorista = !naoDescontaMotorista;
     }
+    if (tipoLancamento === "outro") {
+      payload.desconta_motorista = false;
+    }
 
     const { data: recurso, error } = await supabase
       .from("viagem_recursos")

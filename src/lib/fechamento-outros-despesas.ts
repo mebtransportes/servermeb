@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
 
 export type FechamentoOutroDespesaAnexo = {
   id?: string;
@@ -12,6 +13,7 @@ export type FechamentoOutroDespesa = {
   nome: string;
   valor: number;
   realizado_em: string;
+  desconta_motorista: boolean;
   anexos: FechamentoOutroDespesaAnexo[];
 };
 
@@ -21,6 +23,7 @@ type RecursoOutroRow = {
   valor: number;
   descricao?: string | null;
   realizado_em: string;
+  desconta_motorista?: boolean | null;
   nota_fiscal_path?: string | null;
   nota_fiscal_nome?: string | null;
   comprovante_path?: string | null;
@@ -66,7 +69,7 @@ export async function fetchOutrosDespesasPorViagens(
   const { data: recursos, error } = await supabase
     .from("viagem_recursos")
     .select(
-      "id, viagem_id, valor, descricao, realizado_em, nota_fiscal_path, nota_fiscal_nome, comprovante_path, comprovante_nome"
+      "id, viagem_id, valor, descricao, realizado_em, desconta_motorista, nota_fiscal_path, nota_fiscal_nome, comprovante_path, comprovante_nome"
     )
     .in("viagem_id", viagemIds)
     .eq("tipo", "outro")
@@ -111,6 +114,7 @@ export async function fetchOutrosDespesasPorViagens(
       nome: r.descricao?.trim() || "Outros",
       valor: Number(r.valor) || 0,
       realizado_em: r.realizado_em,
+      desconta_motorista: r.desconta_motorista === true,
       anexos: montarAnexosRecurso(r, anexosPorRecurso.get(r.id) ?? []),
     };
     const lista = porViagem.get(r.viagem_id) ?? [];
@@ -119,4 +123,20 @@ export async function fetchOutrosDespesasPorViagens(
   }
 
   return porViagem;
+}
+
+/** Marca se a despesa personalizada desconta da comissão do motorista. */
+export async function atualizarOutroDespesaDescontaMotorista(
+  recursoId: string,
+  viagemId: string,
+  descontaMotorista: boolean
+): Promise<string | null> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("viagem_recursos")
+    .update({ desconta_motorista: descontaMotorista })
+    .eq("id", recursoId);
+
+  if (error) return error.message;
+  return syncFechamentoViagem(viagemId);
 }

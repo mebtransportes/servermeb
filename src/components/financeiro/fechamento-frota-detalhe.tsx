@@ -16,6 +16,7 @@ import {
 } from "@/lib/fechamento-format";
 import type { FechamentoOutroDespesa } from "@/lib/fechamento-outros-despesas";
 import type { FechamentoAdiantamento } from "@/lib/fechamento-adiantamentos";
+import { FechamentoOutrosDespesasBlock } from "@/components/financeiro/fechamento-outros-despesas-block";
 import {
   FechamentoDestaque,
   FechamentoLinhaCampos,
@@ -29,21 +30,20 @@ export function FechamentoFrotaDetalhe({
   outrosDespesas = [],
   adiantamentos = [],
   showComissaoFinal = true,
+  editavelOutros = false,
+  onOutrosAlterados,
 }: {
   f: ViagemFechamento;
   v: ReturnType<typeof useFechamentoValores>;
   outrosDespesas?: FechamentoOutroDespesa[];
   adiantamentos?: FechamentoAdiantamento[];
   showComissaoFinal?: boolean;
+  editavelOutros?: boolean;
+  onOutrosAlterados?: () => void | Promise<void>;
 }) {
   const placa = extrairPlacaVeiculo(f.veiculo_label);
   const icmsPct = getIcmsPercent(f);
   const comPct = getComissaoPercent(f);
-
-  const outrosItens = outrosDespesas.map((d) => ({
-    nome: d.nome,
-    valor: formatarMoeda(d.valor),
-  }));
 
   return (
     <div>
@@ -123,7 +123,19 @@ export function FechamentoFrotaDetalhe({
             { rotulo: "Valor gasto com descarga", valor: formatarMoeda(f.descarga_valor ?? 0) },
           ]}
         />
-        <FechamentoListaItens titulo="Outras despesas" itens={outrosItens} />
+        {(f.outros_valor ?? 0) > 0 && (
+          <FechamentoLinhaCampos
+            cols={1}
+            campos={[
+              { rotulo: "Total outras despesas", valor: formatarMoeda(f.outros_valor ?? 0) },
+            ]}
+          />
+        )}
+        <FechamentoOutrosDespesasBlock
+          despesas={outrosDespesas}
+          editavel={editavelOutros}
+          onAlterado={onOutrosAlterados}
+        />
       </FechamentoSecao>
 
       <FechamentoSecao titulo="Motorista">
