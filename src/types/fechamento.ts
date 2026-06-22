@@ -24,6 +24,7 @@ export type ViagemFechamento = {
   manutencao_total: number;
   pedagio_valor: number;
   estacionamento_valor?: number;
+  descarga_valor?: number;
   pedagio_desconta_motorista?: number;
   km_final_abastecimento?: number | null;
   outros_valor?: number;
@@ -57,18 +58,26 @@ export function totalDespesasFrota(f: ViagemFechamento) {
     (Number(f.manutencao_total) || 0) +
     (Number(f.pedagio_valor) || 0) +
     (Number(f.estacionamento_valor) || 0) +
+    (Number(f.descarga_valor) || 0) +
     (Number(f.outros_valor) || 0)
   );
 }
 
-/** Pedágio + estacionamento que reduzem comissão/repasse do motorista. */
+/** Pedágio, estacionamento e descarga que reduzem comissão/repasse do motorista. */
 export function despesasPedagioEstacionamentoMotorista(
-  f: Pick<ViagemFechamento, "pedagio_valor" | "estacionamento_valor" | "pedagio_desconta_motorista">
+  f: Pick<
+    ViagemFechamento,
+    "pedagio_valor" | "estacionamento_valor" | "descarga_valor" | "pedagio_desconta_motorista"
+  >
 ) {
   if (f.pedagio_desconta_motorista != null) {
     return Number(f.pedagio_desconta_motorista) || 0;
   }
-  return (Number(f.pedagio_valor) || 0) + (Number(f.estacionamento_valor) || 0);
+  return (
+    (Number(f.pedagio_valor) || 0) +
+    (Number(f.estacionamento_valor) || 0) +
+    (Number(f.descarga_valor) || 0)
+  );
 }
 
 /** Gastos do motorista na frota — exclui combustível, manutenção e pedágio/estacionamento não descontados. */
@@ -76,10 +85,13 @@ export function totalDespesasMotoristaFrota(f: ViagemFechamento) {
   return despesasPedagioEstacionamentoMotorista(f) + (Number(f.outros_valor) || 0);
 }
 
-/** Despesas terceiro que entram no repasse (exclui pedágio/estacionamento marcados como não descontar). */
+/** Despesas terceiro que entram no repasse (exclui pedágio/estacionamento/descarga marcados como não descontar). */
 export function totalDespesasRepasseTerceiro(f: ViagemFechamento) {
   const full = totalDespesasTerceiro(f);
-  const pedEstTotal = (Number(f.pedagio_valor) || 0) + (Number(f.estacionamento_valor) || 0);
+  const pedEstTotal =
+    (Number(f.pedagio_valor) || 0) +
+    (Number(f.estacionamento_valor) || 0) +
+    (Number(f.descarga_valor) || 0);
   const pedEstMotorista = despesasPedagioEstacionamentoMotorista(f);
   return full - pedEstTotal + pedEstMotorista;
 }
@@ -115,6 +127,7 @@ export function despesasCategoriasTerceiro(f: ViagemFechamento) {
   add("Manutenção", f.manutencao_total);
   add("Pedágio", f.pedagio_valor);
   add("Estacionamento", f.estacionamento_valor);
+  add("Descarga", f.descarga_valor);
   return cats;
 }
 

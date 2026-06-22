@@ -77,6 +77,7 @@ export type ViagemRecursoTipo =
   | "reembolso"
   | "pedagio"
   | "estacionamento"
+  | "descarga"
   | "seguro"
   | "monitoramento"
   | "arla"

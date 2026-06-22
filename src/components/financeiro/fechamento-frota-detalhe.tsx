@@ -113,13 +113,14 @@ export function FechamentoFrotaDetalhe({
           ]}
         />
         <FechamentoLinhaCampos
-          cols={2}
+          cols={3}
           campos={[
             { rotulo: "Valor gasto com pedágio", valor: formatarMoeda(f.pedagio_valor) },
             {
               rotulo: "Valor gasto com estacionamento",
               valor: formatarMoeda(f.estacionamento_valor ?? 0),
             },
+            { rotulo: "Valor gasto com descarga", valor: formatarMoeda(f.descarga_valor ?? 0) },
           ]}
         />
         <FechamentoListaItens titulo="Outras despesas" itens={outrosItens} />

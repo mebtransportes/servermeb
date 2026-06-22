@@ -97,7 +97,11 @@ export async function gerarPdfComissaoMotorista(opts: {
     0
   );
   const pedagioTotal = fechamentos.reduce(
-    (s, f) => s + (Number(f.pedagio_valor) || 0) + (Number(f.estacionamento_valor) || 0),
+    (s, f) =>
+      s +
+      (Number(f.pedagio_valor) || 0) +
+      (Number(f.estacionamento_valor) || 0) +
+      (Number(f.descarga_valor) || 0),
     0
   );
   const outrosTotal = fechamentos.reduce(

@@ -250,7 +250,7 @@ export function ViagemRecursos({
         : null;
     }
     if (tipoLancamento === "manutencao") payload.status_frota = "FINALIZADO";
-    if (tipoLancamento === "pedagio" || tipoLancamento === "estacionamento") {
+    if (tipoLancamento === "pedagio" || tipoLancamento === "estacionamento" || tipoLancamento === "descarga") {
       payload.desconta_motorista = !naoDescontaMotorista;
     }
 
@@ -399,13 +399,14 @@ export function ViagemRecursos({
                 setValorDescontoCombustivel("");
               }
               if (t !== "outro") setMotoristaAdiantou(false);
-              if (t !== "pedagio" && t !== "estacionamento") setNaoDescontaMotorista(false);
+              if (t !== "pedagio" && t !== "estacionamento" && t !== "descarga") setNaoDescontaMotorista(false);
             }}
             options={[
               { value: "abastecimento", label: "Abastecimento" },
               { value: "manutencao", label: "Manutenção" },
               { value: "pedagio", label: "Pedágio" },
               { value: "estacionamento", label: "Estacionamento" },
+              { value: "descarga", label: "Descarga" },
               { value: "seguro", label: "Seguro" },
               { value: "monitoramento", label: "Monitoramento" },
               { value: "adiantamento", label: "Adiantamento" },
@@ -586,14 +587,16 @@ export function ViagemRecursos({
                     ? "Ex: praça de pedágio, rota, etc."
                     : tipo === "estacionamento"
                       ? "Ex: local, período, etc."
-                      : tipo === "seguro"
+                      : tipo === "descarga"
+                        ? "Ex: local da descarga, ajudante, etc."
+                        : tipo === "seguro"
                         ? "Ex: apólice, cobertura, etc."
                         : tipo === "monitoramento"
                           ? "Ex: rastreador, mensalidade, etc."
                           : ""
                 }
               />
-              {(tipo === "pedagio" || tipo === "estacionamento") && (
+              {(tipo === "pedagio" || tipo === "estacionamento" || tipo === "descarga") && (
                 <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
                   <input
                     type="checkbox"
@@ -837,7 +840,9 @@ function RecursoItem({
             ? "Pedágio"
             : recurso.tipo === "estacionamento"
               ? "Estacionamento"
-              : recurso.tipo === "seguro"
+              : recurso.tipo === "descarga"
+                ? "Descarga"
+                : recurso.tipo === "seguro"
                 ? "Seguro"
                 : recurso.tipo === "monitoramento"
                   ? "Monitoramento"
@@ -904,7 +909,7 @@ function RecursoItem({
           Descontado da comissão no fechamento da viagem
         </p>
       )}
-      {(recurso.tipo === "pedagio" || recurso.tipo === "estacionamento") &&
+      {(recurso.tipo === "pedagio" || recurso.tipo === "estacionamento" || recurso.tipo === "descarga") &&
         recurso.desconta_motorista === false && (
           <p className="mt-1 text-xs text-slate-500">
             Pago pela empresa — não desconta do motorista

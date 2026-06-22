@@ -270,6 +270,7 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
         { rotulo: "Manutenção", valor: formatarMoeda(f.manutencao_total) },
         { rotulo: "Pedágio", valor: formatarMoeda(f.pedagio_valor) },
         { rotulo: "Estacionamento", valor: formatarMoeda(f.estacionamento_valor ?? 0) },
+        { rotulo: "Descarga", valor: formatarMoeda(f.descarga_valor ?? 0) },
       ],
       3
     );

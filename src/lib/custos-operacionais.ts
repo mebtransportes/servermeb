@@ -219,6 +219,17 @@ export async function fetchCustosOperacionais(
           detalhe,
         });
         break;
+      case "descarga":
+        resumo.pedagios += v;
+        linhas.pedagios.push({
+          id: r.id,
+          data: r.realizado_em,
+          descricao: r.descricao ?? "Descarga",
+          valor: v,
+          origem: "Viagem",
+          detalhe,
+        });
+        break;
       case "reembolso":
         resumo.reembolsos += v;
         linhas.reembolsos.push({

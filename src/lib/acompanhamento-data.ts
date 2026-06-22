@@ -137,11 +137,14 @@ export async function fetchViagensAcompanhamento(): Promise<AcompanhamentoViagem
   });
 }
 
-function textoMatchParceiro(textos: string[], parceiro: Pick<ParceiroSugestao, "nome" | "textoCompleto">): boolean {
-  const texto = parceiro.textoCompleto.trim().toLowerCase();
-  const nome = parceiro.nome.trim().toLowerCase();
+function textoMatchParceiro(
+  textos: (string | null | undefined)[],
+  parceiro: Pick<ParceiroSugestao, "nome" | "textoCompleto">
+): boolean {
+  const texto = (parceiro.textoCompleto ?? "").trim().toLowerCase();
+  const nome = (parceiro.nome ?? "").trim().toLowerCase();
   return textos.some((raw) => {
-    const t = raw.trim().toLowerCase();
+    const t = (raw ?? "").trim().toLowerCase();
     if (!t) return false;
     if (t === texto) return true;
     return nome.length > 0 && t.startsWith(nome);
@@ -150,11 +153,18 @@ function textoMatchParceiro(textos: string[], parceiro: Pick<ParceiroSugestao, "
 
 /** Viagem que inclui o fornecedor em alguma origem. */
 export function viagemMatchFornecedorLocais(
-  locaisFornecedor: string[],
-  localSaida: string,
+  locaisFornecedor: (string | null | undefined)[],
+  localSaida: string | null | undefined,
   fornecedor: Pick<ParceiroSugestao, "nome" | "textoCompleto">
 ): boolean {
-  const textos = locaisFornecedor.length > 0 ? locaisFornecedor : [localSaida];
+  const locais = locaisFornecedor
+    .map((l) => (l ?? "").trim())
+    .filter(Boolean);
+  const textos =
+    locais.length > 0
+      ? locais
+      : [(localSaida ?? "").trim()].filter(Boolean);
+  if (textos.length === 0) return false;
   return textoMatchParceiro(textos, fornecedor);
 }
 

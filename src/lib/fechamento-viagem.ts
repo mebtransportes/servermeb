@@ -36,6 +36,7 @@ function somarRecursos(recursos: RecursoRow[]) {
   let manutencao_total = 0;
   let pedagio_valor = 0;
   let estacionamento_valor = 0;
+  let descarga_valor = 0;
   let pedagio_desconta_motorista = 0;
   let outros_valor = 0;
   let seguro_valor = 0;
@@ -85,6 +86,12 @@ function somarRecursos(recursos: RecursoRow[]) {
           pedagio_desconta_motorista += v;
         }
         break;
+      case "descarga":
+        descarga_valor += v;
+        if (r.desconta_motorista !== false) {
+          pedagio_desconta_motorista += v;
+        }
+        break;
       case "outro":
         outros_valor += v;
         break;
@@ -111,6 +118,7 @@ function somarRecursos(recursos: RecursoRow[]) {
     manutencao_total,
     pedagio_valor,
     estacionamento_valor,
+    descarga_valor,
     pedagio_desconta_motorista,
     km_final_abastecimento,
     outros_valor,
@@ -210,6 +218,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     manutencao_total: gastos.manutencao_total,
     pedagio_valor: gastos.pedagio_valor,
     estacionamento_valor: gastos.estacionamento_valor,
+    descarga_valor: gastos.descarga_valor,
     pedagio_desconta_motorista: gastos.pedagio_desconta_motorista,
     outros_valor: gastos.outros_valor,
     seguro_valor: gastos.seguro_valor,
@@ -276,6 +285,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     manutencao_total: gastos.manutencao_total,
     pedagio_valor: gastos.pedagio_valor,
     estacionamento_valor: gastos.estacionamento_valor,
+    descarga_valor: gastos.descarga_valor,
     pedagio_desconta_motorista: gastos.pedagio_desconta_motorista,
     km_final_abastecimento: gastos.km_final_abastecimento,
     outros_valor: gastos.outros_valor,
