@@ -2,9 +2,11 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { MapPinned } from "lucide-react";
+import { FileDown, MapPinned } from "lucide-react";
 import { ViagemAcompanhamentoCard } from "@/components/operacional/viagem-acompanhamento-card";
+import { AcompanhamentoRelatorioModal } from "@/components/operacional/acompanhamento-relatorio-modal";
 import { Select } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import {
   fetchFornecedoresAcompanhamento,
   fetchViagensAcompanhamento,
@@ -35,6 +37,7 @@ function AcompanhamentoContent() {
   const [filtroVinculo, setFiltroVinculo] = useState<"" | RecursoVinculo>("");
   const [filtroStatus, setFiltroStatus] = useState(statusUrl);
   const [filtroFornecedorId, setFiltroFornecedorId] = useState("");
+  const [showRelatorio, setShowRelatorio] = useState(false);
 
   useEffect(() => {
     setFiltroStatus(statusUrl);
@@ -99,6 +102,10 @@ function AcompanhamentoContent() {
             </p>
           </div>
         </div>
+        <Button type="button" variant="secondary" onClick={() => setShowRelatorio(true)}>
+          <FileDown className="h-4 w-4" />
+          Gerar relatório
+        </Button>
       </header>
 
       <div className={`flex flex-wrap items-end gap-3 p-4 print:hidden ${mebCard}`}>
@@ -170,6 +177,12 @@ function AcompanhamentoContent() {
         </>
       )}
 
+      <AcompanhamentoRelatorioModal
+        viagens={viagens}
+        fornecedores={fornecedores}
+        open={showRelatorio}
+        onClose={() => setShowRelatorio(false)}
+      />
     </div>
   );
 }

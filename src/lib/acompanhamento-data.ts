@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { dataNoIntervalo } from "@/lib/frota-filters";
 import { formatarDuracaoViagem } from "@/lib/viagem-duracao";
 import type { RecursoVinculo } from "@/types";
 import { formatarVeiculosLabel } from "@/lib/viagem-crud";
@@ -9,6 +10,7 @@ import {
   mapFornecedoresDb,
   type ParceiroViagemLinha,
 } from "@/lib/viagem-parceiros-viagem";
+import { isFrota } from "@/lib/viagem-validation";
 
 export type AcompanhamentoEntrega = ParceiroViagemLinha & {
   local_entrega: string;
@@ -25,6 +27,10 @@ export type AcompanhamentoViagemItem = {
   chegada_prevista_em: string | null;
   local_saida: string;
   numero_cte?: string | null;
+  created_at: string;
+  peso_kg?: number | null;
+  valor_frete?: number | null;
+  placas: string;
   fornecedor_atual_ordem?: number | null;
   entrega_atual_ordem?: number | null;
   motorista_nome: string;
@@ -47,6 +53,7 @@ export async function fetchViagensAcompanhamento(): Promise<AcompanhamentoViagem
     .select(
       `
       id, status, saida_em, chegada_prevista_em, local_saida, numero_cte,
+      created_at, peso_kg, valor_frete,
       fornecedor_atual_ordem, entrega_atual_ordem,
       motoristas ( nome_completo, telefone, vinculo ),
       veiculos ( nome, placa ),
@@ -91,6 +98,7 @@ export async function fetchViagensAcompanhamento(): Promise<AcompanhamentoViagem
         : veiculoFallback
           ? [veiculoFallback]
           : [];
+    const placas = listaVeiculos.map((v) => v.placa).filter(Boolean).join(" · ") || "—";
 
     const fornecedoresLinhas = mapFornecedoresDb(
       row.viagem_fornecedores as { ordem: number; local_fornecedor: string }[] | null
@@ -125,6 +133,10 @@ export async function fetchViagensAcompanhamento(): Promise<AcompanhamentoViagem
       chegada_prevista_em: row.chegada_prevista_em,
       local_saida: localSaida,
       numero_cte: row.numero_cte,
+      created_at: row.created_at as string,
+      peso_kg: row.peso_kg != null ? Number(row.peso_kg) : null,
+      valor_frete: row.valor_frete != null ? Number(row.valor_frete) : null,
+      placas,
       fornecedor_atual_ordem: row.fornecedor_atual_ordem,
       entrega_atual_ordem: row.entrega_atual_ordem,
       motorista_nome: motorista?.nome_completo ?? "—",
@@ -346,4 +358,64 @@ export function viagemPrecisaSelecionarParada(viagem: AcompanhamentoViagemItem):
   const faltaEnt =
     viagem.entregas.length > 1 && viagem.entrega_atual_ordem == null;
   return faltaForn || faltaEnt;
+}
+
+function resolverNomeFornecedorTexto(
+  texto: string,
+  parceiros: ParceiroSugestao[]
+): string {
+  const forn = parceiros.find((p) => textoMatchParceiro([texto], p));
+  if (forn) return forn.nome;
+  const idx = texto.indexOf(" — ");
+  if (idx > 0) return texto.slice(0, idx).trim();
+  return texto.trim() || "—";
+}
+
+/** Nomes dos fornecedores (origem) da viagem para relatórios. */
+export function nomesFornecedoresViagem(
+  viagem: Pick<AcompanhamentoViagemItem, "fornecedores" | "local_saida">,
+  parceiros: ParceiroSugestao[]
+): string {
+  const textos = viagem.fornecedores.map((f) => f.local_fornecedor).filter(Boolean);
+  if (!textos.length && viagem.local_saida?.trim()) {
+    textos.push(viagem.local_saida.trim());
+  }
+  const nomes = textos.map((t) => resolverNomeFornecedorTexto(t, parceiros));
+  return [...new Set(nomes.filter((n) => n && n !== "—"))].join(" · ") || "—";
+}
+
+export type AcompanhamentoRelatorioFiltros = {
+  de: string;
+  ate: string;
+  status: string;
+  fornecedorId: string;
+  vinculo: "" | RecursoVinculo;
+};
+
+function dataReferenciaViagem(viagem: AcompanhamentoViagemItem): string {
+  return viagem.saida_em ?? viagem.created_at;
+}
+
+/** Filtra viagens para o relatório de acompanhamento. */
+export function filtrarViagensAcompanhamentoRelatorio(
+  viagens: AcompanhamentoViagemItem[],
+  filtros: AcompanhamentoRelatorioFiltros,
+  fornecedor?: ParceiroSugestao | null
+): AcompanhamentoViagemItem[] {
+  return viagens.filter((v) => {
+    if (!dataNoIntervalo(dataReferenciaViagem(v), filtros.de, filtros.ate)) {
+      return false;
+    }
+    if (filtros.vinculo) {
+      const frota = isFrota(v.motorista_vinculo);
+      if (filtros.vinculo === "frota" && !frota) return false;
+      if (filtros.vinculo === "terceiro" && frota) return false;
+    }
+    if (filtros.status) {
+      const statusViagem = v.status === "DESCARREGANDO" ? "DESCARGA EM ANDAMENTO" : v.status;
+      if (statusViagem !== filtros.status) return false;
+    }
+    if (fornecedor && !viagemMatchFornecedor(v, fornecedor)) return false;
+    return true;
+  });
 }
