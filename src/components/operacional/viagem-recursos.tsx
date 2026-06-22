@@ -25,6 +25,7 @@ import { FileUploadMultiple } from "@/components/ui/file-upload";
 import { AnexosFrotaCampos } from "@/components/frota/anexos-campos";
 import { salvarAnexosFrota } from "@/lib/frota-anexos";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
+import { atualizarOutroDespesaDescontaMotorista } from "@/lib/fechamento-outros-despesas";
 import { cn, mebFormSubsection } from "@/lib/utils";
 import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 
@@ -90,6 +91,7 @@ export function ViagemRecursos({
   const [motoristaTerceiro, setMotoristaTerceiro] = useState(false);
   const [kmOdometroInicial, setKmOdometroInicial] = useState<number | null>(null);
   const [motoristaAdiantou, setMotoristaAdiantou] = useState(false);
+  const [descontaMotoristaComissao, setDescontaMotoristaComissao] = useState(false);
   const [naoDescontaMotorista, setNaoDescontaMotorista] = useState(false);
   const [teveDescontoCombustivel, setTeveDescontoCombustivel] = useState(false);
   const [valorDescontoCombustivel, setValorDescontoCombustivel] = useState("");
@@ -178,6 +180,7 @@ export function ViagemRecursos({
     setComprovante(null);
     setFiles([]);
     setMotoristaAdiantou(false);
+    setDescontaMotoristaComissao(false);
     setNaoDescontaMotorista(false);
     setTeveDescontoCombustivel(false);
     setValorDescontoCombustivel("");
@@ -254,7 +257,7 @@ export function ViagemRecursos({
       payload.desconta_motorista = !naoDescontaMotorista;
     }
     if (tipoLancamento === "outro") {
-      payload.desconta_motorista = false;
+      payload.desconta_motorista = descontaMotoristaComissao;
     }
 
     const { data: recurso, error } = await supabase
@@ -314,7 +317,12 @@ export function ViagemRecursos({
     setShowFormGasto(false);
     setShowFormReembolso(false);
     limparFormulario();
-    await syncFechamentoViagem(viagemId);
+    const syncErr = await syncFechamentoViagem(viagemId);
+    if (syncErr) {
+      await mebAlert(
+        `Gasto salvo, mas o fechamento não foi atualizado: ${syncErr}. Verifique se a migration 044 foi aplicada no Supabase.`
+      );
+    }
     setSaving(false);
     await load();
     onRecursosChanged?.();
@@ -365,6 +373,16 @@ export function ViagemRecursos({
     onRecursosChanged?.();
   }
 
+  async function handleDescontaMotoristaOutro(recursoId: string, desconta: boolean) {
+    const err = await atualizarOutroDespesaDescontaMotorista(recursoId, viagemId, desconta);
+    if (err) {
+      await mebAlert(err);
+      return;
+    }
+    await load();
+    onRecursosChanged?.();
+  }
+
   return (
     <div className="space-y-6">
       <section className="space-y-4">
@@ -401,7 +419,10 @@ export function ViagemRecursos({
                 setTeveDescontoCombustivel(false);
                 setValorDescontoCombustivel("");
               }
-              if (t !== "outro") setMotoristaAdiantou(false);
+              if (t !== "outro") {
+                setMotoristaAdiantou(false);
+                setDescontaMotoristaComissao(false);
+              }
               if (t !== "pedagio" && t !== "estacionamento" && t !== "descarga") setNaoDescontaMotorista(false);
             }}
             options={[
@@ -424,8 +445,9 @@ export function ViagemRecursos({
           )}
           {tipo === "outro" && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-800">
-              Registre o custo para o financeiro. Se o motorista pagou do bolso, marque a opção
-              abaixo para gerar o reembolso automaticamente com o mesmo valor.
+              Registre o custo para o financeiro. Por padrão <strong>não desconta</strong> da
+              comissão do motorista. Marque a opção abaixo apenas se esse valor deve reduzir a
+              comissão no fechamento.
             </div>
           )}
           {motoristaTerceiro && tipo === "seguro" && !valorCarga && (
@@ -555,6 +577,23 @@ export function ViagemRecursos({
                 placeholder="Ex: Lavagem do veículo, borracharia, alimentação..."
                 required
               />
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={descontaMotoristaComissao}
+                  onChange={(e) => setDescontaMotoristaComissao(e.target.checked)}
+                  className="mt-0.5 rounded border-slate-300"
+                />
+                <span>
+                  <span className="font-medium text-slate-800">
+                    Descontar do motorista na comissão
+                  </span>
+                  <span className="mt-0.5 block text-xs text-slate-600">
+                    O valor entra no financeiro da viagem. Só reduz a comissão se esta opção estiver
+                    marcada (também pode alterar depois no fechamento da viagem).
+                  </span>
+                </span>
+              </label>
               <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-violet-200 bg-violet-50 px-3 py-3 text-sm">
                 <input
                   type="checkbox"
@@ -654,6 +693,7 @@ export function ViagemRecursos({
               onExcluir={() => handleExcluir(r.id, r)}
               excluindo={excluindoId === r.id}
               onAnexoAlterado={load}
+              onDescontaMotoristaAlterado={handleDescontaMotoristaOutro}
               reembolsosVinculados={recursosReembolso.filter(
                 (rb) => rb.recurso_par_id === r.id
               )}
@@ -766,6 +806,7 @@ function RecursoItem({
   onExcluir,
   excluindo,
   onAnexoAlterado,
+  onDescontaMotoristaAlterado,
   reembolsosVinculados,
   despesaVinculada,
 }: {
@@ -774,10 +815,12 @@ function RecursoItem({
   onExcluir: () => void;
   excluindo: boolean;
   onAnexoAlterado: () => void;
+  onDescontaMotoristaAlterado?: (recursoId: string, desconta: boolean) => void | Promise<void>;
   reembolsosVinculados?: Recurso[];
   despesaVinculada?: Recurso;
 }) {
   const [anexos, setAnexos] = useState<Anexo[]>([]);
+  const [salvandoDesconta, setSalvandoDesconta] = useState(false);
   const [anexosInline, setAnexosInline] = useState({
     nota_fiscal_path: recurso.nota_fiscal_path,
     nota_fiscal_nome: recurso.nota_fiscal_nome,
@@ -918,6 +961,24 @@ function RecursoItem({
             Pago pela empresa — não desconta do motorista
           </p>
         )}
+      {recurso.tipo === "outro" && onDescontaMotoristaAlterado && (
+        <label className="mt-2 flex cursor-pointer items-start gap-2">
+          <input
+            type="checkbox"
+            checked={recurso.desconta_motorista === true}
+            disabled={salvandoDesconta}
+            onChange={async (e) => {
+              setSalvandoDesconta(true);
+              await onDescontaMotoristaAlterado(recurso.id, e.target.checked);
+              setSalvandoDesconta(false);
+            }}
+            className="mt-0.5 rounded border-slate-300"
+          />
+          <span className="text-xs text-slate-700">
+            Descontar do motorista na comissão (fechamento da viagem)
+          </span>
+        </label>
+      )}
       {recurso.tipo === "outro" && reembolsosVinculados && reembolsosVinculados.length > 0 && (
         <p className="mt-1 text-xs text-violet-700">
           Reembolso vinculado:{" "}

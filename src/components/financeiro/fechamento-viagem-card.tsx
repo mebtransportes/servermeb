@@ -13,7 +13,8 @@ import {
 import { gerarPdfFechamentoViagem } from "@/lib/fechamento-relatorio-pdf";
 import { useEffect, useState } from "react";
 import { parseBrNumber } from "@/lib/number-format";
-import { atualizarFechamentoConfig } from "@/lib/fechamento-data";
+import { atualizarFechamentoConfig, fetchFechamentoPorId } from "@/lib/fechamento-data";
+import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
 import { cn, mebCard, mebFormSubsection } from "@/lib/utils";
 import { mebAlert } from "@/lib/meb-dialog";
 import { FileText } from "lucide-react";
@@ -40,6 +41,24 @@ export function FechamentoViagemCard({
     setComissaoTipo((f.comissao_tipo ?? "PERCENTUAL") as "PERCENTUAL" | "LIQUIDO_TOTAL");
     setComissaoPercent(String(getComissaoPercent(f)));
   }, [f]);
+
+  useEffect(() => {
+    if ((f.outros_valor ?? 0) <= 0) return;
+    let ativo = true;
+    (async () => {
+      const err = await syncFechamentoViagem(f.viagem_id);
+      if (!ativo || err) return;
+      const atualizado = await fetchFechamentoPorId(f.id);
+      if (atualizado) {
+        onUpdated({ ...atualizado, viagem_status: f.viagem_status });
+      }
+    })();
+    return () => {
+      ativo = false;
+    };
+    // Recalcula uma vez ao abrir o card (corrige fechamentos gravados com regra antiga).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [f.id]);
 
   const icms = parseBrNumber(icmsPercent) ?? getIcmsPercent(f);
   const comPerc = parseBrNumber(comissaoPercent) ?? getComissaoPercent(f);
