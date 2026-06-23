@@ -53,7 +53,7 @@ export async function syncRecebimentoViagem(viagemId: string): Promise<string | 
     .from("viagens")
     .select(
       `
-      id, status, local_saida, valor_frete,
+      id, status, local_saida, valor_frete, data_pagamento,
       motoristas ( nome_completo ),
       veiculos ( nome, placa ),
       viagem_veiculos ( ordem, veiculos ( nome, placa ) )
@@ -74,7 +74,7 @@ export async function syncRecebimentoViagem(viagemId: string): Promise<string | 
   const valorFrete = Number(viagem.valor_frete) || 0;
   const freteLiquido = calcularFreteLiquido(valorFrete, ICMS_FRETE_PERCENT);
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     viagem_id: viagemId,
     motorista_nome: motoristaNome ?? "—",
     veiculos_placas: placasLabel(veiculos),
@@ -82,6 +82,11 @@ export async function syncRecebimentoViagem(viagemId: string): Promise<string | 
     valor_frete_total: valorFrete,
     valor_frete_liquido: Math.round(freteLiquido * 100) / 100,
   };
+
+  const dataPagamento = (viagem.data_pagamento as string | null)?.trim() || null;
+  if (dataPagamento) {
+    payload.data_recebimento = dataPagamento;
+  }
 
   const { data: existente } = await supabase
     .from("viagem_recebimentos")
@@ -232,6 +237,28 @@ export async function excluirEncargoRecebimento(
 
   if (error) return error.message;
   return sincronizarTotaisEncargos(recebimentoId);
+}
+
+/** Atualiza data de recebimento quando a viagem já está arquivada. */
+export async function aplicarDataPagamentoViagemNoRecebimento(
+  viagemId: string,
+  dataPagamento: string | null
+): Promise<string | null> {
+  const supabase = createClient();
+  const { data: rec } = await supabase
+    .from("viagem_recebimentos")
+    .select("id")
+    .eq("viagem_id", viagemId)
+    .maybeSingle();
+
+  if (!rec) return null;
+
+  const { error } = await supabase
+    .from("viagem_recebimentos")
+    .update({ data_recebimento: dataPagamento?.trim() || null })
+    .eq("id", rec.id);
+
+  return error?.message ?? null;
 }
 
 export async function atualizarRecebimento(

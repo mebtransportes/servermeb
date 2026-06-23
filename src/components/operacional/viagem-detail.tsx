@@ -14,7 +14,7 @@ import { MapPin } from "lucide-react";
 import { cn, mebFormSubsection } from "@/lib/utils";
 import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
-import { syncRecebimentoViagem } from "@/lib/recebimento-viagem";
+import { syncRecebimentoViagem, aplicarDataPagamentoViagemNoRecebimento } from "@/lib/recebimento-viagem";
 import { ViagemCanhotos } from "@/components/operacional/viagem-canhotos";
 import { ViagemComprovantesDescarga } from "@/components/operacional/viagem-comprovantes-descarga";
 import {
@@ -54,6 +54,8 @@ export function ViagemDetail({
   const [refreshKm, setRefreshKm] = useState(0);
   const [chegadaEm, setChegadaEm] = useState("");
   const [salvandoChegada, setSalvandoChegada] = useState(false);
+  const [dataPagamento, setDataPagamento] = useState("");
+  const [salvandoDataPagamento, setSalvandoDataPagamento] = useState(false);
 
   const load = async () => {
     const supabase = createClient();
@@ -75,6 +77,9 @@ export function ViagemDetail({
       );
       setChegadaEm(
         v.chegada_prevista_em ? isoParaDatetimeLocal(v.chegada_prevista_em) : ""
+      );
+      setDataPagamento(
+        v.data_pagamento ? String(v.data_pagamento).split("T")[0] : ""
       );
       const vv = v.viagem_veiculos as
         | {
@@ -191,6 +196,35 @@ export function ViagemDetail({
       await mebAlert(err);
       return;
     }
+    onUpdated();
+    load();
+  }
+
+  async function saveDataPagamento() {
+    setSalvandoDataPagamento(true);
+    const supabase = createClient();
+    const valor = dataPagamento.trim() || null;
+    const { error } = await supabase
+      .from("viagens")
+      .update({ data_pagamento: valor })
+      .eq("id", viagemId);
+
+    if (error) {
+      setSalvandoDataPagamento(false);
+      await mebAlert(error.message);
+      return;
+    }
+
+    if (status === "ARQUIVADO") {
+      const errRec = await aplicarDataPagamentoViagemNoRecebimento(viagemId, valor);
+      if (errRec) {
+        setSalvandoDataPagamento(false);
+        await mebAlert(errRec);
+        return;
+      }
+    }
+
+    setSalvandoDataPagamento(false);
     onUpdated();
     load();
   }
@@ -361,6 +395,39 @@ export function ViagemDetail({
             )}
           </p>
         )}
+      </div>
+
+      <div className={cn(mebFormSubsection, "space-y-3")}>
+        <h3 className="font-semibold text-slate-800">Data de pagamento</h3>
+        <p className="text-xs text-slate-500">
+          Data prevista para receber o frete desta viagem. Se informada aqui, aparece
+          automaticamente em <strong className="text-slate-600">Financeiro → Recebimentos</strong>{" "}
+          quando a viagem for arquivada. Se deixar em branco, preencha depois em Recebimentos.
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <Input
+            label="Data de pagamento"
+            type="date"
+            tone="light"
+            value={dataPagamento}
+            onChange={(e) => setDataPagamento(e.target.value)}
+            className="min-w-[180px]"
+          />
+          <Button
+            type="button"
+            variant="success"
+            onClick={saveDataPagamento}
+            disabled={
+              salvandoDataPagamento ||
+              dataPagamento ===
+                (viagem.data_pagamento
+                  ? String(viagem.data_pagamento).split("T")[0]
+                  : "")
+            }
+          >
+            {salvandoDataPagamento ? "Salvando..." : "Salvar data"}
+          </Button>
+        </div>
       </div>
 
       {veiculosViagem.length > 0 && (

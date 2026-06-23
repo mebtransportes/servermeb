@@ -103,6 +103,7 @@ export interface Viagem {
   status: ViagemStatus;
   entrega_atual_ordem?: number | null;
   fornecedor_atual_ordem?: number | null;
+  data_pagamento?: string | null;
   motorista_apto: boolean;
   veiculo_apto: boolean;
   motoristas?: Pick<Motorista, "nome_completo" | "cpf" | "telefone"> & Partial<Motorista>;
