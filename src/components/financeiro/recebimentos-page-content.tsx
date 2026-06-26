@@ -1,19 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Banknote, FileBarChart, RefreshCw, Search } from "lucide-react";
+import { Banknote, ChevronDown, FileBarChart, RefreshCw, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PeriodoFilter } from "@/components/frota/periodo-filter";
+import { Select } from "@/components/ui/select";
 import { RecebimentoLinha } from "@/components/financeiro/recebimento-linha";
 import { RecebimentosRelatorioModal } from "@/components/financeiro/recebimentos-relatorio-modal";
-import { fetchRecebimentos, type RecebimentoComCanhotos } from "@/lib/recebimento-viagem";
+import { fetchRecebimentos, refreshTodosRecebimentosArquivados, type RecebimentoComCanhotos } from "@/lib/recebimento-viagem";
 import {
   dataNoPeriodoConfig,
   formatarMoeda,
   labelPeriodoConfig,
   PERIODO_FILTRO_INICIAL,
+  PERIODOS,
   type PeriodoFiltroState,
+  type PeriodoPreset,
 } from "@/lib/frota-filters";
 import { calcularTotalAReceber } from "@/types/recebimento";
 import {
@@ -24,7 +26,7 @@ import {
   type RecebimentoEncargoTipo,
   type RecebimentoStatus,
 } from "@/types/recebimento";
-import { cn, mebCard, mebFilterActive, mebFilterInactive, mebFormSection } from "@/lib/utils";
+import { cn, mebCard, mebFormSection } from "@/lib/utils";
 import type { RecursoVinculo } from "@/types";
 
 type FiltroStatus = RecebimentoStatus | "todos";
@@ -57,6 +59,29 @@ const VINCULO_FILTROS: { value: FiltroVinculo; label: string }[] = [
   { value: "frota", label: "Frota" },
   { value: "terceiro", label: "Terceiros" },
 ];
+
+const PERIODO_OPCOES: { value: PeriodoPreset; label: string }[] = [
+  ...PERIODOS,
+  { value: "custom", label: "Datas específicas" },
+];
+
+function filtrosRecebimentosAtivos(opts: {
+  filtroVinculo: FiltroVinculo;
+  filtroStatus: FiltroStatus;
+  filtroEncargoTipo: FiltroEncargoTipo;
+  filtroEncargoStatus: FiltroEncargoStatus;
+  periodo: PeriodoFiltroState;
+  buscaCte: string;
+}) {
+  return (
+    opts.filtroVinculo !== "todos" ||
+    opts.filtroStatus !== "todos" ||
+    opts.filtroEncargoTipo !== "todos" ||
+    opts.filtroEncargoStatus !== "todos" ||
+    opts.buscaCte.trim() !== "" ||
+    opts.periodo.preset !== PERIODO_FILTRO_INICIAL.preset
+  );
+}
 
 function dataReferenciaRecebimento(item: RecebimentoComCanhotos): string {
   return item.data_recebimento ?? item.created_at ?? "";
@@ -110,8 +135,11 @@ export function RecebimentosPageContent() {
   const [modoRelatorio, setModoRelatorio] = useState<"recebimentos" | "encargos">("recebimentos");
   const [buscaCte, setBuscaCte] = useState("");
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { refresh?: boolean }) => {
     setLoading(true);
+    if (opts?.refresh) {
+      await refreshTodosRecebimentosArquivados();
+    }
     const lista = await fetchRecebimentos();
     setItens(lista);
     setLoading(false);
@@ -162,6 +190,32 @@ export function RecebimentosPageContent() {
 
   const vinculoLabel = VINCULO_FILTROS.find((v) => v.value === filtroVinculo)?.label ?? "Todos";
 
+  const temFiltrosAtivos = filtrosRecebimentosAtivos({
+    filtroVinculo,
+    filtroStatus,
+    filtroEncargoTipo,
+    filtroEncargoStatus,
+    periodo,
+    buscaCte,
+  });
+
+  function limparFiltros() {
+    setFiltroVinculo("todos");
+    setFiltroStatus("todos");
+    setFiltroEncargoTipo("todos");
+    setFiltroEncargoStatus("todos");
+    setPeriodo(PERIODO_FILTRO_INICIAL);
+    setBuscaCte("");
+  }
+
+  function alterarPeriodo(preset: PeriodoPreset) {
+    setPeriodo({
+      preset,
+      dataDe: preset === "custom" ? periodo.dataDe : "",
+      dataAte: preset === "custom" ? periodo.dataAte : "",
+    });
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -199,7 +253,7 @@ export function RecebimentosPageContent() {
             <FileBarChart className="mr-2 h-4 w-4" />
             Relatório de encargos
           </Button>
-          <Button type="button" variant="secondary" onClick={load} disabled={loading}>
+          <Button type="button" variant="secondary" onClick={() => load({ refresh: true })} disabled={loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
@@ -231,106 +285,102 @@ export function RecebimentosPageContent() {
       </div>
 
       <div className={cn(mebFormSection, "space-y-4")}>
-        <div>
-          <p className="mb-2 text-xs font-medium text-slate-500">Vínculo</p>
-          <div className="flex flex-wrap gap-2">
-            {VINCULO_FILTROS.map((v) => (
-              <button
-                key={v.value}
-                type="button"
-                onClick={() => setFiltroVinculo(v.value)}
-                className={cn(
-                  "rounded-lg px-3.5 py-2 text-sm font-medium transition",
-                  filtroVinculo === v.value ? mebFilterActive : mebFilterInactive
-                )}
-              >
-                {v.label}
-              </button>
-            ))}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-medium text-slate-700">Filtros</p>
+          {temFiltrosAtivos && (
+            <button
+              type="button"
+              onClick={limparFiltros}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+            >
+              <X className="h-3.5 w-3.5" />
+              Limpar filtros
+            </button>
+          )}
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <Select
+            label="Período"
+            tone="light"
+            value={periodo.preset}
+            onChange={(e) => alterarPeriodo(e.target.value as PeriodoPreset)}
+            options={PERIODO_OPCOES.map((p) => ({ value: p.value, label: p.label }))}
+          />
+          <Select
+            label="Vínculo"
+            tone="light"
+            value={filtroVinculo}
+            onChange={(e) => setFiltroVinculo(e.target.value as FiltroVinculo)}
+            options={VINCULO_FILTROS.map((v) => ({ value: v.value, label: v.label }))}
+          />
+          <Select
+            label="Status do pagamento"
+            tone="light"
+            value={filtroStatus}
+            onChange={(e) => setFiltroStatus(e.target.value as FiltroStatus)}
+            options={STATUS_FILTROS.map((s) => ({ value: s.value, label: s.label }))}
+          />
+          <div className="relative sm:col-span-2 lg:col-span-1 xl:col-span-2">
+            <label className="mb-1 block text-sm font-medium text-slate-600">
+              Buscar CT-e
+            </label>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="search"
+                value={buscaCte}
+                onChange={(e) => setBuscaCte(e.target.value)}
+                placeholder="Número do CT-e..."
+                className="w-full rounded-lg border border-slate-200 bg-white/80 py-2 pl-9 pr-3 text-sm text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
+              />
+            </div>
           </div>
         </div>
 
-        <div>
-          <p className="mb-2 text-xs font-medium text-slate-500">Status do pagamento</p>
-          <div className="flex flex-wrap gap-2">
-            {STATUS_FILTROS.map((s) => (
-              <button
-                key={s.value}
-                type="button"
-                onClick={() => setFiltroStatus(s.value)}
-                className={cn(
-                  "rounded-lg px-3.5 py-2 text-sm font-medium transition",
-                  filtroStatus === s.value ? mebFilterActive : mebFilterInactive
-                )}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <p className="mb-2 text-xs font-medium text-slate-500">Tipo de encargo</p>
-          <div className="flex flex-wrap gap-2">
-            {ENCARGO_TIPO_FILTROS.map((t) => (
-              <button
-                key={t.value}
-                type="button"
-                onClick={() => setFiltroEncargoTipo(t.value)}
-                className={cn(
-                  "rounded-lg px-3.5 py-2 text-sm font-medium transition",
-                  filtroEncargoTipo === t.value ? mebFilterActive : mebFilterInactive
-                )}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <p className="mb-2 text-xs font-medium text-slate-500">Status dos encargos</p>
-          <div className="flex flex-wrap gap-2">
-            {ENCARGO_STATUS_FILTROS.map((s) => (
-              <button
-                key={s.value}
-                type="button"
-                onClick={() => setFiltroEncargoStatus(s.value)}
-                className={cn(
-                  "rounded-lg px-3.5 py-2 text-sm font-medium transition",
-                  filtroEncargoStatus === s.value ? mebFilterActive : mebFilterInactive
-                )}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <p className="mb-2 text-xs font-medium text-slate-500">
-            Buscar por CT-e (viagem ou encargo)
-          </p>
-          <div className="relative max-w-md">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        {periodo.preset === "custom" && (
+          <div className="grid max-w-md gap-3 sm:grid-cols-2">
             <Input
-              type="search"
-              value={buscaCte}
-              onChange={(e) => setBuscaCte(e.target.value)}
-              placeholder="Digite o número do CT-e..."
-              className="pl-9"
+              label="De"
+              type="date"
+              tone="light"
+              value={periodo.dataDe}
+              onChange={(e) => setPeriodo({ ...periodo, dataDe: e.target.value })}
+            />
+            <Input
+              label="Até"
+              type="date"
+              tone="light"
+              value={periodo.dataAte}
+              onChange={(e) => setPeriodo({ ...periodo, dataAte: e.target.value })}
             />
           </div>
-        </div>
+        )}
 
-        <div>
-          <p className="mb-2 text-xs font-medium text-slate-500">
-            Período (data para recebimento)
-          </p>
-          <PeriodoFilter value={periodo} onChange={setPeriodo} />
-        </div>
+        <details className="group rounded-lg border border-slate-200 bg-slate-50/60 open:bg-white">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium text-slate-700 marker:content-none [&::-webkit-details-marker]:hidden">
+            <span>Filtros de encargos (opcional)</span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-slate-400 transition group-open:rotate-180" />
+          </summary>
+          <div className="grid gap-3 border-t border-slate-200 px-4 py-3 sm:grid-cols-2">
+            <Select
+              label="Tipo de encargo"
+              tone="light"
+              value={filtroEncargoTipo}
+              onChange={(e) => setFiltroEncargoTipo(e.target.value as FiltroEncargoTipo)}
+              options={ENCARGO_TIPO_FILTROS.map((t) => ({ value: t.value, label: t.label }))}
+            />
+            <Select
+              label="Status do encargo"
+              tone="light"
+              value={filtroEncargoStatus}
+              onChange={(e) => setFiltroEncargoStatus(e.target.value as FiltroEncargoStatus)}
+              options={ENCARGO_STATUS_FILTROS.map((s) => ({ value: s.value, label: s.label }))}
+            />
+          </div>
+        </details>
 
-        <p className="text-sm text-slate-500">
+        <p className="border-t border-slate-200/80 pt-3 text-sm text-slate-500">
           {filtrados.length} registro(s)
           {filtroVinculo !== "todos" && <> · {vinculoLabel}</>}
           {filtroStatus !== "todos" && (
@@ -363,7 +413,7 @@ export function RecebimentosPageContent() {
       ) : (
         <div className="space-y-3">
           {filtrados.map((item) => (
-            <RecebimentoLinha key={item.id} item={item} onAtualizado={load} />
+            <RecebimentoLinha key={item.id} item={item} onAtualizado={() => load()} />
           ))}
         </div>
       )}

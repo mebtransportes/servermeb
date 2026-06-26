@@ -206,12 +206,12 @@ export function RecebimentoLinha({
         <Campo label="Fornecedor">
           <TextoMarquee text={item.empresa} className="text-slate-700" />
         </Campo>
-        <Campo label="Frete total">
+        <Campo label="Frete bruto">
           <Valor className="font-medium text-emerald-700">
             {formatarMoeda(item.valor_frete_total)}
           </Valor>
         </Campo>
-        <Campo label="Frete líquido sem encargos e imposto">
+        <Campo label="Frete líquido (sem ICMS)">
           <Valor className="text-slate-700" title="Frete bruto − ICMS (12%)">
             {formatarMoeda(item.valor_frete_liquido)}
           </Valor>

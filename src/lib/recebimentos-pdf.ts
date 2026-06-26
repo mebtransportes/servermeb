@@ -42,14 +42,18 @@ function resumirPorStatus(itens: RecebimentoComCanhotos[]) {
   let pago = 0;
   let vencido = 0;
   let total = 0;
+  let freteBruto = 0;
+  let freteLiquido = 0;
   for (const item of itens) {
     const valor = calcularTotalAReceber(item);
     total += valor;
+    freteBruto += Number(item.valor_frete_total) || 0;
+    freteLiquido += Number(item.valor_frete_liquido) || 0;
     if (item.status === "pago") pago += valor;
     else if (item.status === "vencido") vencido += valor;
     else pendente += valor;
   }
-  return { pendente, pago, vencido, total };
+  return { pendente, pago, vencido, total, freteBruto, freteLiquido };
 }
 
 function cabecalhoRelatorio(
@@ -91,6 +95,8 @@ function cabecalhoRelatorio(
   doc.setFont("helvetica", "normal");
   [
     `Total de registros: ${qtd}`,
+    `Frete bruto total: ${formatarMoeda(resumo.freteBruto)}`,
+    `Frete líquido total (sem ICMS): ${formatarMoeda(resumo.freteLiquido)}`,
     `Pendente: ${formatarMoeda(resumo.pendente)}`,
     `Pago: ${formatarMoeda(resumo.pago)}`,
     `Vencido: ${formatarMoeda(resumo.vencido)}`,
@@ -151,8 +157,8 @@ export function gerarPdfRecebimentos(
         "CTE",
         "Placas",
         "Fornecedor",
-        "Frete total",
-        "Frete líq. s/ enc. e imp.",
+        "Frete bruto",
+        "Frete líquido (sem ICMS)",
         "Descargas",
         "Diárias",
         "Total c/ encargos",

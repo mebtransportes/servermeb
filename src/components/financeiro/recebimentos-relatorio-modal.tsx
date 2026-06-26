@@ -136,7 +136,7 @@ export function RecebimentosRelatorioModal({
           description={
             modo === "encargos"
               ? "Escolha o intervalo de datas e, se quiser, filtre por status do recebimento e fornecedor. O PDF lista cada encargo lançado (diária/descarga)."
-              : "Escolha o intervalo de datas e, se quiser, filtre por status e fornecedor. O PDF inclui motorista, fornecedor, valores e observações."
+              : "Escolha o intervalo de datas e, se quiser, filtre por status e fornecedor. O PDF inclui frete bruto, frete líquido, encargos e totais."
           }
           onClose={onClose}
         />

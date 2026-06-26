@@ -106,17 +106,55 @@ export async function syncRecebimentoViagem(viagemId: string): Promise<string | 
   return error?.message ?? null;
 }
 
-/** Garante recebimento para todas as viagens arquivadas sem registro. */
-export async function syncRecebimentosArquivados(): Promise<void> {
+/** Sincroniza apenas viagens arquivadas sem registro de recebimento. */
+export async function syncRecebimentosFaltantes(viagemIds?: string[]): Promise<void> {
+  const supabase = createClient();
+
+  let ids = viagemIds;
+  if (!ids) {
+    const { data: viagens } = await supabase
+      .from("viagens")
+      .select("id")
+      .eq("status", "ARQUIVADO");
+    ids = (viagens ?? []).map((v) => v.id);
+  }
+  if (!ids.length) return;
+
+  const { data: existentes } = await supabase
+    .from("viagem_recebimentos")
+    .select("viagem_id")
+    .in("viagem_id", ids);
+
+  const jaTem = new Set((existentes ?? []).map((r) => r.viagem_id));
+  const faltantes = ids.filter((id) => !jaTem.has(id));
+  if (!faltantes.length) return;
+
+  const lote = 8;
+  for (let i = 0; i < faltantes.length; i += lote) {
+    await Promise.all(
+      faltantes.slice(i, i + lote).map((id) => syncRecebimentoViagem(id))
+    );
+  }
+}
+
+/** Re-sincroniza todos os recebimentos (usar no botão Atualizar). */
+export async function refreshTodosRecebimentosArquivados(): Promise<void> {
   const supabase = createClient();
   const { data: viagens } = await supabase
     .from("viagens")
     .select("id")
     .eq("status", "ARQUIVADO");
 
-  for (const v of viagens ?? []) {
-    await syncRecebimentoViagem(v.id);
+  const ids = (viagens ?? []).map((v) => v.id);
+  const lote = 8;
+  for (let i = 0; i < ids.length; i += lote) {
+    await Promise.all(ids.slice(i, i + lote).map((id) => syncRecebimentoViagem(id)));
   }
+}
+
+/** @deprecated Use syncRecebimentosFaltantes */
+export async function syncRecebimentosArquivados(): Promise<void> {
+  return syncRecebimentosFaltantes();
 }
 
 async function sincronizarTotaisEncargos(recebimentoId: string): Promise<string | null> {
@@ -283,13 +321,12 @@ export type RecebimentoComCanhotos = ViagemRecebimento & {
 
 export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
   const supabase = createClient();
-  await syncRecebimentosArquivados();
 
   const { data: viagensArquivadas } = await supabase
     .from("viagens")
     .select(
       `
-      id, numero_cte,
+      id, numero_cte, valor_frete,
       veiculos ( vinculo ),
       viagem_veiculos ( ordem, veiculos ( vinculo ) )
     `
@@ -309,8 +346,11 @@ export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
   const ctePorViagem = new Map(
     (viagensArquivadas ?? []).map((v) => [v.id, v.numero_cte as string | null])
   );
+  const freteBrutoPorViagem = new Map(
+    (viagensArquivadas ?? []).map((v) => [v.id, Number(v.valor_frete) || 0])
+  );
 
-  const { data: recebimentos, error } = await supabase
+  let { data: recebimentos, error } = await supabase
     .from("viagem_recebimentos")
     .select("*")
     .in("viagem_id", ids)
@@ -321,31 +361,50 @@ export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
     return [];
   }
 
-  const { data: canhotos } = await supabase
-    .from("viagem_canhotos")
-    .select("id, viagem_id, file_name, storage_path")
-    .in("viagem_id", ids);
-
-  const recebimentoIds = (recebimentos ?? []).map((r) => r.id);
-  const encargosPorRecebimento = new Map<string, ViagemRecebimentoEncargo[]>();
-
-  if (recebimentoIds.length) {
-    const { data: encargosRows, error: errEnc } = await supabase
-      .from("viagem_recebimento_encargos")
+  const recebimentoPorViagem = new Set((recebimentos ?? []).map((r) => r.viagem_id));
+  const faltantes = ids.filter((id) => !recebimentoPorViagem.has(id));
+  if (faltantes.length) {
+    await syncRecebimentosFaltantes(faltantes);
+    const { data: novos } = await supabase
+      .from("viagem_recebimentos")
       .select("*")
-      .in("recebimento_id", recebimentoIds)
-      .order("created_at", { ascending: true });
-
-    if (errEnc) {
-      console.error("viagem_recebimento_encargos:", errEnc);
-    } else {
-      for (const e of encargosRows ?? []) {
-        const row = e as ViagemRecebimentoEncargo;
-        const lista = encargosPorRecebimento.get(row.recebimento_id) ?? [];
-        lista.push({ ...row, valor: Number(row.valor) || 0 });
-        encargosPorRecebimento.set(row.recebimento_id, lista);
-      }
+      .in("viagem_id", faltantes);
+    if (novos?.length) {
+      recebimentos = [...(recebimentos ?? []), ...novos].sort(
+        (a, b) =>
+          new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
+      );
     }
+  }
+
+  const [canhotosRes, encargosRes] = await Promise.all([
+    supabase
+      .from("viagem_canhotos")
+      .select("id, viagem_id, file_name, storage_path")
+      .in("viagem_id", ids),
+    (recebimentos ?? []).length
+      ? supabase
+          .from("viagem_recebimento_encargos")
+          .select("*")
+          .in(
+            "recebimento_id",
+            (recebimentos ?? []).map((r) => r.id)
+          )
+          .order("created_at", { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  const canhotos = canhotosRes.data;
+  if (encargosRes.error) {
+    console.error("viagem_recebimento_encargos:", encargosRes.error);
+  }
+
+  const encargosPorRecebimento = new Map<string, ViagemRecebimentoEncargo[]>();
+  for (const e of encargosRes.data ?? []) {
+    const row = e as ViagemRecebimentoEncargo;
+    const lista = encargosPorRecebimento.get(row.recebimento_id) ?? [];
+    lista.push({ ...row, valor: Number(row.valor) || 0 });
+    encargosPorRecebimento.set(row.recebimento_id, lista);
   }
 
   const canhotosPorViagem = new Map<string, { id: string; file_name: string; storage_path: string }[]>();
@@ -357,8 +416,11 @@ export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
 
   return (recebimentos ?? []).map((r) => {
     const row = r as ViagemRecebimento;
+    const freteBrutoViagem = freteBrutoPorViagem.get(r.viagem_id) ?? 0;
+    const valorFreteTotal = Number(row.valor_frete_total) || freteBrutoViagem;
     return {
       ...row,
+      valor_frete_total: valorFreteTotal,
       valor_diarias: Number(row.valor_diarias) || 0,
       numero_cte: ctePorViagem.get(r.viagem_id) ?? null,
       eh_frota: frotaPorViagem.get(r.viagem_id) ?? true,
