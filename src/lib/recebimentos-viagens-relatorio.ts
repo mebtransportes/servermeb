@@ -8,9 +8,7 @@ import {
 } from "@/lib/acompanhamento-data";
 import { dataNoIntervalo } from "@/lib/frota-filters";
 import type { ParceiroSugestao } from "@/lib/parceiros";
-import { calcularFreteLiquido, ICMS_FRETE_PERCENT } from "@/types/fechamento";
 import {
-  calcularTotalAReceber,
   type ViagemRecebimentoEncargo,
 } from "@/types/recebimento";
 import { VIAGEM_STATUS_LABEL } from "@/lib/viagem-status";
@@ -24,7 +22,6 @@ export type RecebimentoViagemRelatorioLinha = {
   frete_bruto: number;
   descargas: number;
   diarias: number;
-  total_com_encargos: number;
   data_recebimento: string | null;
   status_viagem: string;
   saida_em: string | null;
@@ -69,9 +66,7 @@ export async function montarLinhasRelatorioTodasViagens(
   const [{ data: recebimentos }, { data: viagensPagamento }] = await Promise.all([
     supabase
       .from("viagem_recebimentos")
-      .select(
-        "id, viagem_id, valor_frete_liquido, valor_descargas_adicionais, valor_diarias, data_recebimento"
-      )
+      .select("id, viagem_id, valor_descargas_adicionais, valor_diarias, data_recebimento")
       .in("viagem_id", ids),
     supabase.from("viagens").select("id, data_pagamento").in("id", ids),
   ]);
@@ -120,17 +115,6 @@ export async function montarLinhasRelatorioTodasViagens(
       diarias = Number(rec.valor_diarias) || 0;
     }
 
-    const freteLiquido = rec
-      ? Number(rec.valor_frete_liquido) || 0
-      : calcularFreteLiquido(freteBruto, ICMS_FRETE_PERCENT);
-
-    const totalComEncargos = calcularTotalAReceber({
-      valor_frete_liquido: freteLiquido,
-      valor_descargas_adicionais: descargas,
-      valor_diarias: diarias,
-      encargos: encargos.length ? encargos : undefined,
-    });
-
     const dataReceb =
       rec?.data_recebimento?.split("T")[0] ??
       dataPagamentoPorViagem.get(v.id)?.split("T")[0] ??
@@ -147,7 +131,6 @@ export async function montarLinhasRelatorioTodasViagens(
       frete_bruto: freteBruto,
       descargas,
       diarias,
-      total_com_encargos: totalComEncargos,
       data_recebimento: dataReceb,
       status_viagem: VIAGEM_STATUS_LABEL[statusRaw] ?? statusRaw,
       saida_em: v.saida_em,

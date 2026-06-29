@@ -358,14 +358,12 @@ function resumirLinhasViagens(linhas: RecebimentoViagemRelatorioLinha[]) {
   let freteBruto = 0;
   let descargas = 0;
   let diarias = 0;
-  let total = 0;
   for (const l of linhas) {
     freteBruto += l.frete_bruto;
     descargas += l.descargas;
     diarias += l.diarias;
-    total += l.total_com_encargos;
   }
-  return { freteBruto, descargas, diarias, total, qtd: linhas.length };
+  return { freteBruto, descargas, diarias, qtd: linhas.length };
 }
 
 function cabecalhoRelatorioViagensSaida(
@@ -410,7 +408,6 @@ function cabecalhoRelatorioViagensSaida(
     `Frete bruto: ${formatarMoeda(resumo.freteBruto)}`,
     `Descargas: ${formatarMoeda(resumo.descargas)}`,
     `Diárias: ${formatarMoeda(resumo.diarias)}`,
-    `Total c/ encargos: ${formatarMoeda(resumo.total)}`,
   ].forEach((linha) => {
     doc.text(linha, 14, y);
     y += 5;
@@ -442,7 +439,6 @@ export function gerarPdfRecebimentosViagensSaida(
     formatarMoeda(l.frete_bruto),
     formatarMoeda(l.descargas),
     formatarMoeda(l.diarias),
-    formatarMoeda(l.total_com_encargos),
     l.data_recebimento ? formatarDataBr(l.data_recebimento) : "—",
     l.status_viagem,
   ]);
@@ -458,7 +454,6 @@ export function gerarPdfRecebimentosViagensSaida(
         "Frete bruto",
         "Descargas",
         "Diárias",
-        "Total c/ encargos",
         "Data receb.",
         "Status",
       ],
@@ -472,7 +467,7 @@ export function gerarPdfRecebimentosViagensSaida(
       1: { cellWidth: 16 },
       2: { cellWidth: 16 },
       3: { cellWidth: 30 },
-      9: { cellWidth: 24 },
+      8: { cellWidth: 24 },
     },
   });
 
