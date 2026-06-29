@@ -2,6 +2,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { formatarDataBr, formatarMoeda, dataNoIntervalo } from "@/lib/frota-filters";
 import type { RecebimentoComCanhotos } from "@/lib/recebimento-viagem";
+import type { RecebimentoViagemRelatorioLinha } from "@/lib/recebimentos-viagens-relatorio";
 import {
   calcularTotalAReceber,
   RECEBIMENTO_ENCARGO_LABEL,
@@ -351,4 +352,130 @@ export function gerarPdfEncargosRecebimentos(
 
   aplicarRodapes(doc);
   doc.save(`relatorio-encargos-${slug}_${de}_${ate}.pdf`);
+}
+
+function resumirLinhasViagens(linhas: RecebimentoViagemRelatorioLinha[]) {
+  let freteBruto = 0;
+  let descargas = 0;
+  let diarias = 0;
+  let total = 0;
+  for (const l of linhas) {
+    freteBruto += l.frete_bruto;
+    descargas += l.descargas;
+    diarias += l.diarias;
+    total += l.total_com_encargos;
+  }
+  return { freteBruto, descargas, diarias, total, qtd: linhas.length };
+}
+
+function cabecalhoRelatorioViagensSaida(
+  doc: jsPDF,
+  de: string,
+  ate: string,
+  resumo: ReturnType<typeof resumirLinhasViagens>,
+  fornecedorLabel?: string
+) {
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.setTextColor(0, 100, 120);
+  doc.text("MEB Gestão de Transporte", 14, 18);
+
+  doc.setFontSize(13);
+  doc.setTextColor(30, 30, 30);
+  doc.text("Relatório de Viagens por Saída", 14, 28);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(80);
+  doc.text(
+    `Período (data de saída): ${formatarDataBr(de)} até ${formatarDataBr(ate)}`,
+    14,
+    36
+  );
+  let y = 42;
+  if (fornecedorLabel) {
+    doc.text(`Fornecedor: ${fornecedorLabel}`, 14, y);
+    y += 6;
+  }
+  doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 14, y);
+  y += 8;
+
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(50);
+  doc.text("Resumo", 14, y);
+  y += 6;
+  doc.setFont("helvetica", "normal");
+  [
+    `Total de viagens: ${resumo.qtd}`,
+    `Frete bruto: ${formatarMoeda(resumo.freteBruto)}`,
+    `Descargas: ${formatarMoeda(resumo.descargas)}`,
+    `Diárias: ${formatarMoeda(resumo.diarias)}`,
+    `Total c/ encargos: ${formatarMoeda(resumo.total)}`,
+  ].forEach((linha) => {
+    doc.text(linha, 14, y);
+    y += 5;
+  });
+  return y + 4;
+}
+
+export function gerarPdfRecebimentosViagensSaida(
+  linhas: RecebimentoViagemRelatorioLinha[],
+  de: string,
+  ate: string,
+  options?: { fornecedorLabel?: string }
+) {
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const resumo = resumirLinhasViagens(linhas);
+  const startY = cabecalhoRelatorioViagensSaida(
+    doc,
+    de,
+    ate,
+    resumo,
+    options?.fornecedorLabel
+  );
+
+  const body = linhas.map((l) => [
+    l.motorista_nome,
+    l.numero_cte?.trim() || "—",
+    l.placas,
+    l.fornecedor,
+    formatarMoeda(l.frete_bruto),
+    formatarMoeda(l.descargas),
+    formatarMoeda(l.diarias),
+    formatarMoeda(l.total_com_encargos),
+    l.data_recebimento ? formatarDataBr(l.data_recebimento) : "—",
+    l.status_viagem,
+  ]);
+
+  autoTable(doc, {
+    startY,
+    head: [
+      [
+        "Motorista",
+        "CTE",
+        "Placas",
+        "Fornecedor",
+        "Frete bruto",
+        "Descargas",
+        "Diárias",
+        "Total c/ encargos",
+        "Data receb.",
+        "Status",
+      ],
+    ],
+    body,
+    styles: { fontSize: 7, cellPadding: 1.5, overflow: "linebreak" },
+    headStyles: { fillColor: [0, 100, 120], textColor: 255, fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [245, 248, 250] },
+    columnStyles: {
+      0: { cellWidth: 28 },
+      1: { cellWidth: 16 },
+      2: { cellWidth: 16 },
+      3: { cellWidth: 30 },
+      9: { cellWidth: 24 },
+    },
+  });
+
+  aplicarRodapes(doc);
+  doc.save(`relatorio-viagens-saida_${de}_${ate}.pdf`);
 }

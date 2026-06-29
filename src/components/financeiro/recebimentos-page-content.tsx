@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { RecebimentoLinha } from "@/components/financeiro/recebimento-linha";
 import { RecebimentosRelatorioModal } from "@/components/financeiro/recebimentos-relatorio-modal";
+import { RecebimentosViagensRelatorioModal } from "@/components/financeiro/recebimentos-viagens-relatorio-modal";
 import { fetchRecebimentos, refreshTodosRecebimentosArquivados, type RecebimentoComCanhotos } from "@/lib/recebimento-viagem";
 import {
   dataNoPeriodoConfig,
@@ -132,6 +133,7 @@ export function RecebimentosPageContent() {
   const [filtroEncargoStatus, setFiltroEncargoStatus] = useState<FiltroEncargoStatus>("todos");
   const [periodo, setPeriodo] = useState<PeriodoFiltroState>(PERIODO_FILTRO_INICIAL);
   const [showRelatorio, setShowRelatorio] = useState(false);
+  const [showRelatorioViagens, setShowRelatorioViagens] = useState(false);
   const [modoRelatorio, setModoRelatorio] = useState<"recebimentos" | "encargos">("recebimentos");
   const [buscaCte, setBuscaCte] = useState("");
 
@@ -231,6 +233,14 @@ export function RecebimentosPageContent() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setShowRelatorioViagens(true)}
+          >
+            <FileBarChart className="mr-2 h-4 w-4" />
+            Relatório por saída
+          </Button>
           <Button
             type="button"
             variant="secondary"
@@ -425,6 +435,11 @@ export function RecebimentosPageContent() {
         modo={modoRelatorio}
         titulo={modoRelatorio === "encargos" ? "Relatório de Encargos" : "Relatório de Recebimentos"}
         pdfSlug={modoRelatorio === "encargos" ? "encargos-recebimentos" : "recebimentos"}
+      />
+
+      <RecebimentosViagensRelatorioModal
+        open={showRelatorioViagens}
+        onClose={() => setShowRelatorioViagens(false)}
       />
     </div>
   );
