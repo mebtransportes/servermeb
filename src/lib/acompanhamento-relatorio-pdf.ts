@@ -213,7 +213,7 @@ function cabecalhoRelatorio(
     `Período: ${formatarDataBr(filtros.de)} até ${formatarDataBr(filtros.ate)}`,
     `Status: ${labelFiltroStatus(filtros.status)} · Fornecedor: ${labelFiltroFornecedor(filtros.fornecedorId, fornecedores)} · Vínculo: ${labelFiltroVinculo(filtros.vinculo)}`,
     modoTodasPlacas
-      ? `Placas: ${grupos} veículo(s) · ${viagens.length} viagem(ns) no período`
+      ? `Placas (caminhão/cavalo): ${grupos} veículo(s) · ${viagens.length} viagem(ns) no período`
       : `Placa: ${filtros.placa} · ${viagens.length} viagem(ns)`,
     `Gerado em: ${new Date().toLocaleString("pt-BR")}`,
   ];

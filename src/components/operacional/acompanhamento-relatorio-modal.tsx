@@ -10,10 +10,12 @@ import { MebModal, MebModalBody, MebModalFooter, MebModalHeader } from "@/compon
 import {
   filtrarViagensAcompanhamentoRelatorio,
   listarPlacasAcompanhamento,
+  resolverPlacaRelatorioAcompanhamento,
   type AcompanhamentoRelatorioFiltros,
   type AcompanhamentoViagemItem,
 } from "@/lib/acompanhamento-data";
 import { gerarPdfAcompanhamentoRelatorio } from "@/lib/acompanhamento-relatorio-pdf";
+import { PlacaRelatorioAutocomplete } from "@/components/operacional/placa-relatorio-autocomplete";
 import type { ParceiroSugestao } from "@/lib/parceiros";
 import { VIAGEM_STATUS_FILTRO_ACOMPANHAMENTO, VINCULO_OPCOES } from "@/lib/viagem-validation";
 import { VIAGEM_STATUS_LABEL } from "@/lib/viagem-status";
@@ -45,16 +47,11 @@ export function AcompanhamentoRelatorioModal({
   const [fornecedorId, setFornecedorId] = useState("");
   const [vinculo, setVinculo] = useState<"" | RecursoVinculo>("");
   const [placa, setPlaca] = useState("");
+  const [placaDigitada, setPlacaDigitada] = useState("");
   const [erro, setErro] = useState("");
   const [gerando, setGerando] = useState(false);
 
-  const placaOpcoes = useMemo(
-    () => [
-      { value: "", label: "Todas as placas" },
-      ...listarPlacasAcompanhamento(viagens).map((p) => ({ value: p, label: p })),
-    ],
-    [viagens]
-  );
+  const placasRelatorio = useMemo(() => listarPlacasAcompanhamento(viagens), [viagens]);
 
   function validar(): boolean {
     if (!de || !ate) {
@@ -71,15 +68,33 @@ export function AcompanhamentoRelatorioModal({
 
   function handleGerar() {
     if (!validar()) return;
+
+    const placaFiltro = placa.trim();
+    if (placaDigitada.trim() && !placaFiltro) {
+      setErro("Selecione uma placa de caminhão ou cavalo na lista de sugestões.");
+      return;
+    }
+    if (placaFiltro) {
+      const placaValida = resolverPlacaRelatorioAcompanhamento(placasRelatorio, placaFiltro);
+      if (!placaValida) {
+        setErro("Placa inválida. Escolha um caminhão ou cavalo cadastrado nas viagens.");
+        return;
+      }
+    }
+
     setGerando(true);
     try {
+      const placaResolvida = placaFiltro
+        ? resolverPlacaRelatorioAcompanhamento(placasRelatorio, placaFiltro) ?? ""
+        : "";
+
       const filtros: AcompanhamentoRelatorioFiltros = {
         de,
         ate,
         status,
         fornecedorId,
         vinculo,
-        placa,
+        placa: placaResolvida,
       };
       const fornecedorSelecionado = fornecedorId
         ? fornecedores.find((f) => f.id === fornecedorId)
@@ -108,7 +123,7 @@ export function AcompanhamentoRelatorioModal({
         <MebModalHeader
           id="acompanhamento-relatorio-titulo"
           title="Relatório de Acompanhamento"
-          description="Defina o período e os filtros. Com uma placa, o PDF lista as viagens e o resumo. Com todas as placas, cada veículo ganha sua própria seção com viagens e totais."
+          description="Defina o período e os filtros. O relatório considera apenas placas de caminhão e cavalo (carretas são ignoradas). Deixe a placa vazia para gerar uma seção por veículo."
           onClose={onClose}
         />
 
@@ -155,12 +170,16 @@ export function AcompanhamentoRelatorioModal({
             ]}
           />
 
-          <Select
+          <PlacaRelatorioAutocomplete
             label="Placa do veículo"
-            tone="light"
+            placas={placasRelatorio}
             value={placa}
-            onChange={(e) => setPlaca(e.target.value)}
-            options={placaOpcoes}
+            onChange={(p) => {
+              setPlaca(p);
+              setErro("");
+            }}
+            onTextoChange={setPlacaDigitada}
+            hint="Deixe vazio para todas as placas (caminhão e cavalo). Digite ao menos 2 caracteres para ver sugestões."
           />
 
           <Select

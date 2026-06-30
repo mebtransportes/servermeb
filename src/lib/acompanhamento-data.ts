@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/client";
 import { normalizarPlaca } from "@/lib/cadastro-busca";
 import { dataNoIntervalo } from "@/lib/frota-filters";
 import { formatarDuracaoViagem } from "@/lib/viagem-duracao";
-import type { RecursoVinculo } from "@/types";
+import type { RecursoVinculo, VeiculoTipo } from "@/types";
 import { formatarVeiculosLabel } from "@/lib/viagem-crud";
 import { carregarParceiros, type ParceiroSugestao } from "@/lib/parceiros";
 import {
@@ -21,6 +21,11 @@ export type AcompanhamentoFornecedor = ParceiroViagemLinha & {
   local_fornecedor: string;
 };
 
+export type AcompanhamentoVeiculoPlaca = {
+  placa: string;
+  tipo?: VeiculoTipo | null;
+};
+
 export type AcompanhamentoViagemItem = {
   id: string;
   status: string;
@@ -33,6 +38,7 @@ export type AcompanhamentoViagemItem = {
   valor_frete?: number | null;
   placas: string;
   placas_lista: string[];
+  veiculos_placas: AcompanhamentoVeiculoPlaca[];
   fornecedor_atual_ordem?: number | null;
   entrega_atual_ordem?: number | null;
   motorista_nome: string;
@@ -58,8 +64,8 @@ export async function fetchViagensAcompanhamento(): Promise<AcompanhamentoViagem
       created_at, peso_kg, valor_frete,
       fornecedor_atual_ordem, entrega_atual_ordem,
       motoristas ( nome_completo, telefone, vinculo ),
-      veiculos ( nome, placa ),
-      viagem_veiculos ( ordem, veiculos ( nome, placa ) ),
+      veiculos ( nome, placa, tipo ),
+      viagem_veiculos ( ordem, veiculos ( nome, placa, tipo ) ),
       viagem_fornecedores ( ordem, local_fornecedor ),
       viagem_entregas ( ordem, local_entrega )
     `
@@ -79,7 +85,12 @@ export async function fetchViagensAcompanhamento(): Promise<AcompanhamentoViagem
     const motorista = Array.isArray(motoristaRaw) ? motoristaRaw[0] : motoristaRaw;
 
     const vv = row.viagem_veiculos as
-      | { ordem: number; veiculos: { nome: string; placa: string } | { nome: string; placa: string }[] }[]
+      | {
+          ordem: number;
+          veiculos:
+            | { nome: string; placa: string; tipo?: VeiculoTipo | null }
+            | { nome: string; placa: string; tipo?: VeiculoTipo | null }[];
+        }[]
       | null;
     const veiculosViagem = (vv ?? [])
       .sort((a, b) => a.ordem - b.ordem)
@@ -87,11 +98,13 @@ export async function fetchViagensAcompanhamento(): Promise<AcompanhamentoViagem
         const v = item.veiculos;
         return Array.isArray(v) ? v[0] : v;
       })
-      .filter((v): v is { nome: string; placa: string } => !!v);
+      .filter(
+        (v): v is { nome: string; placa: string; tipo?: VeiculoTipo | null } => !!v
+      );
 
     const veiculoRaw = row.veiculos as
-      | { nome: string; placa: string }
-      | { nome: string; placa: string }[]
+      | { nome: string; placa: string; tipo?: VeiculoTipo | null }
+      | { nome: string; placa: string; tipo?: VeiculoTipo | null }[]
       | null;
     const veiculoFallback = Array.isArray(veiculoRaw) ? veiculoRaw[0] : veiculoRaw;
     const listaVeiculos =
@@ -102,6 +115,9 @@ export async function fetchViagensAcompanhamento(): Promise<AcompanhamentoViagem
           : [];
     const placas = listaVeiculos.map((v) => v.placa).filter(Boolean).join(" · ") || "—";
     const placasLista = listaVeiculos.map((v) => v.placa).filter(Boolean);
+    const veiculosPlacas: AcompanhamentoVeiculoPlaca[] = listaVeiculos
+      .filter((v) => v.placa)
+      .map((v) => ({ placa: v.placa, tipo: v.tipo ?? null }));
 
     const fornecedoresLinhas = mapFornecedoresDb(
       row.viagem_fornecedores as { ordem: number; local_fornecedor: string }[] | null
@@ -141,6 +157,7 @@ export async function fetchViagensAcompanhamento(): Promise<AcompanhamentoViagem
       valor_frete: row.valor_frete != null ? Number(row.valor_frete) : null,
       placas,
       placas_lista: placasLista,
+      veiculos_placas: veiculosPlacas,
       fornecedor_atual_ordem: row.fornecedor_atual_ordem,
       entrega_atual_ordem: row.entrega_atual_ordem,
       motorista_nome: motorista?.nome_completo ?? "—",
@@ -397,21 +414,42 @@ export type AcompanhamentoRelatorioFiltros = {
   placa: string;
 };
 
+/** Placas elegíveis no relatório por veículo (caminhão e cavalo; carretas ignoradas). */
+export function placaElegivelRelatorioAcompanhamento(tipo?: VeiculoTipo | null): boolean {
+  return tipo === "caminhao" || tipo === "cavalo";
+}
+
+export function placasRelatorioViagem(viagem: AcompanhamentoViagemItem): string[] {
+  return viagem.veiculos_placas
+    .filter((v) => placaElegivelRelatorioAcompanhamento(v.tipo))
+    .map((v) => v.placa)
+    .filter(Boolean);
+}
+
 export function viagemMatchPlaca(viagem: AcompanhamentoViagemItem, placa: string): boolean {
   const alvo = normalizarPlaca(placa);
   if (!alvo) return true;
-  return viagem.placas_lista.some((p) => normalizarPlaca(p) === alvo);
+  return placasRelatorioViagem(viagem).some((p) => normalizarPlaca(p) === alvo);
 }
 
 export function listarPlacasAcompanhamento(viagens: AcompanhamentoViagemItem[]): string[] {
   const mapa = new Map<string, string>();
   for (const v of viagens) {
-    for (const placa of v.placas_lista) {
+    for (const placa of placasRelatorioViagem(v)) {
       const chave = normalizarPlaca(placa);
       if (chave && !mapa.has(chave)) mapa.set(chave, placa);
     }
   }
   return [...mapa.values()].sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
+export function resolverPlacaRelatorioAcompanhamento(
+  placas: string[],
+  entrada: string
+): string | null {
+  const alvo = normalizarPlaca(entrada.trim());
+  if (!alvo) return null;
+  return placas.find((p) => normalizarPlaca(p) === alvo) ?? null;
 }
 
 export type AcompanhamentoRelatorioResumoPlaca = {
