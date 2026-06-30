@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { FileDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { MebModal, MebModalBody, MebModalFooter, MebModalHeader } from "@/components/ui/modal";
 import {
   filtrarViagensAcompanhamentoRelatorio,
+  listarPlacasAcompanhamento,
   type AcompanhamentoRelatorioFiltros,
   type AcompanhamentoViagemItem,
 } from "@/lib/acompanhamento-data";
@@ -43,8 +44,17 @@ export function AcompanhamentoRelatorioModal({
   const [status, setStatus] = useState("");
   const [fornecedorId, setFornecedorId] = useState("");
   const [vinculo, setVinculo] = useState<"" | RecursoVinculo>("");
+  const [placa, setPlaca] = useState("");
   const [erro, setErro] = useState("");
   const [gerando, setGerando] = useState(false);
+
+  const placaOpcoes = useMemo(
+    () => [
+      { value: "", label: "Todas as placas" },
+      ...listarPlacasAcompanhamento(viagens).map((p) => ({ value: p, label: p })),
+    ],
+    [viagens]
+  );
 
   function validar(): boolean {
     if (!de || !ate) {
@@ -69,6 +79,7 @@ export function AcompanhamentoRelatorioModal({
         status,
         fornecedorId,
         vinculo,
+        placa,
       };
       const fornecedorSelecionado = fornecedorId
         ? fornecedores.find((f) => f.id === fornecedorId)
@@ -97,7 +108,7 @@ export function AcompanhamentoRelatorioModal({
         <MebModalHeader
           id="acompanhamento-relatorio-titulo"
           title="Relatório de Acompanhamento"
-          description="Defina o período e os filtros. O PDF lista fornecedor, status, vínculo, datas, CT-e, placas, motorista, peso e frete."
+          description="Defina o período e os filtros. Com uma placa, o PDF lista as viagens e o resumo. Com todas as placas, cada veículo ganha sua própria seção com viagens e totais."
           onClose={onClose}
         />
 
@@ -142,6 +153,14 @@ export function AcompanhamentoRelatorioModal({
               { value: "", label: "Todos os fornecedores" },
               ...fornecedores.map((f) => ({ value: f.id, label: f.nome })),
             ]}
+          />
+
+          <Select
+            label="Placa do veículo"
+            tone="light"
+            value={placa}
+            onChange={(e) => setPlaca(e.target.value)}
+            options={placaOpcoes}
           />
 
           <Select

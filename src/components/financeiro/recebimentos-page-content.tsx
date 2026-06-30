@@ -30,7 +30,7 @@ import {
 import { cn, mebCard, mebFormSection } from "@/lib/utils";
 import type { RecursoVinculo } from "@/types";
 
-type FiltroStatus = RecebimentoStatus | "todos";
+type FiltroStatus = RecebimentoStatus | "sem_data" | "todos";
 type FiltroVinculo = "todos" | RecursoVinculo;
 type FiltroEncargoTipo = RecebimentoEncargoTipo | "todos";
 type FiltroEncargoStatus = RecebimentoEncargoStatus | "todos";
@@ -50,6 +50,7 @@ const ENCARGO_STATUS_FILTROS: { value: FiltroEncargoStatus; label: string }[] = 
 
 const STATUS_FILTROS: { value: FiltroStatus; label: string }[] = [
   { value: "todos", label: "Todos" },
+  { value: "sem_data", label: "Sem data" },
   { value: "pendente", label: "Pendentes" },
   { value: "pago", label: "Pagos" },
   { value: "vencido", label: "Vencidos" },
@@ -124,6 +125,10 @@ function matchBuscaCte(item: RecebimentoComCanhotos, termo: string): boolean {
   return item.encargos.some((e) => e.numero_cte?.toLowerCase().includes(q));
 }
 
+function recebimentoSemDataRecebimento(item: RecebimentoComCanhotos): boolean {
+  return !item.data_recebimento?.trim();
+}
+
 export function RecebimentosPageContent() {
   const [itens, setItens] = useState<RecebimentoComCanhotos[]>([]);
   const [loading, setLoading] = useState(true);
@@ -164,7 +169,10 @@ export function RecebimentosPageContent() {
   const filtrados = useMemo(() => {
     let lista = noPeriodo;
     if (filtroStatus !== "todos") {
-      lista = lista.filter((i) => i.status === filtroStatus);
+      lista =
+        filtroStatus === "sem_data"
+          ? lista.filter(recebimentoSemDataRecebimento)
+          : lista.filter((i) => i.status === filtroStatus);
     }
     if (filtroEncargoTipo !== "todos" || filtroEncargoStatus !== "todos") {
       lista = lista.filter((i) =>
@@ -394,7 +402,13 @@ export function RecebimentosPageContent() {
           {filtrados.length} registro(s)
           {filtroVinculo !== "todos" && <> · {vinculoLabel}</>}
           {filtroStatus !== "todos" && (
-            <> · {RECEBIMENTO_STATUS_LABEL[filtroStatus as RecebimentoStatus]}</>
+            <>
+              {" "}
+              ·{" "}
+              {filtroStatus === "sem_data"
+                ? "Sem data"
+                : RECEBIMENTO_STATUS_LABEL[filtroStatus as RecebimentoStatus]}
+            </>
           )}
           {filtroEncargoTipo !== "todos" && (
             <> · Encargo: {RECEBIMENTO_ENCARGO_LABEL[filtroEncargoTipo]}</>

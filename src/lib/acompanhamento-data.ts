@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { normalizarPlaca } from "@/lib/cadastro-busca";
 import { dataNoIntervalo } from "@/lib/frota-filters";
 import { formatarDuracaoViagem } from "@/lib/viagem-duracao";
 import type { RecursoVinculo } from "@/types";
@@ -31,6 +32,7 @@ export type AcompanhamentoViagemItem = {
   peso_kg?: number | null;
   valor_frete?: number | null;
   placas: string;
+  placas_lista: string[];
   fornecedor_atual_ordem?: number | null;
   entrega_atual_ordem?: number | null;
   motorista_nome: string;
@@ -99,6 +101,7 @@ export async function fetchViagensAcompanhamento(): Promise<AcompanhamentoViagem
           ? [veiculoFallback]
           : [];
     const placas = listaVeiculos.map((v) => v.placa).filter(Boolean).join(" · ") || "—";
+    const placasLista = listaVeiculos.map((v) => v.placa).filter(Boolean);
 
     const fornecedoresLinhas = mapFornecedoresDb(
       row.viagem_fornecedores as { ordem: number; local_fornecedor: string }[] | null
@@ -137,6 +140,7 @@ export async function fetchViagensAcompanhamento(): Promise<AcompanhamentoViagem
       peso_kg: row.peso_kg != null ? Number(row.peso_kg) : null,
       valor_frete: row.valor_frete != null ? Number(row.valor_frete) : null,
       placas,
+      placas_lista: placasLista,
       fornecedor_atual_ordem: row.fornecedor_atual_ordem,
       entrega_atual_ordem: row.entrega_atual_ordem,
       motorista_nome: motorista?.nome_completo ?? "—",
@@ -390,7 +394,68 @@ export type AcompanhamentoRelatorioFiltros = {
   status: string;
   fornecedorId: string;
   vinculo: "" | RecursoVinculo;
+  placa: string;
 };
+
+export function viagemMatchPlaca(viagem: AcompanhamentoViagemItem, placa: string): boolean {
+  const alvo = normalizarPlaca(placa);
+  if (!alvo) return true;
+  return viagem.placas_lista.some((p) => normalizarPlaca(p) === alvo);
+}
+
+export function listarPlacasAcompanhamento(viagens: AcompanhamentoViagemItem[]): string[] {
+  const mapa = new Map<string, string>();
+  for (const v of viagens) {
+    for (const placa of v.placas_lista) {
+      const chave = normalizarPlaca(placa);
+      if (chave && !mapa.has(chave)) mapa.set(chave, placa);
+    }
+  }
+  return [...mapa.values()].sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
+export type AcompanhamentoRelatorioResumoPlaca = {
+  qtdViagens: number;
+  pesoTotalKg: number;
+  faturamentoBruto: number;
+};
+
+export function resumirViagensPorPlaca(
+  viagens: AcompanhamentoViagemItem[]
+): AcompanhamentoRelatorioResumoPlaca {
+  let pesoTotalKg = 0;
+  let faturamentoBruto = 0;
+  for (const v of viagens) {
+    if (v.peso_kg != null && Number(v.peso_kg) > 0) {
+      pesoTotalKg += Number(v.peso_kg);
+    }
+    if (v.valor_frete != null && Number(v.valor_frete) > 0) {
+      faturamentoBruto += Number(v.valor_frete);
+    }
+  }
+  return {
+    qtdViagens: viagens.length,
+    pesoTotalKg,
+    faturamentoBruto,
+  };
+}
+
+export type AcompanhamentoViagensPorPlaca = {
+  placa: string;
+  viagens: AcompanhamentoViagemItem[];
+};
+
+/** Agrupa viagens filtradas por placa (viagem com várias placas entra em cada grupo). */
+export function agruparViagensPorPlaca(
+  viagens: AcompanhamentoViagemItem[]
+): AcompanhamentoViagensPorPlaca[] {
+  return listarPlacasAcompanhamento(viagens)
+    .map((placa) => ({
+      placa,
+      viagens: viagens.filter((v) => viagemMatchPlaca(v, placa)),
+    }))
+    .filter((g) => g.viagens.length > 0);
+}
 
 function dataReferenciaViagem(viagem: AcompanhamentoViagemItem): string {
   return viagem.saida_em ?? viagem.created_at;
@@ -416,6 +481,7 @@ export function filtrarViagensAcompanhamentoRelatorio(
       if (statusViagem !== filtros.status) return false;
     }
     if (fornecedor && !viagemMatchFornecedor(v, fornecedor)) return false;
+    if (filtros.placa && !viagemMatchPlaca(v, filtros.placa)) return false;
     return true;
   });
 }
