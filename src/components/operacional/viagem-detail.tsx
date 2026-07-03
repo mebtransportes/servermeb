@@ -541,14 +541,18 @@ export function ViagemDetail({
         <ViagemComprovantesDescarga viagemId={viagemId} />
       </div>
 
-      <ViagemRecursos viagemId={viagemId} onRecursosChanged={load} />
+      <ViagemRecursos
+        viagemId={viagemId}
+        onRecursosChanged={() => {
+          load();
+          setRefreshKm((k) => k + 1);
+        }}
+      />
 
       <ViagemKmOdometro
         viagemId={viagemId}
         kmInicial={viagem.km_odometro_inicial}
-        kmFinalInicial={viagem.km_odometro_final}
         refreshKey={refreshKm}
-        onSaved={load}
       />
     </div>
   );

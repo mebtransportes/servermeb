@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { formatarVeiculosLabel } from "@/lib/viagem-crud";
 import { fetchLitrosTotaisVeiculo } from "@/lib/litros-frota-veiculo";
-import { calcularKmRodado } from "@/lib/veiculo-km";
+import { calcularKmRodado, syncQuilometragemViagem } from "@/lib/veiculo-km";
 import type { ViagemFechamento } from "@/types/fechamento";
 import {
   calcularComissionamento,
@@ -20,6 +20,7 @@ type RecursoRow = {
   combustivel_tipo?: string | null;
   desconta_motorista?: boolean | null;
   km_abastecimento?: number | null;
+  realizado_em?: string | null;
   teve_desconto_combustivel?: boolean | null;
   valor_desconto_combustivel?: number | null;
 };
@@ -45,6 +46,7 @@ function somarRecursos(recursos: RecursoRow[]) {
   let reembolso_valor = 0;
   let adiantamento_valor = 0;
   let km_final_abastecimento: number | null = null;
+  let km_final_abastecimento_em: string | null = null;
 
   for (const r of recursos) {
     const v = Number(r.valor) || 0;
@@ -61,11 +63,15 @@ function somarRecursos(recursos: RecursoRow[]) {
             litros_abastecimento_viagem += Number(r.litros) || 0;
           }
           const kmAb = Number(r.km_abastecimento);
-          if (Number.isFinite(kmAb) && kmAb > 0) {
-            km_final_abastecimento =
-              km_final_abastecimento == null
-                ? kmAb
-                : Math.max(km_final_abastecimento, kmAb);
+          const realizadoEm = r.realizado_em;
+          if (Number.isFinite(kmAb) && kmAb > 0 && realizadoEm) {
+            if (
+              !km_final_abastecimento_em ||
+              realizadoEm > km_final_abastecimento_em
+            ) {
+              km_final_abastecimento = kmAb;
+              km_final_abastecimento_em = realizadoEm;
+            }
           }
         }
         break;
@@ -136,6 +142,9 @@ function somarRecursos(recursos: RecursoRow[]) {
 
 /** Recalcula e grava fechamento quando a viagem está FINALIZADA. */
 export async function syncFechamentoViagem(viagemId: string): Promise<string | null> {
+  const kmErr = await syncQuilometragemViagem(viagemId);
+  if (kmErr) return kmErr;
+
   const supabase = createClient();
 
   const { data: fechamentoExistente } = await supabase
@@ -199,7 +208,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
 
   const { data: recursos } = await supabase
     .from("viagem_recursos")
-    .select("tipo, valor, litros, abastecimento_inicial, combustivel_tipo, desconta_motorista, km_abastecimento, teve_desconto_combustivel, valor_desconto_combustivel")
+    .select("tipo, valor, litros, abastecimento_inicial, combustivel_tipo, desconta_motorista, km_abastecimento, realizado_em, teve_desconto_combustivel, valor_desconto_combustivel")
     .eq("viagem_id", viagemId);
 
   const gastos = somarRecursos((recursos as RecursoRow[]) ?? []);
@@ -259,8 +268,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
 
   const kmOdometroInicial =
     viagem.km_odometro_inicial != null ? Number(viagem.km_odometro_inicial) : null;
-  const kmOdometroFinal =
-    viagem.km_odometro_final != null ? Number(viagem.km_odometro_final) : null;
+  const kmOdometroFinal = gastos.km_final_abastecimento;
   const kmRodado = calcularKmRodado(kmOdometroInicial, kmOdometroFinal);
   const consumo_km_litro = calcularConsumoKmLitro(
     kmRodado,
