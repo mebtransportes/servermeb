@@ -10,6 +10,7 @@ import {
   type FechamentoAdiantamento,
 } from "@/lib/fechamento-adiantamentos";
 import { formatarMoeda } from "@/lib/frota-filters";
+import { formatKmBr } from "@/lib/number-format";
 import type { ViagemFechamento } from "@/types/fechamento";
 import { agruparFechamentosComissao, comissionamentoFechamento } from "@/types/fechamento";
 import { statusElegivelComissao } from "@/lib/viagem-status";
@@ -160,7 +161,7 @@ export function GerarComissaoModal({
                     Resumo agrupado ({resumo.viagens} viagem(ns))
                   </p>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <ResumoItem label="KM rodado" value={resumo.km_rodado.toLocaleString("pt-BR")} />
+                    <ResumoItem label="KM rodado" value={formatKmBr(resumo.km_rodado)} />
                     <ResumoItem label="Frete bruto" value={formatarMoeda(resumo.valor_frete)} />
                     <ResumoItem label="Frete líquido" value={formatarMoeda(resumo.frete_liquido)} />
                     <ResumoItem label="Total despesas" value={formatarMoeda(resumo.despesas)} />
@@ -173,10 +174,27 @@ export function GerarComissaoModal({
                       value={formatarMoeda(resumo.adiantamento_valor)}
                       destaque={resumo.adiantamento_valor > 0}
                     />
-                    <ResumoItem
-                      label="Abastecimento"
-                      value={formatarMoeda(resumo.abastecimento_valor)}
-                    />
+                    {resumo.abastecimento_desconto_total > 0 ? (
+                      <>
+                        <ResumoItem
+                          label="Abastecimento (bruto)"
+                          value={formatarMoeda(resumo.abastecimento_valor_bruto)}
+                        />
+                        <ResumoItem
+                          label="Desconto abastecimento"
+                          value={formatarMoeda(resumo.abastecimento_desconto_total)}
+                        />
+                        <ResumoItem
+                          label="Abastecimento líquido"
+                          value={formatarMoeda(resumo.abastecimento_valor)}
+                        />
+                      </>
+                    ) : (
+                      <ResumoItem
+                        label="Abastecimento"
+                        value={formatarMoeda(resumo.abastecimento_valor)}
+                      />
+                    )}
                     <ResumoItem
                       label="Litros"
                       value={

@@ -1,4 +1,5 @@
 import { formatarMoeda } from "@/lib/frota-filters";
+import { formatKmBr } from "@/lib/number-format";
 import { cn, mebCard, mebCardSm } from "@/lib/utils";
 
 type Stat = { label: string; value: string | number; sub?: string };
@@ -53,18 +54,35 @@ export function buildManutencaoStats(
 }
 
 export function buildAbastecimentoStats(
-  items: { valor: number; source: string; km?: number | null }[],
+  items: {
+    valor: number;
+    valorBruto?: number;
+    desconto?: number;
+    source: string;
+    km?: number | null;
+  }[],
   periodoLabel: string
 ) {
   const total = items.length;
-  const valor = items.reduce((s, i) => s + i.valor, 0);
+  const valorLiquido = items.reduce((s, i) => s + i.valor, 0);
+  const valorBruto = items.reduce((s, i) => s + (i.valorBruto ?? i.valor), 0);
+  const descontoTotal = items.reduce((s, i) => s + (i.desconto ?? 0), 0);
   const km = items.reduce((s, i) => s + (i.km ?? 0), 0);
   const viagem = items.filter((i) => i.source === "viagem").length;
 
+  const valorSub =
+    descontoTotal > 0
+      ? `Bruto ${formatarMoeda(valorBruto)} − Desconto ${formatarMoeda(descontoTotal)}`
+      : periodoLabel;
+
   return [
     { label: "Abastecimentos", value: total, sub: periodoLabel },
-    { label: "Valor total", value: formatarMoeda(valor), sub: periodoLabel },
-    { label: "KM registrados", value: km.toLocaleString("pt-BR"), sub: "Soma dos lançamentos" },
+    {
+      label: "Valor total (líquido)",
+      value: formatarMoeda(valorLiquido),
+      sub: valorSub,
+    },
+    { label: "KM registrados", value: formatKmBr(km), sub: "Soma dos lançamentos" },
     { label: "De viagens", value: viagem, sub: "Acompanhamento" },
   ];
 }

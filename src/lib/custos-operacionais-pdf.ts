@@ -3,9 +3,11 @@ import autoTable from "jspdf-autotable";
 import {
   CUSTO_CATEGORIA_LABEL,
   type CustoOperacionalCategoria,
+  type CustoOperacionalLinha,
   type CustosOperacionaisResumo,
 } from "@/lib/custos-operacionais";
 import { formatarDataHoraBr, formatarMoeda } from "@/lib/frota-filters";
+import { textoValorAbastecimentoFormatado } from "@/lib/abastecimento-valor";
 
 const CATEGORIAS_RELATORIO: CustoOperacionalCategoria[] = [
   "abastecimentos",
@@ -169,6 +171,23 @@ function cabecalhoRelatorio(
   return y + 8;
 }
 
+function complementoLinhaCustos(l: CustoOperacionalLinha): string {
+  const partes = [l.detalhe].filter(Boolean) as string[];
+  if (l.valorBruto != null && l.desconto != null && l.desconto > 0) {
+    partes.push(
+      `Bruto ${formatarMoeda(l.valorBruto)} − Desconto ${formatarMoeda(l.desconto)}`
+    );
+  }
+  return partes.length ? partes.join(" · ") : "—";
+}
+
+function formatarValorLinhaCustos(l: CustoOperacionalLinha): string {
+  if (l.valorBruto != null && l.desconto != null && l.desconto > 0) {
+    return textoValorAbastecimentoFormatado(l.valorBruto, l.desconto);
+  }
+  return formatarMoeda(l.valor);
+}
+
 function secaoCategoria(
   doc: jsPDF,
   startY: number,
@@ -179,6 +198,8 @@ function secaoCategoria(
     (a, b) => new Date(a.data).getTime() - new Date(b.data).getTime()
   );
   const total = valorCategoria(resumo, categoria);
+  const totalBruto = linhas.reduce((s, l) => s + (l.valorBruto ?? l.valor), 0);
+  const totalDesconto = linhas.reduce((s, l) => s + (l.desconto ?? 0), 0);
   const pageH = doc.internal.pageSize.getHeight();
   let y = startY;
 
@@ -196,11 +217,11 @@ function secaoCategoria(
   doc.setFontSize(9);
   doc.setTextColor(80);
   const extra = detalheResumoCategoria(resumo, categoria);
-  doc.text(
-    `${linhas.length} lançamento(s) · Subtotal ${formatarMoeda(total)}${extra ? ` · ${extra}` : ""}`,
-    14,
-    y + 5
-  );
+  const subtotalTexto =
+    categoria === "abastecimentos" && totalDesconto > 0
+      ? `${linhas.length} lançamento(s) · Bruto ${formatarMoeda(totalBruto)} − Desconto ${formatarMoeda(totalDesconto)} = ${formatarMoeda(total)}`
+      : `${linhas.length} lançamento(s) · Subtotal ${formatarMoeda(total)}${extra ? ` · ${extra}` : ""}`;
+  doc.text(subtotalTexto, 14, y + 5);
 
   y += 10;
 
@@ -213,13 +234,21 @@ function secaoCategoria(
 
   autoTable(doc, {
     startY: y,
-    head: [["Data / hora", "Descrição", "Origem", "Complemento", "Valor"]],
+    head: [
+      [
+        "Data / hora",
+        "Descrição",
+        "Origem",
+        "Complemento",
+        categoria === "abastecimentos" ? "Valor (líquido)" : "Valor",
+      ],
+    ],
     body: linhas.map((l) => [
       formatarDataHoraBr(l.data),
       l.descricao,
       l.origem,
-      l.detalhe ?? "—",
-      formatarMoeda(l.valor),
+      complementoLinhaCustos(l),
+      formatarValorLinhaCustos(l),
     ]),
     foot: [
       [

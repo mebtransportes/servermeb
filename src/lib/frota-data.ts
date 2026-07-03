@@ -1,5 +1,68 @@
 import { createClient } from "@/lib/supabase/client";
+import { partesValorAbastecimento } from "@/lib/abastecimento-valor";
 import type { ManutencaoCard, AbastecimentoCard, FrotaManutencaoStatus } from "@/types/frota";
+
+function relOne<T>(v: T | T[] | null | undefined): T | null {
+  if (v == null) return null;
+  return Array.isArray(v) ? (v[0] ?? null) : v;
+}
+
+function mapAbastecimentoViagem(
+  r: {
+    id: string;
+    valor: number;
+    descricao?: string | null;
+    realizado_em: string;
+    km_abastecimento?: number | null;
+    litros?: number | null;
+    valor_desconto_combustivel?: number | null;
+    nota_fiscal_path?: string | null;
+    comprovante_path?: string | null;
+    nota_fiscal_nome?: string | null;
+    comprovante_nome?: string | null;
+    postos?: { nome: string } | { nome: string }[] | null;
+    viagens?:
+      | {
+          motoristas?: { nome_completo: string } | { nome_completo: string }[] | null;
+          veiculos?: { placa: string; nome: string } | { placa: string; nome: string }[] | null;
+        }
+      | {
+          motoristas?: { nome_completo: string } | { nome_completo: string }[] | null;
+          veiculos?: { placa: string; nome: string } | { placa: string; nome: string }[] | null;
+        }[]
+      | null;
+  }
+): AbastecimentoCard {
+  const viagemRaw = relOne(r.viagens);
+  const motorista = relOne(viagemRaw?.motoristas ?? null)?.nome_completo;
+  const veiculoInfo = relOne(viagemRaw?.veiculos ?? null);
+  const postoRaw = r.postos as { nome: string } | { nome: string }[] | null;
+  const posto = Array.isArray(postoRaw) ? postoRaw[0] : postoRaw;
+  const valorBruto = Number(r.valor) || 0;
+  const partes = partesValorAbastecimento(valorBruto, r.valor_desconto_combustivel);
+  const desconto = partes.desconto > 0 ? partes.desconto : undefined;
+
+  return {
+    id: `viagem-${r.id}`,
+    viagemRecursoId: r.id,
+    source: "viagem",
+    valor: partes.valorLiquido,
+    valorBruto: desconto ? partes.valorBruto : undefined,
+    desconto,
+    km: r.km_abastecimento ? Number(r.km_abastecimento) : null,
+    litros: r.litros ? Number(r.litros) : null,
+    descricao: r.descricao,
+    dataHora: r.realizado_em,
+    postoNome: posto?.nome,
+    motoristaNome: motorista,
+    veiculoLabel: veiculoInfo ? `${veiculoInfo.nome} — ${veiculoInfo.placa}` : undefined,
+    veiculoPlaca: veiculoInfo?.placa,
+    nota_fiscal_path: r.nota_fiscal_path,
+    comprovante_path: r.comprovante_path,
+    nota_fiscal_nome: r.nota_fiscal_nome,
+    comprovante_nome: r.comprovante_nome,
+  };
+}
 
 export async function fetchManutencoes(): Promise<ManutencaoCard[]> {
   const supabase = createClient();
@@ -137,6 +200,7 @@ export async function fetchAbastecimentos(): Promise<AbastecimentoCard[]> {
     .select(
       `
       id, valor, descricao, realizado_em, km_abastecimento, litros,
+      valor_desconto_combustivel,
       nota_fiscal_path, comprovante_path, nota_fiscal_nome, comprovante_nome,
       postos ( nome ),
       viagens (
@@ -149,31 +213,7 @@ export async function fetchAbastecimentos(): Promise<AbastecimentoCard[]> {
     .order("realizado_em", { ascending: false });
 
   for (const r of viagemRec ?? []) {
-    const v = r.viagens as {
-      motoristas?: { nome_completo: string };
-      veiculos?: { placa: string; nome: string };
-    } | null;
-    const postoRaw = r.postos as { nome: string } | { nome: string }[] | null;
-    const posto = Array.isArray(postoRaw) ? postoRaw[0] : postoRaw;
-
-    cards.push({
-      id: `viagem-${r.id}`,
-      viagemRecursoId: r.id,
-      source: "viagem",
-      valor: Number(r.valor),
-      km: r.km_abastecimento ? Number(r.km_abastecimento) : null,
-      litros: r.litros ? Number(r.litros) : null,
-      descricao: r.descricao,
-      dataHora: r.realizado_em,
-      postoNome: posto?.nome,
-      motoristaNome: v?.motoristas?.nome_completo,
-      veiculoLabel: v?.veiculos ? `${v.veiculos.nome} — ${v.veiculos.placa}` : undefined,
-      veiculoPlaca: v?.veiculos?.placa,
-      nota_fiscal_path: r.nota_fiscal_path,
-      comprovante_path: r.comprovante_path,
-      nota_fiscal_nome: r.nota_fiscal_nome,
-      comprovante_nome: r.comprovante_nome,
-    });
+    cards.push(mapAbastecimentoViagem(r));
   }
 
   return cards.sort(

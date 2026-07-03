@@ -1,3 +1,5 @@
+import { abastecimentoValorLiquidoFromBruto } from "@/lib/abastecimento-valor";
+
 export type ViagemFechamento = {
   id: string;
   viagem_id: string;
@@ -52,10 +54,32 @@ export const COMISSAO_MOTORISTA_PERCENT = 12;
 export const SEGURO_CARGA_PERCENT = 0.09;
 export const MONITORAMENTO_VALOR_FIXO = 160;
 
+export function abastecimentoValorBruto(
+  f: Pick<ViagemFechamento, "abastecimento_valor">
+): number {
+  return Number(f.abastecimento_valor) || 0;
+}
+
+export function abastecimentoDescontoTotal(
+  f: Pick<ViagemFechamento, "abastecimento_desconto_total">
+): number {
+  return Number(f.abastecimento_desconto_total) || 0;
+}
+
+/** Valor efetivo de abastecimento (bruto − descontos lançados). */
+export function abastecimentoValorLiquido(
+  f: Pick<ViagemFechamento, "abastecimento_valor" | "abastecimento_desconto_total">
+): number {
+  return abastecimentoValorLiquidoFromBruto(
+    abastecimentoValorBruto(f),
+    abastecimentoDescontoTotal(f)
+  );
+}
+
 /** Gastos operacionais da viagem frota (sem reembolso/adiantamento). */
 export function totalDespesasFrota(f: ViagemFechamento) {
   return (
-    (Number(f.abastecimento_valor) || 0) +
+    abastecimentoValorLiquido(f) +
     (Number(f.arla_valor) || 0) +
     (Number(f.manutencao_total) || 0) +
     (Number(f.pedagio_valor) || 0) +
@@ -128,7 +152,7 @@ export function despesasCategoriasTerceiro(f: ViagemFechamento) {
     const v = Number(valor) || 0;
     if (v > 0) cats.push({ rotulo, valor: v });
   };
-  add("Abastecimento", f.abastecimento_valor);
+  add("Abastecimento", abastecimentoValorLiquido(f));
   add("Arla", f.arla_valor);
   add("Manutenção", f.manutencao_total);
   add("Pedágio", f.pedagio_valor);
@@ -323,6 +347,8 @@ export type ResumoFechamentosAgrupados = {
   reembolso_valor: number;
   adiantamento_valor: number;
   abastecimento_valor: number;
+  abastecimento_valor_bruto: number;
+  abastecimento_desconto_total: number;
   abastecimento_litros: number;
   comissao_bruta: number;
   comissao_final: number;
@@ -367,7 +393,11 @@ export function agruparFechamentosComissao(
         adiantamento_valor:
           acc.adiantamento_valor + (Number(f.adiantamento_valor) || 0),
         abastecimento_valor:
-          acc.abastecimento_valor + (Number(f.abastecimento_valor) || 0),
+          acc.abastecimento_valor + abastecimentoValorLiquido(f),
+        abastecimento_valor_bruto:
+          acc.abastecimento_valor_bruto + abastecimentoValorBruto(f),
+        abastecimento_desconto_total:
+          acc.abastecimento_desconto_total + abastecimentoDescontoTotal(f),
         abastecimento_litros:
           acc.abastecimento_litros + (Number(f.abastecimento_litros) || 0),
         comissao_bruta: acc.comissao_bruta + (calc.comissao_bruta ?? calc.total_comissao),
@@ -388,6 +418,8 @@ export function agruparFechamentosComissao(
       reembolso_valor: 0,
       adiantamento_valor: 0,
       abastecimento_valor: 0,
+      abastecimento_valor_bruto: 0,
+      abastecimento_desconto_total: 0,
       abastecimento_litros: 0,
       comissao_bruta: 0,
       comissao_final: 0,

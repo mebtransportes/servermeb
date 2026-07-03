@@ -11,6 +11,7 @@ import {
   COMISSAO_MOTORISTA_PERCENT,
 } from "@/types/fechamento";
 import { formatarDataBr, formatarMoeda } from "@/lib/frota-filters";
+import { formatKmBr } from "@/lib/number-format";
 
 const COR_PRIMARIA: [number, number, number] = [0, 120, 140];
 const COR_FUNDO: [number, number, number] = [240, 249, 250];
@@ -191,7 +192,7 @@ export async function gerarPdfComissaoMotorista(opts: {
   doc.setTextColor(71, 85, 105);
   doc.text(`Período de referência: ${periodoViagens}`, MARGIN, y);
   doc.text(
-    `${resumo.viagens} viagem(ns) · ${resumo.km_rodado.toLocaleString("pt-BR")} km rodados`,
+    `${resumo.viagens} viagem(ns) · ${formatKmBr(resumo.km_rodado)} km rodados`,
     PAGE_W - MARGIN,
     y,
     { align: "right" }
@@ -382,8 +383,15 @@ export async function gerarPdfComissaoMotorista(opts: {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
   doc.setTextColor(100, 116, 139);
+  const abastBruto = resumo.abastecimento_valor_bruto;
+  const abastDesconto = resumo.abastecimento_desconto_total;
+  const abastLiquido = resumo.abastecimento_valor;
+  const abastTexto =
+    abastDesconto > 0
+      ? `Abastecimento bruto ${formatarMoeda(abastBruto)} − Desconto ${formatarMoeda(abastDesconto)} = Líquido ${formatarMoeda(abastLiquido)}`
+      : `Abastecimento ${formatarMoeda(abastLiquido)}`;
   const infoDespesas = [
-    `Abastecimento ${formatarMoeda(resumo.abastecimento_valor)}`,
+    abastTexto,
     `Arla ${formatarMoeda(arlaTotal)}`,
     `Manutenção ${formatarMoeda(manutTotal)}`,
     `Pedágio/Estacion. ${formatarMoeda(pedagioTotal)}`,

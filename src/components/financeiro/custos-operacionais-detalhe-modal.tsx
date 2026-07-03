@@ -19,6 +19,9 @@ export function CustosOperacionaisDetalheModal({
   onClose: () => void;
 }) {
   const total = linhas.reduce((s, l) => s + l.valor, 0);
+  const totalBruto = linhas.reduce((s, l) => s + (l.valorBruto ?? l.valor), 0);
+  const totalDesconto = linhas.reduce((s, l) => s + (l.desconto ?? 0), 0);
+  const temDescontoAbast = categoria === "abastecimentos" && totalDesconto > 0;
 
   return (
     <MebModal
@@ -32,7 +35,11 @@ export function CustosOperacionaisDetalheModal({
         <MebModalHeader
           id="custo-op-detalhe-titulo"
           title={CUSTO_CATEGORIA_LABEL[categoria]}
-          description={`${linhas.length} lançamento(s) · Total ${formatarMoeda(total)}`}
+          description={
+            temDescontoAbast
+              ? `${linhas.length} lançamento(s) · Bruto ${formatarMoeda(totalBruto)} − Desconto ${formatarMoeda(totalDesconto)} = ${formatarMoeda(total)}`
+              : `${linhas.length} lançamento(s) · Total ${formatarMoeda(total)}`
+          }
           onClose={onClose}
         />
       </div>
@@ -56,9 +63,10 @@ export function CustosOperacionaisDetalheModal({
                     {l.detalhe && (
                       <p className="mt-0.5 text-xs text-slate-400">{l.detalhe}</p>
                     )}
-                    {l.desconto != null && l.desconto > 0 && (
-                      <p className="mt-0.5 text-xs text-emerald-400">
-                        Desconto: {formatarMoeda(l.desconto)}
+                    {l.valorBruto != null && l.desconto != null && l.desconto > 0 && (
+                      <p className="mt-0.5 text-xs text-slate-400">
+                        Bruto: {formatarMoeda(l.valorBruto)} · Desconto:{" "}
+                        <span className="text-emerald-400">{formatarMoeda(l.desconto)}</span>
                       </p>
                     )}
                   </div>

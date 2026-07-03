@@ -40,7 +40,7 @@ import {
   fetchUltimoKmVeiculo,
   type UltimoKmVeiculo,
 } from "@/lib/veiculo-km";
-import { parseBrNumber, rawNumberStringToBrInput } from "@/lib/number-format";
+import { parseBrNumber, rawNumberStringToBrInput, formatKmBr, roundKm } from "@/lib/number-format";
 import type { Motorista, Veiculo, ViagemStatus } from "@/types";
 import { Plus, Trash2, FileText, AlertTriangle } from "lucide-react";
 
@@ -348,10 +348,11 @@ export function ViagemForm({
     } = await supabase.auth.getUser();
 
     const veiculoPrincipalId = veiculoIds[0];
-    const kmInicial =
+    const kmInicial = roundKm(
       ultimoKmVeiculo?.km ??
-      (await fetchUltimoKmVeiculo(veiculoPrincipalId))?.km ??
-      null;
+        (await fetchUltimoKmVeiculo(veiculoPrincipalId))?.km ??
+        null
+    );
 
     const statusFinal: ViagemStatus = isEdit
       ? statusViagem
@@ -895,7 +896,7 @@ export function ViagemForm({
               {ultimoKmVeiculo ? (
                 <>
                   <span className="font-medium">KM inicial da viagem (último abastecimento):</span>{" "}
-                  {ultimoKmVeiculo.km.toLocaleString("pt-BR")}
+                  {formatKmBr(ultimoKmVeiculo.km)}
                   <span className="mt-1 block text-xs opacity-80">
                     Registrado em{" "}
                     {new Date(ultimoKmVeiculo.dataHora).toLocaleString("pt-BR")}

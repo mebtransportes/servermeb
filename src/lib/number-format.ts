@@ -46,3 +46,31 @@ export function rawNumberStringToBrInput(
   if (Number.isNaN(n)) return "";
   return numberToBrInput(n, decimalPlaces);
 }
+
+/** Casas decimais padrão para quilometragem (odômetro). */
+export const KM_DECIMAL_PLACES = 1;
+
+/** Exibe KM no padrão pt-BR com 1 decimal (ex.: 100.134,1). */
+export function formatKmBr(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(Number(value))) return "—";
+  return Number(value).toLocaleString("pt-BR", {
+    minimumFractionDigits: KM_DECIMAL_PLACES,
+    maximumFractionDigits: KM_DECIMAL_PLACES,
+  });
+}
+
+/** Arredonda quilometragem para 1 casa decimal. */
+export function roundKm(value: number | null | undefined): number | null {
+  if (value == null || !Number.isFinite(Number(value))) return null;
+  return Math.round(Number(value) * 10) / 10;
+}
+
+/** Número → string mascarada para input de KM. */
+export function kmToBrInput(value: number | string | null | undefined): string {
+  return rawNumberStringToBrInput(value, KM_DECIMAL_PLACES);
+}
+
+/** Converte texto formatado pt-BR de KM para número (1 decimal). */
+export function parseBrKm(formatted: string): number | null {
+  return roundKm(parseBrNumber(formatted));
+}

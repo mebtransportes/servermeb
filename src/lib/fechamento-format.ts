@@ -1,4 +1,5 @@
 import { formatarDuracaoViagem } from "@/lib/viagem-duracao";
+import { formatKmBr } from "@/lib/number-format";
 
 export function extrairPlacaVeiculo(veiculoLabel: string): string {
   const partes = veiculoLabel.split(" · ");
@@ -34,8 +35,7 @@ export function formatPeriodoViagem(
 }
 
 export function formatKm(valor: number | null | undefined): string {
-  if (valor == null || !Number.isFinite(Number(valor))) return "—";
-  return Number(valor).toLocaleString("pt-BR");
+  return formatKmBr(valor);
 }
 
 export function formatLitros(valor: number | null | undefined): string {

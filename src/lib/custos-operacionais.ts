@@ -1,9 +1,13 @@
 import { createClient } from "@/lib/supabase/client";
 import {
+  abastecimentoValorLiquidoFromBruto,
+} from "@/lib/abastecimento-valor";
+import {
   dataNoPeriodoConfig,
   formatarMoeda,
   type PeriodoFiltroState,
 } from "@/lib/frota-filters";
+import { formatKmBr } from "@/lib/number-format";
 import { parseISO, isValid } from "date-fns";
 
 function relOne<T>(v: T | T[] | null | undefined): T | null {
@@ -27,6 +31,8 @@ export type CustoOperacionalLinha = {
   valor: number;
   origem: string;
   detalhe?: string;
+  /** Valor bruto antes do desconto (abastecimento). */
+  valorBruto?: number;
   desconto?: number;
 };
 
@@ -153,15 +159,17 @@ export async function fetchCustosOperacionais(
       ? `${veiculoInfo.nome} — ${veiculoInfo.placa}`
       : undefined;
     const posto = relOne(r.postos as { nome: string } | { nome: string }[] | null)?.nome;
-    const desconto =
-      r.teve_desconto_combustivel && r.valor_desconto_combustivel != null
-        ? Number(r.valor_desconto_combustivel) || 0
-        : undefined;
+    const descontoVal = Number(r.valor_desconto_combustivel) || 0;
+    const desconto = descontoVal > 0 ? descontoVal : undefined;
+    const valorLiquido =
+      r.tipo === "abastecimento"
+        ? abastecimentoValorLiquidoFromBruto(v, r.valor_desconto_combustivel)
+        : v;
     const detalheParts = [motorista, veiculo, posto ? `Posto: ${posto}` : null];
     if (r.tipo === "abastecimento") {
       if (r.litros != null) detalheParts.push(`${Number(r.litros).toLocaleString("pt-BR")} L`);
       if (r.km_abastecimento != null) {
-        detalheParts.push(`KM ${Number(r.km_abastecimento).toLocaleString("pt-BR")}`);
+        detalheParts.push(`KM ${formatKmBr(r.km_abastecimento)}`);
       }
     }
     if (r.descricao) detalheParts.push(r.descricao);
@@ -182,15 +190,16 @@ export async function fetchCustosOperacionais(
 
     switch (r.tipo) {
       case "abastecimento":
-        resumo.abastecimentosViagem += v;
-        resumo.abastecimentos += v;
+        resumo.abastecimentosViagem += valorLiquido;
+        resumo.abastecimentos += valorLiquido;
         linhas.abastecimentos.push({
           id: r.id,
           data: r.realizado_em,
           descricao: r.combustivel_tipo
             ? `Abastecimento — ${r.combustivel_tipo}`
             : "Abastecimento",
-          valor: v,
+          valor: valorLiquido,
+          valorBruto: desconto ? v : undefined,
           origem: "Viagem",
           detalhe,
           desconto,

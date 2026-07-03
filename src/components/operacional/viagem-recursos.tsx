@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
-import { BrNumberInput } from "@/components/ui/br-number-input";
-import { parseBrNumber } from "@/lib/number-format";
+import { BrNumberInput, BrKmInput } from "@/components/ui/br-number-input";
+import { parseBrNumber, parseBrKm, kmToBrInput, formatKmBr } from "@/lib/number-format";
+import { partesValorAbastecimento } from "@/lib/abastecimento-valor";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -149,7 +150,7 @@ export function ViagemRecursos({
     const km =
       ultimoNaViagem?.km_abastecimento ?? kmOdometroInicial;
     if (km != null) {
-      setKmVeiculo(String(km));
+      setKmVeiculo(kmToBrInput(km));
     }
   }, [tipo, recursos, kmOdometroInicial]);
 
@@ -202,7 +203,7 @@ export function ViagemRecursos({
     }
 
     if (tipoLancamento === "abastecimento") {
-      if (!parseBrNumber(kmVeiculo)) {
+      if (!parseBrKm(kmVeiculo)) {
         await mebAlert("Informe a quilometragem atual do veículo no abastecimento.");
         return;
       }
@@ -240,7 +241,7 @@ export function ViagemRecursos({
       realizado_em: new Date(realizadoEm).toISOString(),
     };
     if (kmVeiculo) {
-      const km = parseBrNumber(kmVeiculo);
+      const km = parseBrKm(kmVeiculo);
       if (tipoLancamento === "abastecimento") payload.km_abastecimento = km;
       else if (tipoLancamento === "manutencao") payload.km_veiculo = km;
     }
@@ -482,16 +483,14 @@ export function ViagemRecursos({
             />
           </div>
           {(tipo === "abastecimento" || tipo === "manutencao") && (
-            <BrNumberInput
+            <BrKmInput
               label={
                 tipo === "abastecimento"
                   ? "Quilometragem atual do veículo"
                   : "Quilometragem do veículo (opcional)"
               }
-              decimalPlaces={0}
               value={kmVeiculo}
               onChange={setKmVeiculo}
-              placeholder="Ex: 125.430"
               required={tipo === "abastecimento"}
             />
           )}
@@ -907,13 +906,21 @@ function RecursoItem({
   const local =
     recurso.postos?.nome ?? recurso.oficinas?.nome ?? null;
 
+  const valorBruto = Number(recurso.valor) || 0;
+  const partes =
+    recurso.tipo === "abastecimento"
+      ? partesValorAbastecimento(valorBruto, recurso.valor_desconto_combustivel)
+      : { valorBruto, desconto: 0, valorLiquido: valorBruto };
+  const temDescontoComb = partes.desconto > 0;
+
   return (
     <li className={cn(mebFormSubsection, "text-sm")}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-medium text-slate-800">{tipoLabel}</span>
         <div className="flex items-center gap-2">
           <span className="font-medium text-slate-900">
-            R$ {Number(recurso.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            R${" "}
+            {partes.valorLiquido.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
           </span>
           <button
             type="button"
@@ -933,16 +940,18 @@ function RecursoItem({
           <> · {Number(recurso.litros).toLocaleString("pt-BR")} L</>
         )}
         {recurso.tipo === "abastecimento" && recurso.km_abastecimento != null && (
-          <> · KM {Number(recurso.km_abastecimento).toLocaleString("pt-BR")}</>
+          <> · KM {formatKmBr(recurso.km_abastecimento)}</>
         )}
-        {recurso.tipo === "abastecimento" && recurso.teve_desconto_combustivel && (
-          <>
-            {" "}
-            · Desconto R${" "}
-            {Number(recurso.valor_desconto_combustivel ?? 0).toLocaleString("pt-BR", {
-              minimumFractionDigits: 2,
-            })}
-          </>
+        {recurso.tipo === "abastecimento" && temDescontoComb && (
+          <p className="mt-0.5 text-xs text-slate-500">
+            Bruto R${" "}
+            {partes.valorBruto.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            {" · "}
+            Desconto R${" "}
+            <span className="text-emerald-600">
+              {partes.desconto.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            </span>
+          </p>
         )}
       </p>
       {recurso.descricao &&

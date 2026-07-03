@@ -1,11 +1,13 @@
 import { createClient } from "@/lib/supabase/client";
 import { carregarParcelasManutencao } from "@/lib/frota-manutencao-pagamento";
+import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
+import { syncKmInicialViagensAgendadas } from "@/lib/veiculo-km";
 import type {
   ManutencaoPagamentoForma,
   ManutencaoPagamentoModalidade,
   ManutencaoParcelaInput,
 } from "@/lib/manutencao-pagamento";
-import { rawNumberStringToBrInput } from "@/lib/number-format";
+import { kmToBrInput, rawNumberStringToBrInput } from "@/lib/number-format";
 import type { AbastecimentoCard, ManutencaoCard } from "@/types/frota";
 
 export async function excluirManutencao(item: ManutencaoCard): Promise<string | null> {
@@ -27,15 +29,35 @@ export async function excluirManutencao(item: ManutencaoCard): Promise<string | 
 export async function excluirAbastecimento(item: AbastecimentoCard): Promise<string | null> {
   const supabase = createClient();
   if (item.frotaId) {
+    const { data: row } = await supabase
+      .from("frota_abastecimentos")
+      .select("veiculo_id")
+      .eq("id", item.frotaId)
+      .maybeSingle();
     const { error } = await supabase.from("frota_abastecimentos").delete().eq("id", item.frotaId);
-    return error?.message ?? null;
+    if (error) return error.message;
+    if (row?.veiculo_id) {
+      const kmErr = await syncKmInicialViagensAgendadas(row.veiculo_id);
+      if (kmErr) return kmErr;
+    }
+    return null;
   }
   if (item.viagemRecursoId) {
+    const { data: row } = await supabase
+      .from("viagem_recursos")
+      .select("viagem_id")
+      .eq("id", item.viagemRecursoId)
+      .maybeSingle();
     const { error } = await supabase
       .from("viagem_recursos")
       .delete()
       .eq("id", item.viagemRecursoId);
-    return error?.message ?? null;
+    if (error) return error.message;
+    if (row?.viagem_id) {
+      const syncErr = await syncFechamentoViagem(row.viagem_id);
+      if (syncErr) return syncErr;
+    }
+    return null;
   }
   return "Registro não encontrado";
 }
@@ -91,7 +113,7 @@ export async function carregarManutencaoEdicao(
       onde: data.onde,
       oficinaId: data.oficina_id ?? "",
       veiculoId: data.veiculo_id ?? "",
-      kmVeiculo: data.km_veiculo?.toString() ?? "",
+      kmVeiculo: kmToBrInput(data.km_veiculo),
       data: data.data_agendada,
       hora: data.hora_agendada?.slice(0, 5) ?? "",
       valor: String(data.valor_total),
@@ -126,7 +148,7 @@ export async function carregarManutencaoEdicao(
       onde: oficinaNome ?? "",
       oficinaId: data.oficina_id ?? "",
       veiculoId: "",
-      kmVeiculo: data.km_veiculo?.toString() ?? "",
+      kmVeiculo: kmToBrInput(data.km_veiculo),
       data: dt.toISOString().split("T")[0],
       hora: dt.toTimeString().slice(0, 5),
       valor: String(data.valor),
@@ -150,12 +172,15 @@ export type AbastecimentoEdicao = {
   source: "manual" | "viagem";
   frotaId?: string;
   viagemRecursoId?: string;
+  viagemId?: string;
   veiculoId: string;
   postoId: string;
   km: string;
   litros: string;
   litrosTotais: string;
   valor: string;
+  teveDescontoCombustivel?: boolean;
+  valorDescontoCombustivel?: string;
   descricao: string;
   dataHora: string;
   nota_fiscal_path?: string | null;
@@ -184,7 +209,7 @@ export async function carregarAbastecimentoEdicao(
       frotaId: data.id,
       veiculoId: data.veiculo_id ?? "",
       postoId: data.posto_id ?? "",
-      km: data.km_abastecimento?.toString() ?? "",
+      km: kmToBrInput(data.km_abastecimento),
       litros: data.litros?.toString() ?? "",
       litrosTotais: data.litros_totais?.toString() ?? "",
       valor: String(data.valor),
@@ -200,23 +225,28 @@ export async function carregarAbastecimentoEdicao(
   if (item.viagemRecursoId) {
     const { data } = await supabase
       .from("viagem_recursos")
-      .select("*, viagens(veiculo_id)")
+      .select("*, viagens(veiculo_id, id)")
       .eq("id", item.viagemRecursoId)
       .single();
     if (!data) return null;
     const dt = new Date(data.realizado_em);
     const pad = (n: number) => String(n).padStart(2, "0");
     const local = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
-    const viagem = data.viagens as { veiculo_id?: string } | null;
+    const viagemRaw = data.viagens as { veiculo_id?: string; id?: string } | null;
+    const descontoVal = Number(data.valor_desconto_combustivel) || 0;
     return {
       source: "viagem",
       viagemRecursoId: data.id,
-      veiculoId: viagem?.veiculo_id ?? "",
+      viagemId: viagemRaw?.id,
+      veiculoId: viagemRaw?.veiculo_id ?? "",
       postoId: data.posto_id ?? "",
-      km: data.km_abastecimento?.toString() ?? "",
+      km: kmToBrInput(data.km_abastecimento),
       litros: data.litros?.toString() ?? "",
       litrosTotais: "",
       valor: String(data.valor),
+      teveDescontoCombustivel: descontoVal > 0 || !!data.teve_desconto_combustivel,
+      valorDescontoCombustivel:
+        descontoVal > 0 ? String(data.valor_desconto_combustivel) : "",
       descricao: data.descricao ?? "",
       dataHora: local,
       nota_fiscal_path: data.nota_fiscal_path,

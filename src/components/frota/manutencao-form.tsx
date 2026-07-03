@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
-import { BrNumberInput } from "@/components/ui/br-number-input";
-import { parseBrNumber, rawNumberStringToBrInput } from "@/lib/number-format";
+import { BrNumberInput, BrKmInput } from "@/components/ui/br-number-input";
+import { parseBrNumber, parseBrKm, kmToBrInput, rawNumberStringToBrInput } from "@/lib/number-format";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -115,7 +115,7 @@ export function ManutencaoForm({
       setOnde(d.onde);
       setOficinaId(d.oficinaId);
       setVeiculoId(d.veiculoId);
-      setKmVeiculo(rawNumberStringToBrInput(d.kmVeiculo, 0));
+      setKmVeiculo(kmToBrInput(d.kmVeiculo));
       setData(d.data);
       setHora(d.hora);
       setValor(rawNumberStringToBrInput(d.valor, 2));
@@ -232,7 +232,7 @@ export function ManutencaoForm({
           onde: onde || "Não informado",
           oficina_id: oficinaId || null,
           veiculo_id: veiculoId || null,
-          km_veiculo: parseBrNumber(kmVeiculo),
+          km_veiculo: parseBrKm(kmVeiculo),
           data_agendada: data,
           hora_agendada: hora || null,
           valor_total: valorNumerico,
@@ -272,7 +272,7 @@ export function ManutencaoForm({
           descricao: nome,
           valor: parseBrNumber(valor) ?? 0,
           oficina_id: oficinaId || null,
-          km_veiculo: parseBrNumber(kmVeiculo),
+          km_veiculo: parseBrKm(kmVeiculo),
           realizado_em: realizado.toISOString(),
           status_frota: status,
           ...anexosPayload,
@@ -299,7 +299,7 @@ export function ManutencaoForm({
         onde: onde || "Não informado",
         oficina_id: oficinaId || null,
         veiculo_id: veiculoId || null,
-        km_veiculo: parseBrNumber(kmVeiculo),
+        km_veiculo: parseBrKm(kmVeiculo),
         data_agendada: data,
         hora_agendada: hora || null,
         valor_total: valorNumerico,
@@ -386,12 +386,10 @@ export function ManutencaoForm({
             ]}
           />
         )}
-        <BrNumberInput
+        <BrKmInput
           label="Quilometragem do veículo (opcional)"
-          decimalPlaces={0}
           value={kmVeiculo}
           onChange={setKmVeiculo}
-          placeholder="Ex: 125.430"
         />
         <Select
           label="Oficina (opcional)"

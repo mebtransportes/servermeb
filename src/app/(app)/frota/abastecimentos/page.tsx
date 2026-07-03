@@ -11,6 +11,7 @@ import { CardAcoes } from "@/components/frota/card-acoes";
 import { fetchAbastecimentos } from "@/lib/frota-data";
 import { excluirAbastecimento } from "@/lib/frota-crud";
 import { createClient } from "@/lib/supabase/client";
+import { formatKmBr } from "@/lib/number-format";
 import {
   dataNoPeriodoConfig,
   formatarMoeda,
@@ -73,7 +74,13 @@ export default function FrotaAbastecimentosPage() {
 
   const periodoLabel = labelPeriodoConfig(periodo);
   const stats = buildAbastecimentoStats(
-    filtrados.map((i) => ({ valor: i.valor, source: i.source, km: i.km })),
+    filtrados.map((i) => ({
+      valor: i.valor,
+      valorBruto: i.valorBruto,
+      desconto: i.desconto,
+      source: i.source,
+      km: i.km,
+    })),
     periodoLabel
   );
 
@@ -218,12 +225,18 @@ function AbastecimentoCardView({
           </span>
         )}
       </div>
+      {item.desconto != null && item.desconto > 0 && item.valorBruto != null && (
+        <p className="text-[10px] text-slate-500">
+          Bruto {formatarMoeda(item.valorBruto)} · Desconto{" "}
+          <span className="text-emerald-600">{formatarMoeda(item.desconto)}</span>
+        </p>
+      )}
       <p className="text-xs text-slate-500">
         {new Date(item.dataHora).toLocaleString("pt-BR")}
       </p>
       {(item.km != null || item.litros != null || item.litrosTotais != null) && (
         <p className="mt-0.5 text-xs text-slate-500">
-          {item.km != null && `KM: ${item.km.toLocaleString("pt-BR")}`}
+          {item.km != null && `KM: ${formatKmBr(item.km)}`}
           {item.km != null && (item.litros != null || item.litrosTotais != null) && " · "}
           {item.litros != null && `${item.litros.toLocaleString("pt-BR")} L abast.`}
           {item.litros != null && item.litrosTotais != null && " · "}

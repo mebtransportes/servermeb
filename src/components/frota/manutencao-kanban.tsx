@@ -15,6 +15,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { FrotaManutencaoStatus, ManutencaoCard } from "@/types/frota";
 import { formatarMoeda } from "@/lib/frota-filters";
+import { formatKmBr } from "@/lib/number-format";
 import { resumoPagamentoManutencao } from "@/lib/manutencao-pagamento";
 import { cn, mebCardSm } from "@/lib/utils";
 import { Shield, Route } from "lucide-react";
@@ -98,7 +99,7 @@ function CardContent({
         <p className="mt-1 text-xs font-medium text-slate-600">Veículo: {item.veiculoPlaca}</p>
       )}
       {item.km != null && (
-        <p className="text-xs text-slate-500">KM: {item.km.toLocaleString("pt-BR")}</p>
+        <p className="text-xs text-slate-500">KM: {formatKmBr(item.km)}</p>
       )}
       <FrotaAnexosLinks anexos={item} />
       {item.source === "preventiva" && item.pagamentoModalidade && item.pagamentoForma && (

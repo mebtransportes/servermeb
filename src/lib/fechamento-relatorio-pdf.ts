@@ -18,6 +18,9 @@ import {
   getIcmsPercent,
   paramsComissionamentoFechamento,
   totalDespesasFechamento,
+  abastecimentoDescontoTotal,
+  abastecimentoValorBruto,
+  abastecimentoValorLiquido,
 } from "@/types/fechamento";
 import { formatarDataBr, formatarMoeda } from "@/lib/frota-filters";
 import { createClient } from "@/lib/supabase/client";
@@ -227,7 +230,7 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
       y = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable!.finalY + 4;
     }
 
-    const categorias = despesasCategoriasTerceiro(f);
+    const categorias = despesasCategoriasTerceiro(f).filter((c) => c.rotulo !== "Abastecimento");
     if (categorias.length) {
       autoTable(doc, {
         startY: y,
@@ -240,19 +243,25 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
       y = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable!.finalY + 4;
     }
 
-    if ((f.abastecimento_desconto_total ?? 0) > 0) {
-      y = linhaCampos(
-        doc,
-        y,
-        [
-          {
-            rotulo: "Total desconto em abastecimentos",
-            valor: formatarMoeda(f.abastecimento_desconto_total ?? 0),
-          },
-        ],
-        1
-      );
-    }
+    y = linhaCampos(
+      doc,
+      y,
+      [
+        {
+          rotulo: "Total abastecimento (bruto)",
+          valor: formatarMoeda(abastecimentoValorBruto(f)),
+        },
+        {
+          rotulo: "Desconto em abastecimentos",
+          valor: formatarMoeda(abastecimentoDescontoTotal(f)),
+        },
+        {
+          rotulo: "Abastecimento líquido",
+          valor: formatarMoeda(abastecimentoValorLiquido(f)),
+        },
+      ],
+      3
+    );
 
     y = secao(doc, y, "Cálculo geral");
     y = linhaCampos(
@@ -282,10 +291,14 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
           valor: formatKm(f.km_final_abastecimento ?? f.km_odometro_final),
         },
         { rotulo: "Total KM rodado", valor: formatKm(f.km_rodado ?? f.km_total) },
-        { rotulo: "Total abastecimento", valor: formatarMoeda(f.abastecimento_valor) },
+        { rotulo: "Total abastecimento (bruto)", valor: formatarMoeda(abastecimentoValorBruto(f)) },
         {
-          rotulo: "Total desconto em abastecimentos",
-          valor: formatarMoeda(f.abastecimento_desconto_total ?? 0),
+          rotulo: "Desconto em abastecimentos",
+          valor: formatarMoeda(abastecimentoDescontoTotal(f)),
+        },
+        {
+          rotulo: "Abastecimento líquido",
+          valor: formatarMoeda(abastecimentoValorLiquido(f)),
         },
         { rotulo: "Total litros abastecidos", valor: formatLitros(f.litros_abastecimento_viagem) },
         {

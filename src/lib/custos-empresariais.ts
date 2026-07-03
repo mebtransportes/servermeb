@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { fetchAbastecimentos, fetchManutencoes } from "@/lib/frota-data";
 import { fetchViagemFechamentos } from "@/lib/fechamento-data";
-import { dataNoPeriodoConfig, formatarDataBr, type PeriodoFiltroState } from "@/lib/frota-filters";
+import { dataNoPeriodoConfig, formatarDataBr, formatarMoeda, type PeriodoFiltroState } from "@/lib/frota-filters";
 import type { ManutencaoCard, AbastecimentoCard } from "@/types/frota";
 import { filtrarPorPeriodoConfig } from "@/lib/custos-operacionais";
 import type { SegmentoEmpresarial, DespesaEmpresarial } from "@/types/custos-empresariais";
@@ -53,6 +53,11 @@ function linhaAbastecimento(a: AbastecimentoCard): LinhaDetalhe {
   if (a.postoNome) partes.push(a.postoNome);
   if (a.veiculoLabel) partes.push(a.veiculoLabel);
   if (a.motoristaNome) partes.push(a.motoristaNome);
+  if (a.desconto != null && a.desconto > 0 && a.valorBruto != null) {
+    partes.push(
+      `Bruto ${formatarMoeda(a.valorBruto)} − Desconto ${formatarMoeda(a.desconto)}`
+    );
+  }
   return {
     label: a.descricao?.trim() || a.postoNome || "Abastecimento",
     valor: a.valor,

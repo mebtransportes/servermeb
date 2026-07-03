@@ -56,7 +56,7 @@ function somarRecursos(recursos: RecursoRow[]) {
           arla_valor += v;
         } else {
           abastecimento_valor += v;
-          if (r.teve_desconto_combustivel) {
+          if (Number(r.valor_desconto_combustivel) > 0) {
             abastecimento_desconto_total += Number(r.valor_desconto_combustivel) || 0;
           }
           if (!r.abastecimento_inicial) {
@@ -228,6 +228,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
 
   const gastosFechamento = {
     abastecimento_valor: gastos.abastecimento_valor,
+    abastecimento_desconto_total: gastos.abastecimento_desconto_total,
     arla_valor: gastos.arla_valor,
     manutencao_total: gastos.manutencao_total,
     pedagio_valor: gastos.pedagio_valor,

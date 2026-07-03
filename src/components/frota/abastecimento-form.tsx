@@ -3,14 +3,16 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
-import { BrNumberInput } from "@/components/ui/br-number-input";
-import { parseBrNumber, rawNumberStringToBrInput } from "@/lib/number-format";
+import { BrNumberInput, BrKmInput } from "@/components/ui/br-number-input";
+import { parseBrNumber, parseBrKm, kmToBrInput, rawNumberStringToBrInput } from "@/lib/number-format";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { AnexosFrotaCampos } from "@/components/frota/anexos-campos";
 import { salvarAnexosFrota } from "@/lib/frota-anexos";
 import { carregarAbastecimentoEdicao } from "@/lib/frota-crud";
+import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
+import { mebAlert } from "@/lib/meb-dialog";
 import type { AbastecimentoCard } from "@/types/frota";
 import { mebFormSection } from "@/lib/utils";
 
@@ -42,6 +44,9 @@ export function AbastecimentoForm({
   }>({});
   const [frotaId, setFrotaId] = useState<string>();
   const [viagemRecursoId, setViagemRecursoId] = useState<string>();
+  const [viagemId, setViagemId] = useState<string>();
+  const [teveDescontoCombustivel, setTeveDescontoCombustivel] = useState(false);
+  const [valorDescontoCombustivel, setValorDescontoCombustivel] = useState("");
   const [source, setSource] = useState<"manual" | "viagem">("manual");
   const [veiculos, setVeiculos] = useState<{ id: string; nome: string; placa: string }[]>([]);
   const [postos, setPostos] = useState<{ id: string; nome: string }[]>([]);
@@ -67,9 +72,16 @@ export function AbastecimentoForm({
       setSource(d.source);
       setFrotaId(d.frotaId);
       setViagemRecursoId(d.viagemRecursoId);
+      setViagemId(d.viagemId);
+      setTeveDescontoCombustivel(!!d.teveDescontoCombustivel);
+      setValorDescontoCombustivel(
+        d.valorDescontoCombustivel
+          ? rawNumberStringToBrInput(d.valorDescontoCombustivel, 2)
+          : ""
+      );
       setVeiculoId(d.veiculoId);
       setPostoId(d.postoId);
-      setKm(rawNumberStringToBrInput(d.km, 0));
+      setKm(kmToBrInput(d.km));
       setLitros(rawNumberStringToBrInput(d.litros, 2));
       setLitrosTotais(rawNumberStringToBrInput(d.litrosTotais, 2));
       setValor(rawNumberStringToBrInput(d.valor, 2));
@@ -117,7 +129,7 @@ export function AbastecimentoForm({
         .update({
           veiculo_id: veiculoId || null,
           posto_id: postoId || null,
-          km_abastecimento: parseBrNumber(km),
+          km_abastecimento: parseBrKm(km),
           litros: parseBrNumber(litros),
           litros_totais: parseBrNumber(litrosTotais),
           valor: parseBrNumber(valor) ?? 0,
@@ -136,13 +148,31 @@ export function AbastecimentoForm({
     }
 
     if (editando && source === "viagem" && viagemRecursoId) {
+      const valorNum = parseBrNumber(valor) ?? 0;
+      if (teveDescontoCombustivel) {
+        const descontoNum = parseBrNumber(valorDescontoCombustivel) ?? 0;
+        if (descontoNum <= 0) {
+          setSaving(false);
+          await mebAlert("Informe o valor do desconto obtido no abastecimento.");
+          return;
+        }
+        if (descontoNum > valorNum) {
+          setSaving(false);
+          await mebAlert("O valor do desconto não pode ser maior que o valor pago.");
+          return;
+        }
+      }
       const { error: err } = await supabase
         .from("viagem_recursos")
         .update({
           posto_id: postoId || null,
-          km_abastecimento: parseBrNumber(km),
+          km_abastecimento: parseBrKm(km),
           litros: parseBrNumber(litros),
-          valor: parseBrNumber(valor) ?? 0,
+          valor: valorNum,
+          teve_desconto_combustivel: teveDescontoCombustivel,
+          valor_desconto_combustivel: teveDescontoCombustivel
+            ? parseBrNumber(valorDescontoCombustivel)
+            : null,
           descricao: descricao || null,
           realizado_em: new Date(dataHora).toISOString(),
           ...anexosPayload,
@@ -153,6 +183,7 @@ export function AbastecimentoForm({
         setError(err.message);
         return;
       }
+      if (viagemId) await syncFechamentoViagem(viagemId);
       onSaved();
       return;
     }
@@ -166,7 +197,7 @@ export function AbastecimentoForm({
       .insert({
         veiculo_id: veiculoId || null,
         posto_id: postoId || null,
-        km_abastecimento: parseBrNumber(km),
+        km_abastecimento: parseBrKm(km),
         litros: parseBrNumber(litros),
         litros_totais: parseBrNumber(litrosTotais),
         valor: parseBrNumber(valor) ?? 0,
@@ -233,12 +264,10 @@ export function AbastecimentoForm({
             ...postos.map((p) => ({ value: p.id, label: p.nome })),
           ]}
         />
-        <BrNumberInput
+        <BrKmInput
           label="Quilometragem do veículo (opcional)"
-          decimalPlaces={0}
           value={km}
           onChange={setKm}
-          placeholder="Ex: 125.430"
         />
         <BrNumberInput
           label="Litros abastecidos (opcional)"
@@ -255,12 +284,47 @@ export function AbastecimentoForm({
           placeholder="Ex: 400,00 — usado no cadastro da viagem"
         />
         <BrNumberInput
-          label="Valor (R$)"
+          label={
+            editando && source === "viagem" ? "Valor bruto pago (R$)" : "Valor (R$)"
+          }
           decimalPlaces={2}
           value={valor}
           onChange={setValor}
           required
         />
+        {editando && source === "viagem" && (
+          <>
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm sm:col-span-2">
+              <input
+                type="checkbox"
+                checked={teveDescontoCombustivel}
+                onChange={(e) => {
+                  setTeveDescontoCombustivel(e.target.checked);
+                  if (!e.target.checked) setValorDescontoCombustivel("");
+                }}
+                className="mt-0.5 rounded border-slate-300"
+              />
+              <span>
+                <span className="font-medium text-slate-800">
+                  Teve desconto no abastecimento
+                </span>
+                <span className="mt-0.5 block text-xs text-slate-600">
+                  O total exibido e os relatórios usam o valor líquido (bruto − desconto).
+                </span>
+              </span>
+            </label>
+            {teveDescontoCombustivel && (
+              <BrNumberInput
+                label="Valor do desconto (R$)"
+                decimalPlaces={2}
+                value={valorDescontoCombustivel}
+                onChange={setValorDescontoCombustivel}
+                placeholder="Ex: 50,00"
+                required
+              />
+            )}
+          </>
+        )}
         <Input
           label="Data e hora"
           type="datetime-local"

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { fetchViagemFechamentos } from "@/lib/fechamento-data";
 import { fetchDespesasEmpresariais } from "@/lib/custos-empresariais";
+import { valorLiquidoRecursoViagem } from "@/lib/abastecimento-valor";
 import { buildGraficoMensalDespesas, type PontoGraficoMensal } from "@/lib/grafico-mensal";
 
 function refData(dataStr: string) {
@@ -30,11 +31,14 @@ async function fetchItensGastosOperacionais(): Promise<{ dataRef: string; valor:
 
   const { data: recursos } = await supabase
     .from("viagem_recursos")
-    .select("tipo, valor, realizado_em");
+    .select("tipo, valor, realizado_em, valor_desconto_combustivel");
 
   for (const r of recursos ?? []) {
     if (r.tipo === "reembolso") continue;
-    itens.push({ dataRef: r.realizado_em, valor: Number(r.valor) || 0 });
+    itens.push({
+      dataRef: r.realizado_em,
+      valor: valorLiquidoRecursoViagem(r),
+    });
   }
 
   return itens;

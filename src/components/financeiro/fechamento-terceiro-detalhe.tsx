@@ -1,7 +1,13 @@
 "use client";
 
 import type { ViagemFechamento } from "@/types/fechamento";
-import { despesasCategoriasTerceiro, getIcmsPercent } from "@/types/fechamento";
+import {
+  abastecimentoDescontoTotal,
+  abastecimentoValorBruto,
+  abastecimentoValorLiquido,
+  despesasCategoriasTerceiro,
+  getIcmsPercent,
+} from "@/types/fechamento";
 import type { useFechamentoValores } from "@/components/financeiro/fechamento-viagem-detalhe";
 import { formatarMoeda } from "@/lib/frota-filters";
 import {
@@ -35,7 +41,9 @@ export function FechamentoTerceiroDetalhe({
   const placa = extrairPlacaVeiculo(f.veiculo_label);
   const icmsPct = getIcmsPercent(f);
 
-  const categoriasExtras = despesasCategoriasTerceiro(f).map((c) => ({
+  const categoriasExtras = despesasCategoriasTerceiro(f)
+    .filter((c) => c.rotulo !== "Abastecimento")
+    .map((c) => ({
     nome: c.rotulo,
     valor: formatarMoeda(c.valor),
   }));
@@ -81,17 +89,23 @@ export function FechamentoTerceiroDetalhe({
             { rotulo: "Valor do monitoramento", valor: formatarMoeda(f.monitoramento_valor ?? 0) },
           ]}
         />
-        {(f.abastecimento_desconto_total ?? 0) > 0 && (
-          <FechamentoLinhaCampos
-            cols={1}
-            campos={[
-              {
-                rotulo: "Total desconto em abastecimentos",
-                valor: formatarMoeda(f.abastecimento_desconto_total ?? 0),
-              },
-            ]}
-          />
-        )}
+        <FechamentoLinhaCampos
+          cols={3}
+          campos={[
+            {
+              rotulo: "Total abastecimento (bruto)",
+              valor: formatarMoeda(abastecimentoValorBruto(f)),
+            },
+            {
+              rotulo: "Desconto em abastecimentos",
+              valor: formatarMoeda(abastecimentoDescontoTotal(f)),
+            },
+            {
+              rotulo: "Abastecimento líquido",
+              valor: formatarMoeda(abastecimentoValorLiquido(f)),
+            },
+          ]}
+        />
         {(f.outros_valor ?? 0) > 0 && (
           <FechamentoLinhaCampos
             cols={1}

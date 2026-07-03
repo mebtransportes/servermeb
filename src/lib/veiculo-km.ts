@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { roundKm } from "@/lib/number-format";
 
 export type UltimoKmVeiculo = {
   km: number;
@@ -13,7 +14,9 @@ function candidatoKm(
 ): UltimoKmVeiculo | null {
   const km = Number(kmRaw);
   if (!Number.isFinite(km) || km <= 0) return null;
-  return { km, dataHora, origem };
+  const kmRounded = roundKm(km);
+  if (kmRounded == null || kmRounded <= 0) return null;
+  return { km: kmRounded, dataHora, origem };
 }
 
 /** Último odômetro registrado em abastecimento (frota ou viagem), pelo registro mais recente. */
@@ -110,7 +113,7 @@ export async function fetchUltimoKmAbastecimentoViagem(
   for (const r of data ?? []) {
     if (isArlaCombustivel(r.combustivel_tipo)) continue;
     const km = Number(r.km_abastecimento);
-    if (Number.isFinite(km) && km > 0) return km;
+    if (Number.isFinite(km) && km > 0) return roundKm(km);
   }
   return null;
 }
@@ -189,7 +192,7 @@ export async function syncKmInicialViagensAgendadas(
 
     const { error: upErr } = await supabase
       .from("viagens")
-      .update({ km_odometro_inicial: ultimo.km })
+      .update({ km_odometro_inicial: roundKm(ultimo.km) })
       .eq("id", v.id);
 
     if (upErr) return upErr.message;
@@ -206,7 +209,7 @@ export async function syncQuilometragemViagem(viagemId: string): Promise<string 
   if (!viagemId) return null;
 
   const supabase = createClient();
-  const ultimoKmViagem = await fetchUltimoKmAbastecimentoViagem(viagemId);
+  const ultimoKmViagem = roundKm(await fetchUltimoKmAbastecimentoViagem(viagemId));
 
   const { data: atual, error: errAtual } = await supabase
     .from("viagens")

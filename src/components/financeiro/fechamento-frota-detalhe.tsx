@@ -2,6 +2,9 @@
 
 import type { ViagemFechamento } from "@/types/fechamento";
 import {
+  abastecimentoDescontoTotal,
+  abastecimentoValorBruto,
+  abastecimentoValorLiquido,
   formatConsumoKmLitro,
   getComissaoPercent,
   getIcmsPercent,
@@ -93,13 +96,23 @@ export function FechamentoFrotaDetalhe({
         <FechamentoLinhaCampos
           cols={3}
           campos={[
-            { rotulo: "Total gasto com abastecimento", valor: formatarMoeda(f.abastecimento_valor) },
             {
-              rotulo: "Total desconto em abastecimentos",
-              valor: formatarMoeda(f.abastecimento_desconto_total ?? 0),
+              rotulo: "Total abastecimento (bruto)",
+              valor: formatarMoeda(abastecimentoValorBruto(f)),
             },
-            { rotulo: "Total litros abastecidos", valor: formatLitros(v.litrosViagem) },
+            {
+              rotulo: "Desconto em abastecimentos",
+              valor: formatarMoeda(abastecimentoDescontoTotal(f)),
+            },
+            {
+              rotulo: "Abastecimento líquido",
+              valor: formatarMoeda(abastecimentoValorLiquido(f)),
+            },
           ]}
+        />
+        <FechamentoLinhaCampos
+          cols={1}
+          campos={[{ rotulo: "Total litros abastecidos", valor: formatLitros(v.litrosViagem) }]}
         />
         <FechamentoLinhaCampos
           cols={1}

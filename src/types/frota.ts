@@ -36,7 +36,11 @@ export type ManutencaoCard = {
 export type AbastecimentoCard = {
   id: string;
   source: "manual" | "viagem";
+  /** Valor efetivo (líquido quando há desconto). */
   valor: number;
+  /** Valor bruto antes do desconto (abastecimentos de viagem). */
+  valorBruto?: number;
+  desconto?: number;
   km?: number | null;
   litros?: number | null;
   litrosTotais?: number | null;

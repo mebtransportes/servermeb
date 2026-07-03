@@ -1,7 +1,7 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
-import { maskBrNumberInput } from "@/lib/number-format";
+import { KM_DECIMAL_PLACES, maskBrNumberInput } from "@/lib/number-format";
 
 type BrNumberInputProps = Omit<
   React.InputHTMLAttributes<HTMLInputElement>,
@@ -28,6 +28,23 @@ export function BrNumberInput({
       inputMode="decimal"
       value={value}
       onChange={(e) => onChange(maskBrNumberInput(e.target.value, decimalPlaces))}
+    />
+  );
+}
+
+/** Input mascarado para quilometragem (1 decimal: 100.134,1). */
+export function BrKmInput({
+  value,
+  onChange,
+  ...props
+}: Omit<BrNumberInputProps, "decimalPlaces">) {
+  return (
+    <BrNumberInput
+      {...props}
+      value={value}
+      onChange={onChange}
+      decimalPlaces={KM_DECIMAL_PLACES}
+      placeholder={props.placeholder ?? "Ex: 125.430,1"}
     />
   );
 }

@@ -2,6 +2,11 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { ManutencaoCard, AbastecimentoCard } from "@/types/frota";
 import { formatarMoeda, formatarDataBr, formatarDataHoraBr } from "@/lib/frota-filters";
+import { formatKmBr } from "@/lib/number-format";
+import {
+  textoResumoAbastecimentos,
+  textoValorAbastecimentoFormatado,
+} from "@/lib/abastecimento-valor";
 import {
   labelPagamentoForma,
   labelPagamentoModalidade,
@@ -13,8 +18,7 @@ function textoAnexo(sim: boolean) {
 }
 
 function formatarKm(km?: number | null) {
-  if (km == null) return "—";
-  return km.toLocaleString("pt-BR");
+  return formatKmBr(km);
 }
 
 function rodape(doc: jsPDF, pagina: number, total: number) {
@@ -160,27 +164,33 @@ export function gerarPdfManutencao(
   doc.save(`relatorio-manutencao_${de}_${ate}.pdf`);
 }
 
+function linhaValorAbastecimento(i: AbastecimentoCard): string {
+  if (i.valorBruto != null && i.desconto != null && i.desconto > 0) {
+    return textoValorAbastecimentoFormatado(i.valorBruto, i.desconto);
+  }
+  return formatarMoeda(i.valor);
+}
+
 export function gerarPdfAbastecimento(
   itens: AbastecimentoCard[],
   de: string,
   ate: string
 ) {
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-  const totalValor = itens.reduce((s, i) => s + i.valor, 0);
   const litrosTotal = itens.reduce((s, i) => s + (i.litros ?? 0), 0);
   const manuais = itens.filter((i) => i.source === "manual").length;
   const viagens = itens.filter((i) => i.source === "viagem").length;
 
   const startY = cabecalhoRelatorio(doc, "Relatório de Abastecimentos", de, ate, [
     `Total de registros: ${itens.length}`,
-    `Valor total: ${formatarMoeda(totalValor)}`,
+    textoResumoAbastecimentos(itens),
     `Litros informados: ${litrosTotal > 0 ? litrosTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) + " L" : "—"}`,
     `Manual: ${manuais} | Viagens: ${viagens}`,
   ]);
 
   const body = itens.map((i) => [
     formatarDataHoraBr(i.dataHora),
-    formatarMoeda(i.valor),
+    linhaValorAbastecimento(i),
     i.litros != null ? `${i.litros.toLocaleString("pt-BR")} L` : "—",
     formatarKm(i.km),
     i.postoNome || "—",
@@ -197,7 +207,7 @@ export function gerarPdfAbastecimento(
     head: [
       [
         "Data/Hora",
-        "Valor",
+        "Valor (líquido)",
         "Litros",
         "KM",
         "Posto",
@@ -223,7 +233,7 @@ export function gerarPdfAbastecimento(
 function tabelaAbastecimento(doc: jsPDF, itens: AbastecimentoCard[], startY: number) {
   const body = itens.map((i) => [
     formatarDataHoraBr(i.dataHora),
-    formatarMoeda(i.valor),
+    linhaValorAbastecimento(i),
     i.litros != null ? `${i.litros.toLocaleString("pt-BR")} L` : "—",
     formatarKm(i.km),
     i.postoNome || "—",
@@ -239,7 +249,7 @@ function tabelaAbastecimento(doc: jsPDF, itens: AbastecimentoCard[], startY: num
     head: [
       [
         "Data/Hora",
-        "Valor",
+        "Valor (líquido)",
         "Litros",
         "KM",
         "Posto",
@@ -267,7 +277,6 @@ export function gerarPdfAbastecimentoPorVeiculos(
   ate: string
 ) {
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-  const totalValor = itens.reduce((s, i) => s + i.valor, 0);
 
   const grupos = new Map<string, AbastecimentoCard[]>();
   for (const i of itens) {
@@ -279,7 +288,7 @@ export function gerarPdfAbastecimentoPorVeiculos(
 
   const startY = cabecalhoRelatorio(doc, "Relatório de Abastecimentos por Caminhão", de, ate, [
     `Total de registros: ${itens.length}`,
-    `Valor total: ${formatarMoeda(totalValor)}`,
+    textoResumoAbastecimentos(itens),
     `Caminhões no período: ${grupos.size}`,
   ]);
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { formatKmBr } from "@/lib/number-format";
 import { calcularKmRodado, fetchUltimoKmAbastecimentoViagem } from "@/lib/veiculo-km";
 import {
   calcularConsumoKmLitro,
@@ -70,13 +71,13 @@ export function ViagemKmOdometro({
         <div>
           <dt className="text-slate-500">KM inicial (odômetro saída)</dt>
           <dd className="font-medium text-slate-800">
-            {kmInicial != null ? kmInicial.toLocaleString("pt-BR") : "—"}
+            {kmInicial != null ? formatKmBr(kmInicial) : "—"}
           </dd>
         </div>
         <div>
           <dt className="text-slate-500">KM final (último abastecimento)</dt>
           <dd className="font-medium text-slate-800">
-            {kmFinal != null ? kmFinal.toLocaleString("pt-BR") : "—"}
+            {kmFinal != null ? formatKmBr(kmFinal) : "—"}
           </dd>
         </div>
         <div>
@@ -90,7 +91,7 @@ export function ViagemKmOdometro({
         <div>
           <dt className="text-slate-500">KM rodado</dt>
           <dd className="font-medium text-slate-800">
-            {kmRodado != null ? kmRodado.toLocaleString("pt-BR") : "—"}
+            {kmRodado != null ? formatKmBr(kmRodado) : "—"}
           </dd>
         </div>
         <div>
