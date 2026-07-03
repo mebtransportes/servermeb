@@ -76,6 +76,18 @@ function desenharCaixa(
   }
 }
 
+function labelProgramacaoPagamento(fechamentos: ViagemFechamento[]): string | null {
+  const datas = [
+    ...new Set(
+      fechamentos
+        .map((f) => f.data_pagamento?.split("T")[0])
+        .filter((d): d is string => !!d)
+    ),
+  ].sort();
+  if (!datas.length) return null;
+  return datas.map((d) => formatarDataBr(d)).join(", ");
+}
+
 export async function gerarPdfComissaoMotorista(opts: {
   motoristaNome: string;
   motoristaDocumento?: string | null;
@@ -151,6 +163,12 @@ export async function gerarPdfComissaoMotorista(opts: {
   doc.setFontSize(8);
   doc.text(`Nº ${reciboNum}`, tituloX, y + 17, { align: "right" });
   doc.text(`Emissão: ${geradoEm}`, tituloX, y + 22, { align: "right" });
+  if (ehTerceiro) {
+    const progPag = labelProgramacaoPagamento(fechamentos);
+    if (progPag) {
+      doc.text(`Programação de pagamento: ${progPag}`, tituloX, y + 27, { align: "right" });
+    }
+  }
 
   y = 48;
 

@@ -6,7 +6,17 @@ export type UltimoKmVeiculo = {
   origem: "frota" | "viagem";
 };
 
-/** Último odômetro registrado em abastecimento (frota manual ou gasto de viagem). */
+function candidatoKm(
+  kmRaw: unknown,
+  dataHora: string,
+  origem: UltimoKmVeiculo["origem"]
+): UltimoKmVeiculo | null {
+  const km = Number(kmRaw);
+  if (!Number.isFinite(km) || km <= 0) return null;
+  return { km, dataHora, origem };
+}
+
+/** Último odômetro registrado em abastecimento (frota ou viagem), pelo registro mais recente. */
 export async function fetchUltimoKmVeiculo(
   veiculoId: string,
   antesDe?: string
@@ -29,40 +39,45 @@ export async function fetchUltimoKmVeiculo(
   }
 
   const { data: frota } = await frotaQuery.maybeSingle();
-  if (frota?.km_abastecimento != null) {
-    const km = Number(frota.km_abastecimento);
-    if (Number.isFinite(km) && km > 0) {
-      candidatos.push({
-        km,
-        dataHora: frota.data_hora,
-        origem: "frota",
-      });
-    }
+  const frotaCand = frota
+    ? candidatoKm(frota.km_abastecimento, frota.data_hora, "frota")
+    : null;
+  if (frotaCand) candidatos.push(frotaCand);
+
+  const { data: viagensDoVeiculo } = await supabase
+    .from("viagem_veiculos")
+    .select("viagem_id")
+    .eq("veiculo_id", veiculoId);
+
+  let viagemIds = [...new Set((viagensDoVeiculo ?? []).map((r) => r.viagem_id))];
+
+  if (viagemIds.length === 0) {
+    const { data: viaPrimario } = await supabase
+      .from("viagens")
+      .select("id")
+      .eq("veiculo_id", veiculoId);
+    viagemIds = (viaPrimario ?? []).map((v) => v.id);
   }
 
-  let viagemQuery = supabase
-    .from("viagem_recursos")
-    .select("km_abastecimento, realizado_em, viagens!inner(veiculo_id)")
-    .eq("tipo", "abastecimento")
-    .eq("viagens.veiculo_id", veiculoId)
-    .not("km_abastecimento", "is", null)
-    .order("realizado_em", { ascending: false })
-    .limit(1);
+  if (viagemIds.length > 0) {
+    let viagemQuery = supabase
+      .from("viagem_recursos")
+      .select("km_abastecimento, realizado_em")
+      .eq("tipo", "abastecimento")
+      .in("viagem_id", viagemIds)
+      .not("km_abastecimento", "is", null)
+      .order("realizado_em", { ascending: false })
+      .limit(1);
 
-  if (antesDe) {
-    viagemQuery = viagemQuery.lte("realizado_em", antesDe);
-  }
-
-  const { data: viagemRec } = await viagemQuery.maybeSingle();
-  if (viagemRec?.km_abastecimento != null) {
-    const km = Number(viagemRec.km_abastecimento);
-    if (Number.isFinite(km) && km > 0) {
-      candidatos.push({
-        km,
-        dataHora: viagemRec.realizado_em,
-        origem: "viagem",
-      });
+    if (antesDe) {
+      viagemQuery = viagemQuery.lte("realizado_em", antesDe);
     }
+
+    const { data: viagemRec } = await viagemQuery.maybeSingle();
+    const viagemCand = viagemRec
+      ? candidatoKm(viagemRec.km_abastecimento, viagemRec.realizado_em, "viagem")
+      : null;
+    if (viagemCand) candidatos.push(viagemCand);
   }
 
   if (!candidatos.length) return null;

@@ -103,3 +103,29 @@ export async function atualizarFechamentoConfig(opts: {
   if (error) return { error: error.message, data: null };
   return { error: null, data: data as ViagemFechamento };
 }
+
+export async function atualizarDataPagamentoTerceiro(opts: {
+  fechamentoId: string;
+  viagemId: string;
+  dataPagamento: string | null;
+}) {
+  const supabase = createClient();
+  const dataVal = opts.dataPagamento?.trim() || null;
+
+  const { error: errViagem } = await supabase
+    .from("viagens")
+    .update({ data_pagamento_terceiro: dataVal })
+    .eq("id", opts.viagemId);
+
+  if (errViagem) return { error: errViagem.message, data: null };
+
+  const { data, error } = await supabase
+    .from("viagem_fechamentos")
+    .update({ data_pagamento: dataVal })
+    .eq("id", opts.fechamentoId)
+    .select("*")
+    .single();
+
+  if (error) return { error: error.message, data: null };
+  return { error: null, data: data as ViagemFechamento };
+}

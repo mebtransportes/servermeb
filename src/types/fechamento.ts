@@ -38,6 +38,7 @@ export type ViagemFechamento = {
   comissao_tipo?: "PERCENTUAL" | "LIQUIDO_TOTAL" | null;
   comissao_percent?: number | null;
   motorista_terceiro?: boolean;
+  data_pagamento?: string | null;
   valor_carga?: number;
   valor_icms?: number;
   seguro_valor?: number;

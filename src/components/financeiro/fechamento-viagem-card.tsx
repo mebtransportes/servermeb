@@ -13,11 +13,12 @@ import {
 import { gerarPdfFechamentoViagem } from "@/lib/fechamento-relatorio-pdf";
 import { useEffect, useState } from "react";
 import { parseBrNumber } from "@/lib/number-format";
-import { atualizarFechamentoConfig, fetchFechamentoPorId } from "@/lib/fechamento-data";
+import { atualizarFechamentoConfig, atualizarDataPagamentoTerceiro, fetchFechamentoPorId } from "@/lib/fechamento-data";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
 import { cn, mebCard, mebFormSubsection } from "@/lib/utils";
 import { mebAlert } from "@/lib/meb-dialog";
 import { FileText } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 export function FechamentoViagemCard({
   f,
@@ -31,6 +32,7 @@ export function FechamentoViagemCard({
     (f.comissao_tipo ?? "PERCENTUAL") as "PERCENTUAL" | "LIQUIDO_TOTAL"
   );
   const [comissaoPercent, setComissaoPercent] = useState(String(getComissaoPercent(f)));
+  const [dataPagamento, setDataPagamento] = useState(f.data_pagamento?.split("T")[0] ?? "");
   const [saving, setSaving] = useState(false);
   const [salvoMsg, setSalvoMsg] = useState(false);
   const [gerandoPdf, setGerandoPdf] = useState(false);
@@ -40,6 +42,7 @@ export function FechamentoViagemCard({
     setIcmsPercent(String(getIcmsPercent(f)));
     setComissaoTipo((f.comissao_tipo ?? "PERCENTUAL") as "PERCENTUAL" | "LIQUIDO_TOTAL");
     setComissaoPercent(String(getComissaoPercent(f)));
+    setDataPagamento(f.data_pagamento?.split("T")[0] ?? "");
   }, [f]);
 
   useEffect(() => {
@@ -73,25 +76,42 @@ export function FechamentoViagemCard({
     setSaving(true);
     setSalvoMsg(false);
     const comissaoParams = paramsComissionamentoFechamento(f);
-    const result = await atualizarFechamentoConfig({
-      id: f.id,
-      valorFrete: Number(f.valor_frete) || 0,
-      reembolso: Number(f.reembolso_valor) || 0,
-      icmsPercent: icms,
-      comissaoTipo,
-      comissaoPercent: comPerc,
-      motoristaTerceiro: isTerceiro,
-      adiantamentoValor: f.adiantamento_valor,
-      totalDespesas: comissaoParams.totalDespesasCalc,
-      totalDespesasMotorista: comissaoParams.totalDespesasMotoristaCalc,
-    });
+    const [result, resultDataPag] = await Promise.all([
+      atualizarFechamentoConfig({
+        id: f.id,
+        valorFrete: Number(f.valor_frete) || 0,
+        reembolso: Number(f.reembolso_valor) || 0,
+        icmsPercent: icms,
+        comissaoTipo,
+        comissaoPercent: comPerc,
+        motoristaTerceiro: isTerceiro,
+        adiantamentoValor: f.adiantamento_valor,
+        totalDespesas: comissaoParams.totalDespesasCalc,
+        totalDespesasMotorista: comissaoParams.totalDespesasMotoristaCalc,
+      }),
+      isTerceiro
+        ? atualizarDataPagamentoTerceiro({
+            fechamentoId: f.id,
+            viagemId: f.viagem_id,
+            dataPagamento: dataPagamento || null,
+          })
+        : Promise.resolve({ error: null, data: null }),
+    ]);
     setSaving(false);
     if (result.error) {
       await mebAlert(result.error);
       return;
     }
+    if (resultDataPag.error) {
+      await mebAlert(resultDataPag.error);
+      return;
+    }
     if (result.data) {
-      onUpdated(result.data);
+      onUpdated({
+        ...result.data,
+        data_pagamento: resultDataPag.data?.data_pagamento ?? (dataPagamento || null),
+        viagem_status: f.viagem_status,
+      });
       setSalvoMsg(true);
       setTimeout(() => setSalvoMsg(false), 2500);
     }
@@ -186,15 +206,24 @@ export function FechamentoViagemCard({
               value={icmsPercent}
               onChange={setIcmsPercent}
             />
+            <Input
+              label="Data de pagamento"
+              type="date"
+              value={dataPagamento}
+              onChange={(e) => setDataPagamento(e.target.value)}
+            />
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs text-slate-500">Salve para gravar o percentual de ICMS.</p>
+            <p className="text-xs text-slate-500">
+              A data de pagamento é preenchida automaticamente do cadastro da viagem, se informada
+              lá. Salve para gravar alterações.
+            </p>
             <div className="flex items-center gap-2">
               {salvoMsg && (
                 <span className="text-xs font-medium text-emerald-700">Salvo!</span>
               )}
               <Button type="button" variant="success" disabled={saving} onClick={handleSalvar}>
-                {saving ? "Salvando..." : "Salvar ICMS"}
+                {saving ? "Salvando..." : "Salvar"}
               </Button>
             </div>
           </div>

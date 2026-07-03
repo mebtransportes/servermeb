@@ -19,7 +19,8 @@ import {
   paramsComissionamentoFechamento,
   totalDespesasFechamento,
 } from "@/types/fechamento";
-import { formatarMoeda } from "@/lib/frota-filters";
+import { formatarDataBr, formatarMoeda } from "@/lib/frota-filters";
+import { createClient } from "@/lib/supabase/client";
 import { desenharRodapeAssinaturasRecibo, RODAPE_ASSINATURA_ALTURA } from "@/lib/pdf-recibo-rodape";
 
 const COR: [number, number, number] = [0, 120, 140];
@@ -113,6 +114,25 @@ function linhaCampos(
   return currentY + 2;
 }
 
+function textoProgramacaoPagamento(dataPagamento: string | null | undefined): string | null {
+  if (!dataPagamento?.trim()) return null;
+  return formatarDataBr(dataPagamento.split("T")[0]);
+}
+
+async function resolverDataPagamentoTerceiro(f: ViagemFechamento): Promise<string | null> {
+  if (!f.motorista_terceiro) return null;
+  if (f.data_pagamento?.trim()) return f.data_pagamento;
+
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("viagens")
+    .select("data_pagamento_terceiro")
+    .eq("id", f.viagem_id)
+    .maybeSingle();
+
+  return (data?.data_pagamento_terceiro as string | null) ?? null;
+}
+
 export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
   const icms = getIcmsPercent(f);
   const despesas = totalDespesasFechamento(f);
@@ -136,6 +156,7 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
     ? new Map()
     : await fetchAdiantamentosPorViagens([f.viagem_id]);
   const adiantamentos = adiantMap.get(f.viagem_id) ?? [];
+  const dataPagamentoTerceiro = await resolverDataPagamentoTerceiro(f);
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const logo = await carregarLogo();
@@ -154,7 +175,17 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
   doc.text(`Emitido em ${new Date().toLocaleString("pt-BR")}`, PAGE_W - MARGIN, y + 10, {
     align: "right",
   });
-  y += 18;
+  let headerExtra = 0;
+  if (f.motorista_terceiro) {
+    const progPag = textoProgramacaoPagamento(dataPagamentoTerceiro);
+    if (progPag) {
+      doc.text(`Programação de pagamento: ${progPag}`, PAGE_W - MARGIN, y + 15, {
+        align: "right",
+      });
+      headerExtra = 5;
+    }
+  }
+  y += 18 + headerExtra;
 
   y = secao(doc, y, "Identificação");
   y = linhaCampos(

@@ -95,6 +95,7 @@ export interface Viagem {
   peso_kg?: number | null;
   valor_mercadoria?: number | null;
   valor_frete?: number | null;
+  data_pagamento_terceiro?: string | null;
   numero_cte?: string | null;
   descricao_mercadoria?: string | null;
   km_total?: number | null;

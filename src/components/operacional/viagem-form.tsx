@@ -110,6 +110,7 @@ export function ViagemForm({
   const [pesoKg, setPesoKg] = useState("");
   const [valorMercadoria, setValorMercadoria] = useState("");
   const [valorFrete, setValorFrete] = useState("");
+  const [dataPagamentoTerceiro, setDataPagamentoTerceiro] = useState("");
   const [numeroCte, setNumeroCte] = useState("");
   const [descMercadoria, setDescMercadoria] = useState("");
   const [tanqueVeiculo, setTanqueVeiculo] = useState<LitrosTanqueVeiculo | null>(null);
@@ -176,6 +177,7 @@ export function ViagemForm({
     setPesoKg(rawNumberStringToBrInput(viagem.peso_kg, 2));
     setValorMercadoria(rawNumberStringToBrInput(viagem.valor_mercadoria, 2));
     setValorFrete(rawNumberStringToBrInput(viagem.valor_frete, 2));
+    setDataPagamentoTerceiro(viagem.data_pagamento_terceiro?.split("T")[0] ?? "");
     setNumeroCte(viagem.numero_cte ?? "");
     setDescMercadoria(viagem.descricao_mercadoria ?? "");
     setUploadsMultiplos(criarUploadsMultiplosVazios());
@@ -284,11 +286,13 @@ export function ViagemForm({
     const veiculoPrincipalId = veiculoIds[0];
     if (!veiculoPrincipalId) {
       setTanqueVeiculo(null);
+      setUltimoKmVeiculo(null);
       return;
     }
     const antesDe = saidaEm ? new Date(saidaEm).toISOString() : undefined;
     fetchLitrosTotaisVeiculo(veiculoPrincipalId, antesDe).then(setTanqueVeiculo);
-    fetchUltimoKmVeiculo(veiculoPrincipalId, antesDe).then(setUltimoKmVeiculo);
+    // KM inicial sempre do abastecimento mais recente (mesmo com viagem anterior em aberto)
+    fetchUltimoKmVeiculo(veiculoPrincipalId).then(setUltimoKmVeiculo);
   }, [veiculoIds, saidaEm]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -344,14 +348,10 @@ export function ViagemForm({
     } = await supabase.auth.getUser();
 
     const veiculoPrincipalId = veiculoIds[0];
-    let kmInicial: number | null = null;
-    if (saidaEm) {
-      const antesDe = new Date(saidaEm).toISOString();
-      kmInicial =
-        ultimoKmVeiculo?.km ??
-        (await fetchUltimoKmVeiculo(veiculoPrincipalId, antesDe))?.km ??
-        null;
-    }
+    const kmInicial =
+      ultimoKmVeiculo?.km ??
+      (await fetchUltimoKmVeiculo(veiculoPrincipalId))?.km ??
+      null;
 
     const statusFinal: ViagemStatus = isEdit
       ? statusViagem
@@ -372,6 +372,10 @@ export function ViagemForm({
       peso_kg: parseBrNumber(pesoKg),
       valor_mercadoria: parseBrNumber(valorMercadoria),
       valor_frete: parseBrNumber(valorFrete),
+      data_pagamento_terceiro:
+        motorista && !isFrota(motorista.vinculo)
+          ? dataPagamentoTerceiro.trim() || null
+          : null,
       numero_cte: numeroCte.trim() || null,
       descricao_mercadoria: descMercadoria || null,
       km_odometro_inicial: kmInicial,
@@ -385,11 +389,12 @@ export function ViagemForm({
     if (isEdit && viagemId) {
       const updatePayload = { ...payloadViagem };
       const veiculoMudou = viagem?.veiculo_ids[0] !== veiculoPrincipalId;
-      if (
+      const preservarKmAnterior =
+        !emModoAgendada &&
         !veiculoMudou &&
         viagem?.km_odometro_inicial != null &&
-        Number(viagem.km_odometro_inicial) > 0
-      ) {
+        Number(viagem.km_odometro_inicial) > 0;
+      if (preservarKmAnterior) {
         updatePayload.km_odometro_inicial = Number(viagem.km_odometro_inicial);
       }
 
@@ -868,6 +873,14 @@ export function ViagemForm({
               onChange={setValorFrete}
               placeholder="Valor a ser pago pelo frete"
             />
+            {motorista && !isFrota(motorista.vinculo) && (
+              <Input
+                label="Data de pagamento"
+                type="date"
+                value={dataPagamentoTerceiro}
+                onChange={(e) => setDataPagamentoTerceiro(e.target.value)}
+              />
+            )}
           </div>
           {veiculoIds.length > 0 && (
             <div className="grid gap-3 sm:grid-cols-2">
@@ -881,12 +894,13 @@ export function ViagemForm({
             >
               {ultimoKmVeiculo ? (
                 <>
-                  <span className="font-medium">KM atual do veículo (odômetro saída):</span>{" "}
+                  <span className="font-medium">KM inicial da viagem (último abastecimento):</span>{" "}
                   {ultimoKmVeiculo.km.toLocaleString("pt-BR")}
                   <span className="mt-1 block text-xs opacity-80">
-                    Último abastecimento em{" "}
+                    Registrado em{" "}
                     {new Date(ultimoKmVeiculo.dataHora).toLocaleString("pt-BR")}
                     {ultimoKmVeiculo.origem === "frota" ? " (Frota)" : " (viagem anterior)"}
+                    {emModoAgendada && " · Será salvo automaticamente ao cadastrar"}
                   </span>
                 </>
               ) : (
