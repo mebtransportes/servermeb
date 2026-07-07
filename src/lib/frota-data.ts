@@ -20,6 +20,7 @@ function mapAbastecimentoViagem(
     comprovante_path?: string | null;
     nota_fiscal_nome?: string | null;
     comprovante_nome?: string | null;
+    combustivel_tipo?: string | null;
     postos?: { nome: string } | { nome: string }[] | null;
     viagens?:
       | {
@@ -57,6 +58,7 @@ function mapAbastecimentoViagem(
     motoristaNome: motorista,
     veiculoLabel: veiculoInfo ? `${veiculoInfo.nome} — ${veiculoInfo.placa}` : undefined,
     veiculoPlaca: veiculoInfo?.placa,
+    combustivelTipo: r.combustivel_tipo ?? null,
     nota_fiscal_path: r.nota_fiscal_path,
     comprovante_path: r.comprovante_path,
     nota_fiscal_nome: r.nota_fiscal_nome,
@@ -188,6 +190,7 @@ export async function fetchAbastecimentos(): Promise<AbastecimentoCard[]> {
       postoNome: posto?.nome,
       veiculoLabel: veic ? `${veic.nome} — ${veic.placa}` : undefined,
       veiculoPlaca: veic?.placa,
+      combustivelTipo: a.combustivel_tipo ?? null,
       nota_fiscal_path: a.nota_fiscal_path,
       comprovante_path: a.comprovante_path,
       nota_fiscal_nome: a.nota_fiscal_nome,
@@ -200,6 +203,7 @@ export async function fetchAbastecimentos(): Promise<AbastecimentoCard[]> {
     .select(
       `
       id, valor, descricao, realizado_em, km_abastecimento, litros,
+      combustivel_tipo,
       valor_desconto_combustivel,
       nota_fiscal_path, comprovante_path, nota_fiscal_nome, comprovante_nome,
       postos ( nome ),

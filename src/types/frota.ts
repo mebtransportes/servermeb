@@ -56,4 +56,5 @@ export type AbastecimentoCard = {
   comprovante_nome?: string | null;
   viagemRecursoId?: string;
   frotaId?: string;
+  combustivelTipo?: string | null;
 };

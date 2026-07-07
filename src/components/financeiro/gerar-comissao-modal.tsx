@@ -196,7 +196,7 @@ export function GerarComissaoModal({
                       />
                     )}
                     <ResumoItem
-                      label="Litros"
+                      label="Litros (consumo KM/L)"
                       value={
                         resumo.abastecimento_litros.toLocaleString("pt-BR", {
                           minimumFractionDigits: 2,

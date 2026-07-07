@@ -4,16 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatKmBr } from "@/lib/number-format";
 import { calcularKmRodado, fetchUltimoKmAbastecimentoViagem } from "@/lib/veiculo-km";
+import { litrosAbastecimentoParaConsumo } from "@/lib/combustivel-consumo";
 import {
   calcularConsumoKmLitro,
   formatConsumoKmLitro,
 } from "@/types/fechamento";
 import { Gauge } from "lucide-react";
 import { mebFormSubsection } from "@/lib/utils";
-
-function isArlaCombustivel(tipo?: string | null) {
-  return (tipo ?? "").trim().toLowerCase() === "arla";
-}
 
 export function ViagemKmOdometro({
   viagemId,
@@ -39,8 +36,7 @@ export function ViagemKmOdometro({
     ]).then(([ultimoKm, { data }]) => {
       setKmFinal(ultimoKm);
       const total = (data ?? []).reduce((s, r) => {
-        if (isArlaCombustivel(r.combustivel_tipo)) return s;
-        return s + (Number(r.litros) || 0);
+        return s + litrosAbastecimentoParaConsumo(r);
       }, 0);
       setLitrosAbastecidos(total);
     });
@@ -64,7 +60,8 @@ export function ViagemKmOdometro({
       </div>
       <p className="mb-4 text-xs text-slate-500">
         O KM final é preenchido automaticamente pelo último abastecimento registrado nos gastos
-        desta viagem. O consumo é calculado: KM rodado ÷ litros abastecidos na viagem.
+        desta viagem. O consumo é calculado: KM rodado ÷ litros de Diesel Aditivado, BS10, BS10
+        COMUM, S10 e S10 Aditivado (Arla, Diesel Comum e S500 não entram no cálculo).
       </p>
 
       <dl className="grid gap-2 text-sm sm:grid-cols-2">
@@ -81,7 +78,7 @@ export function ViagemKmOdometro({
           </dd>
         </div>
         <div>
-          <dt className="text-slate-500">Litros abastecidos na viagem</dt>
+          <dt className="text-slate-500">Litros para consumo (KM/L)</dt>
           <dd className="font-medium text-slate-800">
             {litrosAbastecidos > 0
               ? `${litrosAbastecidos.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} L`

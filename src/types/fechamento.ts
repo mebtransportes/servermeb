@@ -313,7 +313,7 @@ export function calcularComissionamento(opts: {
   };
 }
 
-/** Consumo médio: km rodado ÷ litros abastecidos na viagem. */
+/** Consumo médio: km rodado ÷ litros elegíveis para consumo (ver combustivel-consumo). */
 export function calcularConsumoKmLitro(
   kmRodado: number | null | undefined,
   litrosAbastecidos: number

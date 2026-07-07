@@ -12,7 +12,9 @@ import { AnexosFrotaCampos } from "@/components/frota/anexos-campos";
 import { salvarAnexosFrota } from "@/lib/frota-anexos";
 import { carregarAbastecimentoEdicao } from "@/lib/frota-crud";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
+import { syncKmInicialViagensAgendadas, syncQuilometragemViagem } from "@/lib/veiculo-km";
 import { mebAlert } from "@/lib/meb-dialog";
+import { COMBUSTIVEL_TIPOS } from "@/lib/viagem-validation";
 import type { AbastecimentoCard } from "@/types/frota";
 import { mebFormSection } from "@/lib/utils";
 
@@ -47,6 +49,7 @@ export function AbastecimentoForm({
   const [viagemId, setViagemId] = useState<string>();
   const [teveDescontoCombustivel, setTeveDescontoCombustivel] = useState(false);
   const [valorDescontoCombustivel, setValorDescontoCombustivel] = useState("");
+  const [combustivelTipo, setCombustivelTipo] = useState("");
   const [source, setSource] = useState<"manual" | "viagem">("manual");
   const [veiculos, setVeiculos] = useState<{ id: string; nome: string; placa: string }[]>([]);
   const [postos, setPostos] = useState<{ id: string; nome: string }[]>([]);
@@ -87,6 +90,7 @@ export function AbastecimentoForm({
       setValor(rawNumberStringToBrInput(d.valor, 2));
       setDescricao(d.descricao);
       setDataHora(d.dataHora);
+      setCombustivelTipo(d.combustivelTipo ?? "");
       setAnexosExistentes({
         nota_fiscal_path: d.nota_fiscal_path,
         comprovante_path: d.comprovante_path,
@@ -134,6 +138,7 @@ export function AbastecimentoForm({
           litros_totais: parseBrNumber(litrosTotais),
           valor: parseBrNumber(valor) ?? 0,
           descricao: descricao || null,
+          combustivel_tipo: combustivelTipo.trim() || null,
           data_hora: new Date(dataHora).toISOString(),
           ...anexosPayload,
         })
@@ -142,6 +147,13 @@ export function AbastecimentoForm({
       if (err) {
         setError(err.message);
         return;
+      }
+      if (veiculoId) {
+        const kmErr = await syncKmInicialViagensAgendadas(veiculoId);
+        if (kmErr) {
+          setError(kmErr);
+          return;
+        }
       }
       onSaved();
       return;
@@ -169,6 +181,7 @@ export function AbastecimentoForm({
           km_abastecimento: parseBrKm(km),
           litros: parseBrNumber(litros),
           valor: valorNum,
+          combustivel_tipo: combustivelTipo.trim() || null,
           teve_desconto_combustivel: teveDescontoCombustivel,
           valor_desconto_combustivel: teveDescontoCombustivel
             ? parseBrNumber(valorDescontoCombustivel)
@@ -183,7 +196,10 @@ export function AbastecimentoForm({
         setError(err.message);
         return;
       }
-      if (viagemId) await syncFechamentoViagem(viagemId);
+      if (viagemId) {
+        await syncQuilometragemViagem(viagemId);
+        await syncFechamentoViagem(viagemId);
+      }
       onSaved();
       return;
     }
@@ -202,6 +218,7 @@ export function AbastecimentoForm({
         litros_totais: parseBrNumber(litrosTotais),
         valor: parseBrNumber(valor) ?? 0,
         descricao: descricao || null,
+        combustivel_tipo: combustivelTipo.trim() || null,
         data_hora: new Date(dataHora).toISOString(),
         origem: "manual",
         created_by: user?.id,
@@ -222,6 +239,15 @@ export function AbastecimentoForm({
         comprovante
       );
       await supabase.from("frota_abastecimentos").update(anexos).eq("id", row.id);
+    }
+
+    if (veiculoId) {
+      const kmErr = await syncKmInicialViagensAgendadas(veiculoId);
+      if (kmErr) {
+        setSaving(false);
+        setError(kmErr);
+        return;
+      }
     }
 
     setSaving(false);
@@ -262,6 +288,15 @@ export function AbastecimentoForm({
           options={[
             { value: "", label: "Selecione..." },
             ...postos.map((p) => ({ value: p.id, label: p.nome })),
+          ]}
+        />
+        <Select
+          label="Combustível"
+          value={combustivelTipo}
+          onChange={(e) => setCombustivelTipo(e.target.value)}
+          options={[
+            { value: "", label: "Selecione..." },
+            ...COMBUSTIVEL_TIPOS.map((t) => ({ value: t, label: t })),
           ]}
         />
         <BrKmInput

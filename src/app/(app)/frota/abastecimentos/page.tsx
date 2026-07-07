@@ -5,7 +5,8 @@ import { Fuel, Plus, Route, ClipboardList, FileBarChart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { PeriodoFilter } from "@/components/frota/periodo-filter";
-import { StatsCards, buildAbastecimentoStats } from "@/components/frota/stats-cards";
+import { StatsCards, buildAbastecimentoStats, buildAbastecimentoControleStats } from "@/components/frota/stats-cards";
+import { COMBUSTIVEL_TIPOS } from "@/lib/viagem-validation";
 import { AbastecimentoForm } from "@/components/frota/abastecimento-form";
 import { CardAcoes } from "@/components/frota/card-acoes";
 import { fetchAbastecimentos } from "@/lib/frota-data";
@@ -29,6 +30,7 @@ export default function FrotaAbastecimentosPage() {
   const [items, setItems] = useState<AbastecimentoCard[]>([]);
   const [periodo, setPeriodo] = useState<PeriodoFiltroState>(PERIODO_FILTRO_INICIAL);
   const [veiculoPlaca, setVeiculoPlaca] = useState("");
+  const [combustivelFiltro, setCombustivelFiltro] = useState("");
   const [veiculosFrota, setVeiculosFrota] = useState<
     { placa: string; nome: string }[]
   >([]);
@@ -62,7 +64,7 @@ export default function FrotaAbastecimentosPage() {
       });
   }, []);
 
-  const filtrados = useMemo(
+  const filtradosPeriodoVeiculo = useMemo(
     () =>
       items.filter((i) => {
         if (!dataNoPeriodoConfig(i.dataHora, periodo)) return false;
@@ -72,14 +74,30 @@ export default function FrotaAbastecimentosPage() {
     [items, periodo, veiculoPlaca]
   );
 
+  const filtrados = useMemo(
+    () =>
+      filtradosPeriodoVeiculo.filter((i) => {
+        if (!combustivelFiltro) return true;
+        return (i.combustivelTipo ?? "").trim() === combustivelFiltro;
+      }),
+    [filtradosPeriodoVeiculo, combustivelFiltro]
+  );
+
   const periodoLabel = labelPeriodoConfig(periodo);
   const stats = buildAbastecimentoStats(
-    filtrados.map((i) => ({
+    filtradosPeriodoVeiculo.map((i) => ({
       valor: i.valor,
       valorBruto: i.valorBruto,
       desconto: i.desconto,
       source: i.source,
       km: i.km,
+    })),
+    periodoLabel
+  );
+  const statsControle = buildAbastecimentoControleStats(
+    filtradosPeriodoVeiculo.map((i) => ({
+      valor: i.valor,
+      combustivelTipo: i.combustivelTipo,
     })),
     periodoLabel
   );
@@ -153,8 +171,19 @@ export default function FrotaAbastecimentosPage() {
             })),
           ]}
         />
+        <Select
+          label="Combustível"
+          value={combustivelFiltro}
+          onChange={(e) => setCombustivelFiltro(e.target.value)}
+          className="min-w-[200px]"
+          options={[
+            { value: "", label: "Todos os combustíveis" },
+            ...COMBUSTIVEL_TIPOS.map((t) => ({ value: t, label: t })),
+          ]}
+        />
       </div>
       <StatsCards stats={stats} compact />
+      <StatsCards stats={statsControle} compact />
 
       {showForm && (
         <AbastecimentoForm
@@ -246,6 +275,9 @@ function AbastecimentoCardView({
       )}
       <FrotaAnexosLinks anexos={item} />
       {item.postoNome && <p className="text-xs text-slate-400">Posto: {item.postoNome}</p>}
+      {item.combustivelTipo && (
+        <p className="text-xs font-medium text-slate-600">{item.combustivelTipo}</p>
+      )}
       {item.veiculoLabel && <p className="text-xs text-slate-400">{item.veiculoLabel}</p>}
       {item.motoristaNome && (
         <p className="text-xs text-slate-500">Motorista: {item.motoristaNome}</p>

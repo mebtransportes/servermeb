@@ -1,5 +1,6 @@
 import { formatarMoeda } from "@/lib/frota-filters";
 import { formatKmBr } from "@/lib/number-format";
+import { categoriaControleCombustivel } from "@/lib/combustivel-consumo";
 import { cn, mebCard, mebCardSm } from "@/lib/utils";
 
 type Stat = { label: string; value: string | number; sub?: string };
@@ -84,5 +85,39 @@ export function buildAbastecimentoStats(
     },
     { label: "KM registrados", value: formatKmBr(km), sub: "Soma dos lançamentos" },
     { label: "De viagens", value: viagem, sub: "Acompanhamento" },
+  ];
+}
+
+export function buildAbastecimentoControleStats(
+  items: { valor: number; combustivelTipo?: string | null }[],
+  periodoLabel: string
+) {
+  let arla = 0;
+  let dieselComum = 0;
+  let dieselS500 = 0;
+
+  for (const i of items) {
+    const cat = categoriaControleCombustivel(i.combustivelTipo);
+    if (cat === "arla") arla += i.valor;
+    else if (cat === "diesel_comum") dieselComum += i.valor;
+    else if (cat === "diesel_s500") dieselS500 += i.valor;
+  }
+
+  return [
+    {
+      label: "Arla",
+      value: formatarMoeda(arla),
+      sub: `${periodoLabel} · fora do consumo KM/L`,
+    },
+    {
+      label: "Diesel Comum",
+      value: formatarMoeda(dieselComum),
+      sub: `${periodoLabel} · fora do consumo KM/L`,
+    },
+    {
+      label: "Diesel S500",
+      value: formatarMoeda(dieselS500),
+      sub: `${periodoLabel} · fora do consumo KM/L`,
+    },
   ];
 }

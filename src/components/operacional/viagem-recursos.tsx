@@ -26,6 +26,7 @@ import { FileUploadMultiple } from "@/components/ui/file-upload";
 import { AnexosFrotaCampos } from "@/components/frota/anexos-campos";
 import { salvarAnexosFrota } from "@/lib/frota-anexos";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
+import { syncQuilometragemViagem } from "@/lib/veiculo-km";
 import { atualizarOutroDespesaDescontaMotorista } from "@/lib/fechamento-outros-despesas";
 import { cn, mebFormSubsection } from "@/lib/utils";
 import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
@@ -318,6 +319,14 @@ export function ViagemRecursos({
     setShowFormGasto(false);
     setShowFormReembolso(false);
     limparFormulario();
+    const kmErr = await syncQuilometragemViagem(viagemId);
+    if (kmErr) {
+      setSaving(false);
+      await mebAlert(`Gasto salvo, mas a quilometragem não foi atualizada: ${kmErr}`);
+      await load();
+      onRecursosChanged?.();
+      return;
+    }
     const syncErr = await syncFechamentoViagem(viagemId);
     if (syncErr) {
       await mebAlert(
@@ -368,6 +377,7 @@ export function ViagemRecursos({
       return;
     }
 
+    await syncQuilometragemViagem(viagemId);
     await syncFechamentoViagem(viagemId);
     setExcluindoId(null);
     await load();
@@ -867,6 +877,7 @@ function RecursoItem({
       setExcluindoCampo(null);
       return;
     }
+    await syncQuilometragemViagem(viagemId);
     await syncFechamentoViagem(viagemId);
     setExcluindoCampo(null);
     onAnexoAlterado();

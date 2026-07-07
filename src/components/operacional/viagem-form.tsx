@@ -30,6 +30,7 @@ import { isoParaDatetimeLocal, buscarViagemComMesmoCte, type ViagemParaEdicao } 
 import { formatarDataHoraBr } from "@/lib/frota-filters";
 import { mebAlert } from "@/lib/meb-dialog";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
+import { resolverDataPagamentoTerceiro } from "@/lib/viagem-pagamento-terceiro";
 import { statusGeraFechamento } from "@/lib/viagem-status";
 import { formatarLocaisParceiros } from "@/lib/viagem-parceiros-viagem";
 import {
@@ -38,6 +39,7 @@ import {
 } from "@/lib/litros-frota-veiculo";
 import {
   fetchUltimoKmVeiculo,
+  syncKmInicialAoAbrirViagem,
   type UltimoKmVeiculo,
 } from "@/lib/veiculo-km";
 import { parseBrNumber, rawNumberStringToBrInput, formatKmBr, roundKm } from "@/lib/number-format";
@@ -149,6 +151,9 @@ export function ViagemForm({
 
   useEffect(() => {
     if (!viagem) return;
+    if (viagem.status === "AGENDADA" && viagem.id) {
+      syncKmInicialAoAbrirViagem(viagem.id);
+    }
     setMotoristaId(viagem.motorista_id);
     setVeiculoIds(viagem.veiculo_ids);
     setSaidaEm(viagem.saida_em ? isoParaDatetimeLocal(viagem.saida_em) : "");
@@ -177,7 +182,7 @@ export function ViagemForm({
     setPesoKg(rawNumberStringToBrInput(viagem.peso_kg, 2));
     setValorMercadoria(rawNumberStringToBrInput(viagem.valor_mercadoria, 2));
     setValorFrete(rawNumberStringToBrInput(viagem.valor_frete, 2));
-    setDataPagamentoTerceiro(viagem.data_pagamento_terceiro?.split("T")[0] ?? "");
+    setDataPagamentoTerceiro(resolverDataPagamentoTerceiro(viagem) ?? "");
     setNumeroCte(viagem.numero_cte ?? "");
     setDescMercadoria(viagem.descricao_mercadoria ?? "");
     setUploadsMultiplos(criarUploadsMultiplosVazios());
@@ -929,8 +934,9 @@ export function ViagemForm({
                   <span className="mt-1 block text-xs opacity-80">
                     Último registro em{" "}
                     {new Date(tanqueVeiculo.dataHora).toLocaleString("pt-BR")}
-                    {saidaEm ? " (antes da saída da viagem)" : ""}. Abastecimentos extras na viagem
-                    entram no consumo médio no fechamento.
+                    {saidaEm ? " (antes da saída da viagem)" : ""}. No consumo médio entram apenas
+                    Diesel Aditivado, BS10, BS10 COMUM, S10 e S10 Aditivado abastecidos na viagem
+                    (Arla, Diesel Comum e S500 não entram no KM/L).
                   </span>
                 </>
               ) : (

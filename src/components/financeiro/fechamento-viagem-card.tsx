@@ -2,7 +2,7 @@
 
 import type { ViagemFechamento } from "@/types/fechamento";
 import { getComissaoPercent, getIcmsPercent, paramsComissionamentoFechamento } from "@/types/fechamento";
-import { formatarMoeda } from "@/lib/frota-filters";
+import { formatarMoeda, formatarDataBr } from "@/lib/frota-filters";
 import { Select } from "@/components/ui/select";
 import { BrNumberInput } from "@/components/ui/br-number-input";
 import { Button } from "@/components/ui/button";
@@ -46,7 +46,8 @@ export function FechamentoViagemCard({
   }, [f]);
 
   useEffect(() => {
-    if ((f.outros_valor ?? 0) <= 0) return;
+    const deveSync = isTerceiro || (f.outros_valor ?? 0) > 0;
+    if (!deveSync) return;
     let ativo = true;
     (async () => {
       const err = await syncFechamentoViagem(f.viagem_id);
@@ -59,9 +60,9 @@ export function FechamentoViagemCard({
     return () => {
       ativo = false;
     };
-    // Recalcula uma vez ao abrir o card (corrige fechamentos gravados com regra antiga).
+    // Recalcula ao abrir (data de pagamento terceiro, outros, totais).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [f.id]);
+  }, [f.id, isTerceiro]);
 
   const icms = parseBrNumber(icmsPercent) ?? getIcmsPercent(f);
   const comPerc = parseBrNumber(comissaoPercent) ?? getComissaoPercent(f);
@@ -126,6 +127,8 @@ export function FechamentoViagemCard({
     }
     setGerandoPdf(false);
   }
+
+  const temDataPagamento = !!dataPagamento.trim();
 
   return (
     <article className={cn(mebCard, "p-4")}>
@@ -206,17 +209,30 @@ export function FechamentoViagemCard({
               value={icmsPercent}
               onChange={setIcmsPercent}
             />
-            <Input
-              label="Data de pagamento"
-              type="date"
-              value={dataPagamento}
-              onChange={(e) => setDataPagamento(e.target.value)}
-            />
+            {temDataPagamento ? (
+              <div>
+                <p className="mb-1 text-sm font-medium text-slate-700">Data de pagamento</p>
+                <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-900">
+                  {formatarDataBr(dataPagamento)}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Cadastrada na viagem (cadastro ou acompanhamento).
+                </p>
+              </div>
+            ) : (
+              <Input
+                label="Data de pagamento"
+                type="date"
+                value={dataPagamento}
+                onChange={(e) => setDataPagamento(e.target.value)}
+              />
+            )}
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs text-slate-500">
-              A data de pagamento é preenchida automaticamente do cadastro da viagem, se informada
-              lá. Salve para gravar alterações.
+              {temDataPagamento
+                ? "A data veio automaticamente da viagem. Altere no cadastro ou no acompanhamento, se necessário."
+                : "Informe a data de pagamento ao terceiro ou cadastre antes na viagem."}
             </p>
             <div className="flex items-center gap-2">
               {salvoMsg && (

@@ -11,6 +11,7 @@ import {
   ParkingCircle,
   Landmark,
   FileBarChart,
+  FlaskConical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PeriodoFilter } from "@/components/frota/periodo-filter";
@@ -152,7 +153,22 @@ export default function CustosOperacionaisPage() {
               label="Arla"
               valor={resumo.arla}
               icon={Droplets}
+              sub="Controle separado · fora do consumo KM/L"
               onClick={() => setDetalheCategoria("arla")}
+            />
+            <CardCusto
+              label="Diesel Comum"
+              valor={resumo.dieselComum}
+              icon={FlaskConical}
+              sub="Controle separado · fora do consumo KM/L"
+              onClick={() => setDetalheCategoria("diesel_comum")}
+            />
+            <CardCusto
+              label="Diesel S500"
+              valor={resumo.dieselS500}
+              icon={FlaskConical}
+              sub="Controle separado · fora do consumo KM/L"
+              onClick={() => setDetalheCategoria("diesel_s500")}
             />
             <CardCusto
               label="ICMS"

@@ -9,6 +9,7 @@ import {
 } from "@/lib/frota-filters";
 import { formatKmBr } from "@/lib/number-format";
 import { parseISO, isValid } from "date-fns";
+import { isArlaCombustivel, categoriaControleCombustivel } from "@/lib/combustivel-consumo";
 
 function relOne<T>(v: T | T[] | null | undefined): T | null {
   if (v == null) return null;
@@ -21,6 +22,8 @@ export type CustoOperacionalCategoria =
   | "pedagios"
   | "reembolsos"
   | "arla"
+  | "diesel_comum"
+  | "diesel_s500"
   | "outros"
   | "icms";
 
@@ -47,14 +50,12 @@ export type CustosOperacionaisResumo = {
   pedagios: number;
   reembolsos: number;
   arla: number;
+  dieselComum: number;
+  dieselS500: number;
   outros: number;
   icms: number;
   linhas: Record<CustoOperacionalCategoria, CustoOperacionalLinha[]>;
 };
-
-function isArlaCombustivel(tipo?: string | null) {
-  return (tipo ?? "").trim().toLowerCase() === "arla";
-}
 
 export async function fetchCustosOperacionais(
   periodo: PeriodoFiltroState
@@ -67,6 +68,8 @@ export async function fetchCustosOperacionais(
     pedagios: [],
     reembolsos: [],
     arla: [],
+    diesel_comum: [],
+    diesel_s500: [],
     outros: [],
     icms: [],
   };
@@ -82,14 +85,36 @@ export async function fetchCustosOperacionais(
     pedagios: 0,
     reembolsos: 0,
     arla: 0,
+    dieselComum: 0,
+    dieselS500: 0,
     outros: 0,
     icms: 0,
     linhas,
   };
 
+  function registrarControleCombustivel(
+    categoria: "arla" | "diesel_comum" | "diesel_s500",
+    linha: CustoOperacionalLinha
+  ) {
+    linhas[categoria].push(linha);
+    if (categoria === "arla") resumo.arla += linha.valor;
+    else if (categoria === "diesel_comum") resumo.dieselComum += linha.valor;
+    else resumo.dieselS500 += linha.valor;
+  }
+
+  function registrarAbastecimentoOperacional(
+    linha: CustoOperacionalLinha,
+    origemFrota: boolean
+  ) {
+    linhas.abastecimentos.push(linha);
+    resumo.abastecimentos += linha.valor;
+    if (origemFrota) resumo.abastecimentosFrota += linha.valor;
+    else resumo.abastecimentosViagem += linha.valor;
+  }
+
   const { data: abastFrota } = await supabase
     .from("frota_abastecimentos")
-    .select("id, valor, data_hora, veiculos(nome, placa), postos(nome)")
+    .select("id, valor, data_hora, combustivel_tipo, veiculos(nome, placa), postos(nome)")
     .order("data_hora", { ascending: false });
 
   for (const a of abastFrota ?? []) {
@@ -97,16 +122,24 @@ export async function fetchCustosOperacionais(
     const v = Number(a.valor) || 0;
     const veic = relOne(a.veiculos as { nome: string; placa: string } | { nome: string; placa: string }[] | null);
     const posto = relOne(a.postos as { nome: string } | { nome: string }[] | null);
-    resumo.abastecimentosFrota += v;
-    resumo.abastecimentos += v;
-    linhas.abastecimentos.push({
+    const controle = categoriaControleCombustivel(a.combustivel_tipo);
+    const linhaBase: CustoOperacionalLinha = {
       id: `frota-abast-${a.id}`,
       data: a.data_hora,
-      descricao: veic ? `${veic.nome} — ${veic.placa}` : "Abastecimento frota",
+      descricao: a.combustivel_tipo
+        ? `Abastecimento — ${a.combustivel_tipo}`
+        : "Abastecimento frota",
       valor: v,
       origem: "Frota",
-      detalhe: posto?.nome,
-    });
+      detalhe: [veic ? `${veic.nome} — ${veic.placa}` : null, posto?.nome]
+        .filter(Boolean)
+        .join(" · "),
+    };
+    if (controle) {
+      registrarControleCombustivel(controle, linhaBase);
+    } else {
+      registrarAbastecimentoOperacional(linhaBase, true);
+    }
   }
 
   const { data: manutFrota } = await supabase
@@ -175,24 +208,26 @@ export async function fetchCustosOperacionais(
     if (r.descricao) detalheParts.push(r.descricao);
     const detalhe = detalheParts.filter(Boolean).join(" · ");
 
-    if (r.tipo === "abastecimento" && isArlaCombustivel(r.combustivel_tipo)) {
-      resumo.arla += v;
-      linhas.arla.push({
+    if (r.tipo === "abastecimento") {
+      const controle = categoriaControleCombustivel(r.combustivel_tipo);
+      const linhaControle: CustoOperacionalLinha = {
         id: r.id,
         data: r.realizado_em,
-        descricao: `Arla — ${r.combustivel_tipo}`,
-        valor: v,
+        descricao: r.combustivel_tipo
+          ? `${isArlaCombustivel(r.combustivel_tipo) ? "Arla" : "Abastecimento"} — ${r.combustivel_tipo}`
+          : "Abastecimento",
+        valor: controle === "arla" ? v : valorLiquido,
+        valorBruto: controle !== "arla" && desconto ? v : undefined,
         origem: "Viagem",
         detalhe,
-      });
-      continue;
-    }
-
-    switch (r.tipo) {
-      case "abastecimento":
-        resumo.abastecimentosViagem += valorLiquido;
-        resumo.abastecimentos += valorLiquido;
-        linhas.abastecimentos.push({
+        desconto: controle !== "arla" ? desconto : undefined,
+      };
+      if (controle) {
+        registrarControleCombustivel(controle, linhaControle);
+        continue;
+      }
+      registrarAbastecimentoOperacional(
+        {
           id: r.id,
           data: r.realizado_em,
           descricao: r.combustivel_tipo
@@ -203,8 +238,13 @@ export async function fetchCustosOperacionais(
           origem: "Viagem",
           detalhe,
           desconto,
-        });
-        break;
+        },
+        false
+      );
+      continue;
+    }
+
+    switch (r.tipo) {
       case "manutencao":
         resumo.manutencoesViagem += v;
         resumo.manutencoes += v;
@@ -325,6 +365,8 @@ export async function fetchCustosOperacionais(
     resumo.manutencoes +
     resumo.pedagios +
     resumo.arla +
+    resumo.dieselComum +
+    resumo.dieselS500 +
     resumo.outros;
 
   return resumo;
@@ -392,6 +434,8 @@ export const CUSTO_CATEGORIA_LABEL: Record<CustoOperacionalCategoria, string> = 
   pedagios: "Pedágios",
   reembolsos: "Reembolsos",
   arla: "Arla",
+  diesel_comum: "Diesel Comum",
+  diesel_s500: "Diesel S500",
   outros: "Outras despesas / Estacionamento / Seguro / Monitoramento",
   icms: "ICMS (imposto sobre frete)",
 };

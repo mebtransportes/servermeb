@@ -183,6 +183,7 @@ export type AbastecimentoEdicao = {
   valorDescontoCombustivel?: string;
   descricao: string;
   dataHora: string;
+  combustivelTipo?: string;
   nota_fiscal_path?: string | null;
   nota_fiscal_nome?: string | null;
   comprovante_path?: string | null;
@@ -215,6 +216,7 @@ export async function carregarAbastecimentoEdicao(
       valor: String(data.valor),
       descricao: data.descricao ?? "",
       dataHora: local,
+      combustivelTipo: data.combustivel_tipo ?? "",
       nota_fiscal_path: data.nota_fiscal_path,
       nota_fiscal_nome: data.nota_fiscal_nome,
       comprovante_path: data.comprovante_path,
@@ -249,6 +251,7 @@ export async function carregarAbastecimentoEdicao(
         descontoVal > 0 ? String(data.valor_desconto_combustivel) : "",
       descricao: data.descricao ?? "",
       dataHora: local,
+      combustivelTipo: data.combustivel_tipo ?? "",
       nota_fiscal_path: data.nota_fiscal_path,
       nota_fiscal_nome: data.nota_fiscal_nome,
       comprovante_path: data.comprovante_path,

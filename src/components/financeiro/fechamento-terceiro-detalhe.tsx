@@ -9,7 +9,7 @@ import {
   getIcmsPercent,
 } from "@/types/fechamento";
 import type { useFechamentoValores } from "@/components/financeiro/fechamento-viagem-detalhe";
-import { formatarMoeda } from "@/lib/frota-filters";
+import { formatarMoeda, formatarDataBr } from "@/lib/frota-filters";
 import {
   extrairPlacaVeiculo,
   formatPeriodoViagem,
@@ -80,6 +80,18 @@ export function FechamentoTerceiroDetalhe({
         cols={1}
         campos={[{ rotulo: "CTE", valor: f.numero_cte ?? "—" }]}
       />
+
+      {f.data_pagamento?.trim() && (
+        <FechamentoLinhaCampos
+          cols={1}
+          campos={[
+            {
+              rotulo: "Data de pagamento programada",
+              valor: formatarDataBr(f.data_pagamento.split("T")[0]),
+            },
+          ]}
+        />
+      )}
 
       <FechamentoSecao titulo="Controle de gastos">
         <FechamentoLinhaCampos

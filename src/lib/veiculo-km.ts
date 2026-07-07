@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import { roundKm } from "@/lib/number-format";
+import { isArlaCombustivel } from "@/lib/combustivel-consumo";
 
 export type UltimoKmVeiculo = {
   km: number;
@@ -47,40 +48,35 @@ export async function fetchUltimoKmVeiculo(
     : null;
   if (frotaCand) candidatos.push(frotaCand);
 
-  const { data: viagensDoVeiculo } = await supabase
-    .from("viagem_veiculos")
-    .select("viagem_id")
-    .eq("veiculo_id", veiculoId);
-
-  let viagemIds = [...new Set((viagensDoVeiculo ?? []).map((r) => r.viagem_id))];
-
-  if (viagemIds.length === 0) {
-    const { data: viaPrimario } = await supabase
-      .from("viagens")
-      .select("id")
-      .eq("veiculo_id", veiculoId);
-    viagemIds = (viaPrimario ?? []).map((v) => v.id);
-  }
+  const viagemIds = await listarViagemIdsPorVeiculo(veiculoId);
 
   if (viagemIds.length > 0) {
     let viagemQuery = supabase
       .from("viagem_recursos")
-      .select("km_abastecimento, realizado_em")
+      .select("km_abastecimento, realizado_em, combustivel_tipo")
       .eq("tipo", "abastecimento")
       .in("viagem_id", viagemIds)
       .not("km_abastecimento", "is", null)
       .order("realizado_em", { ascending: false })
-      .limit(1);
+      .limit(30);
 
     if (antesDe) {
       viagemQuery = viagemQuery.lte("realizado_em", antesDe);
     }
 
-    const { data: viagemRec } = await viagemQuery.maybeSingle();
-    const viagemCand = viagemRec
-      ? candidatoKm(viagemRec.km_abastecimento, viagemRec.realizado_em, "viagem")
-      : null;
-    if (viagemCand) candidatos.push(viagemCand);
+    const { data: viagemRecs } = await viagemQuery;
+    for (const viagemRec of viagemRecs ?? []) {
+      if (isArlaCombustivel(viagemRec.combustivel_tipo)) continue;
+      const viagemCand = candidatoKm(
+        viagemRec.km_abastecimento,
+        viagemRec.realizado_em,
+        "viagem"
+      );
+      if (viagemCand) {
+        candidatos.push(viagemCand);
+        break;
+      }
+    }
   }
 
   if (!candidatos.length) return null;
@@ -89,10 +85,6 @@ export async function fetchUltimoKmVeiculo(
     (a, b) => new Date(b.dataHora).getTime() - new Date(a.dataHora).getTime()
   );
   return candidatos[0];
-}
-
-function isArlaCombustivel(tipo?: string | null) {
-  return (tipo ?? "").trim().toLowerCase() === "arla";
 }
 
 /** KM do odômetro no último abastecimento da viagem (exclui Arla), pelo registro mais recente. */
@@ -186,16 +178,42 @@ export async function syncKmInicialViagensAgendadas(
   if (error) return error.message;
 
   for (const v of agendadas ?? []) {
-    const kmAtual =
-      v.km_odometro_inicial != null ? Number(v.km_odometro_inicial) : null;
+    const kmAtual = roundKm(
+      v.km_odometro_inicial != null ? Number(v.km_odometro_inicial) : null
+    );
     if (kmAtual === ultimo.km) continue;
 
     const { error: upErr } = await supabase
       .from("viagens")
-      .update({ km_odometro_inicial: roundKm(ultimo.km) })
+      .update({ km_odometro_inicial: ultimo.km })
       .eq("id", v.id);
 
     if (upErr) return upErr.message;
+  }
+
+  return null;
+}
+
+/** Ao abrir uma viagem AGENDADA, atualiza o KM inicial com o último abastecimento do veículo. */
+export async function syncKmInicialAoAbrirViagem(
+  viagemId: string
+): Promise<string | null> {
+  if (!viagemId) return null;
+
+  const supabase = createClient();
+  const { data: viagem, error } = await supabase
+    .from("viagens")
+    .select("status")
+    .eq("id", viagemId)
+    .maybeSingle();
+
+  if (error) return error.message;
+  if (!viagem || viagem.status !== "AGENDADA") return null;
+
+  const veiculoIds = await listarVeiculosDaViagem(viagemId);
+  for (const veiculoId of veiculoIds) {
+    const err = await syncKmInicialViagensAgendadas(veiculoId);
+    if (err) return err;
   }
 
   return null;

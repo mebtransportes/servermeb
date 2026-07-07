@@ -24,6 +24,7 @@ import {
 } from "@/types/fechamento";
 import { formatarDataBr, formatarMoeda } from "@/lib/frota-filters";
 import { createClient } from "@/lib/supabase/client";
+import { resolverDataPagamentoTerceiro } from "@/lib/viagem-pagamento-terceiro";
 import { desenharRodapeAssinaturasRecibo, RODAPE_ASSINATURA_ALTURA } from "@/lib/pdf-recibo-rodape";
 
 const COR: [number, number, number] = [0, 120, 140];
@@ -122,18 +123,21 @@ function textoProgramacaoPagamento(dataPagamento: string | null | undefined): st
   return formatarDataBr(dataPagamento.split("T")[0]);
 }
 
-async function resolverDataPagamentoTerceiro(f: ViagemFechamento): Promise<string | null> {
+async function resolverDataPagamentoTerceiroPdf(f: ViagemFechamento): Promise<string | null> {
   if (!f.motorista_terceiro) return null;
-  if (f.data_pagamento?.trim()) return f.data_pagamento;
+  if (f.data_pagamento?.trim()) {
+    return f.data_pagamento.trim().split("T")[0];
+  }
 
   const supabase = createClient();
   const { data } = await supabase
     .from("viagens")
-    .select("data_pagamento_terceiro")
+    .select("data_pagamento_terceiro, data_pagamento")
     .eq("id", f.viagem_id)
     .maybeSingle();
 
-  return (data?.data_pagamento_terceiro as string | null) ?? null;
+  if (!data) return null;
+  return resolverDataPagamentoTerceiro(data);
 }
 
 export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
@@ -159,7 +163,7 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
     ? new Map()
     : await fetchAdiantamentosPorViagens([f.viagem_id]);
   const adiantamentos = adiantMap.get(f.viagem_id) ?? [];
-  const dataPagamentoTerceiro = await resolverDataPagamentoTerceiro(f);
+  const dataPagamentoTerceiro = await resolverDataPagamentoTerceiroPdf(f);
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const logo = await carregarLogo();
@@ -300,7 +304,7 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
           rotulo: "Abastecimento líquido",
           valor: formatarMoeda(abastecimentoValorLiquido(f)),
         },
-        { rotulo: "Total litros abastecidos", valor: formatLitros(f.litros_abastecimento_viagem) },
+        { rotulo: "Total litros (consumo KM/L)", valor: formatLitros(f.litros_abastecimento_viagem) },
         {
           rotulo: "Consumo (km/L)",
           valor: formatConsumoKmLitro(

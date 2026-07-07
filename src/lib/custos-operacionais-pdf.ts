@@ -14,6 +14,8 @@ const CATEGORIAS_RELATORIO: CustoOperacionalCategoria[] = [
   "manutencoes",
   "pedagios",
   "arla",
+  "diesel_comum",
+  "diesel_s500",
   "outros",
   "icms",
   "reembolsos",
@@ -24,6 +26,8 @@ const CATEGORIAS_NO_TOTAL: CustoOperacionalCategoria[] = [
   "manutencoes",
   "pedagios",
   "arla",
+  "diesel_comum",
+  "diesel_s500",
   "outros",
 ];
 
@@ -62,6 +66,10 @@ function valorCategoria(
       return resumo.reembolsos;
     case "arla":
       return resumo.arla;
+    case "diesel_comum":
+      return resumo.dieselComum;
+    case "diesel_s500":
+      return resumo.dieselS500;
     case "outros":
       return resumo.outros;
     case "icms":
@@ -82,6 +90,10 @@ function detalheResumoCategoria(
       return "Não compõe o total operacional";
     case "icms":
       return "Imposto sobre frete · Não compõe o total operacional";
+    case "arla":
+    case "diesel_comum":
+    case "diesel_s500":
+      return "Controle separado · Fora do consumo KM/L";
     case "outros":
       return "Estacionamento, seguro e monitoramento";
     default:

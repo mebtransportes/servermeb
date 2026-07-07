@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ViagemRecursos } from "@/components/operacional/viagem-recursos";
 import { ViagemKmOdometro } from "@/components/operacional/viagem-km-odometro";
 import { VIAGEM_STATUS } from "@/lib/viagem-validation";
+import { isFrota } from "@/lib/viagem-validation";
 import { excluirAnexoTabela } from "@/lib/anexos-crud";
 import { AnexoArquivoRow } from "@/components/shared/anexo-arquivo-row";
 import type { Viagem, ViagemStatus } from "@/types";
@@ -14,6 +15,8 @@ import { MapPin } from "lucide-react";
 import { cn, mebFormSubsection } from "@/lib/utils";
 import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
+import { resolverDataPagamentoTerceiro } from "@/lib/viagem-pagamento-terceiro";
+import { syncKmInicialAoAbrirViagem } from "@/lib/veiculo-km";
 import { syncRecebimentoViagem, aplicarDataPagamentoViagemNoRecebimento } from "@/lib/recebimento-viagem";
 import { ViagemCanhotos } from "@/components/operacional/viagem-canhotos";
 import { ViagemComprovantesDescarga } from "@/components/operacional/viagem-comprovantes-descarga";
@@ -59,6 +62,7 @@ export function ViagemDetail({
 
   const load = async () => {
     const supabase = createClient();
+    await syncKmInicialAoAbrirViagem(viagemId);
     const { data: v } = await supabase
       .from("viagens")
       .select(
@@ -79,7 +83,15 @@ export function ViagemDetail({
         v.chegada_prevista_em ? isoParaDatetimeLocal(v.chegada_prevista_em) : ""
       );
       setDataPagamento(
-        v.data_pagamento ? String(v.data_pagamento).split("T")[0] : ""
+        (() => {
+          const motoristaRaw = (v as Viagem).motoristas;
+          const motorista = Array.isArray(motoristaRaw) ? motoristaRaw[0] : motoristaRaw;
+          const terceiro = motorista?.vinculo != null && !isFrota(motorista.vinculo);
+          if (terceiro) {
+            return resolverDataPagamentoTerceiro(v as Viagem) ?? "";
+          }
+          return v.data_pagamento ? String(v.data_pagamento).split("T")[0] : "";
+        })()
       );
       const vv = v.viagem_veiculos as
         | {
@@ -201,18 +213,36 @@ export function ViagemDetail({
   }
 
   async function saveDataPagamento() {
+    if (!viagem) return;
     setSalvandoDataPagamento(true);
     const supabase = createClient();
     const valor = dataPagamento.trim() || null;
-    const { error } = await supabase
-      .from("viagens")
-      .update({ data_pagamento: valor })
-      .eq("id", viagemId);
+    const motoristaRaw = viagem.motoristas;
+    const motorista = Array.isArray(motoristaRaw) ? motoristaRaw[0] : motoristaRaw;
+    const terceiro = motorista?.vinculo != null && !isFrota(motorista.vinculo);
+
+    const payload: { data_pagamento: string | null; data_pagamento_terceiro?: string | null } = {
+      data_pagamento: valor,
+    };
+    if (terceiro) {
+      payload.data_pagamento_terceiro = valor;
+    }
+
+    const { error } = await supabase.from("viagens").update(payload).eq("id", viagemId);
 
     if (error) {
       setSalvandoDataPagamento(false);
       await mebAlert(error.message);
       return;
+    }
+
+    if (statusGeraFechamento(status)) {
+      const errFech = await syncFechamentoViagem(viagemId);
+      if (errFech) {
+        setSalvandoDataPagamento(false);
+        await mebAlert(errFech);
+        return;
+      }
     }
 
     if (status === "ARQUIVADO") {
@@ -235,6 +265,14 @@ export function ViagemDetail({
     viagem.saida_em && viagem.chegada_prevista_em != null
       ? formatarDuracaoViagem(viagem.saida_em, viagem.chegada_prevista_em)
       : null;
+
+  const motoristaTerceiro =
+    viagem.motoristas?.vinculo != null && !isFrota(viagem.motoristas.vinculo);
+  const dataPagamentoSalva = motoristaTerceiro
+    ? resolverDataPagamentoTerceiro(viagem) ?? ""
+    : viagem.data_pagamento
+      ? String(viagem.data_pagamento).split("T")[0]
+      : "";
 
   const m = viagem.motoristas;
   const veiculosLabel = formatarVeiculosLabel(veiculosViagem);
@@ -400,9 +438,10 @@ export function ViagemDetail({
       <div className={cn(mebFormSubsection, "space-y-3")}>
         <h3 className="font-semibold text-slate-800">Data de pagamento</h3>
         <p className="text-xs text-slate-500">
-          Data prevista para receber o frete desta viagem. Se informada aqui, aparece
-          automaticamente em <strong className="text-slate-600">Financeiro → Recebimentos</strong>{" "}
-          quando a viagem for arquivada. Se deixar em branco, preencha depois em Recebimentos.
+          Data prevista para receber o frete desta viagem. Em viagens com motorista terceiro,
+          também alimenta o fechamento financeiro. Se informada aqui, aparece automaticamente em{" "}
+          <strong className="text-slate-600">Financeiro → Recebimentos</strong> quando a viagem
+          for arquivada. Se deixar em branco, preencha depois em Recebimentos ou no fechamento.
         </p>
         <div className="flex flex-wrap items-end gap-3">
           <Input
@@ -417,13 +456,7 @@ export function ViagemDetail({
             type="button"
             variant="success"
             onClick={saveDataPagamento}
-            disabled={
-              salvandoDataPagamento ||
-              dataPagamento ===
-                (viagem.data_pagamento
-                  ? String(viagem.data_pagamento).split("T")[0]
-                  : "")
-            }
+            disabled={salvandoDataPagamento || dataPagamento === dataPagamentoSalva}
           >
             {salvandoDataPagamento ? "Salvando..." : "Salvar data"}
           </Button>

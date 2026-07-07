@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/client";
 import { formatarVeiculosLabel } from "@/lib/viagem-crud";
 import { fetchLitrosTotaisVeiculo } from "@/lib/litros-frota-veiculo";
 import { calcularKmRodado, syncQuilometragemViagem } from "@/lib/veiculo-km";
+import { resolverDataPagamentoTerceiro } from "@/lib/viagem-pagamento-terceiro";
 import type { ViagemFechamento } from "@/types/fechamento";
 import {
   calcularComissionamento,
@@ -10,6 +11,10 @@ import {
 } from "@/types/fechamento";
 import { statusGeraFechamento } from "@/lib/viagem-status";
 import { isFrota } from "@/lib/viagem-validation";
+import {
+  isArlaCombustivel,
+  litrosAbastecimentoParaConsumo,
+} from "@/lib/combustivel-consumo";
 import type { RecursoVinculo } from "@/types";
 
 type RecursoRow = {
@@ -24,10 +29,6 @@ type RecursoRow = {
   teve_desconto_combustivel?: boolean | null;
   valor_desconto_combustivel?: number | null;
 };
-
-function isArlaCombustivel(tipo?: string | null) {
-  return (tipo ?? "").trim().toLowerCase() === "arla";
-}
 
 function somarRecursos(recursos: RecursoRow[]) {
   let litros_abastecimento_viagem = 0;
@@ -60,7 +61,7 @@ function somarRecursos(recursos: RecursoRow[]) {
             abastecimento_desconto_total += Number(r.valor_desconto_combustivel) || 0;
           }
           if (!r.abastecimento_inicial) {
-            litros_abastecimento_viagem += Number(r.litros) || 0;
+            litros_abastecimento_viagem += litrosAbastecimentoParaConsumo(r);
           }
           const kmAb = Number(r.km_abastecimento);
           const realizadoEm = r.realizado_em;
@@ -158,7 +159,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     .select(
       `
       id, status, motorista_id, veiculo_id, saida_em, chegada_prevista_em, local_saida, km_total,
-      valor_frete, valor_mercadoria, data_pagamento_terceiro, numero_cte,
+      valor_frete, valor_mercadoria, data_pagamento_terceiro, data_pagamento, numero_cte,
       km_odometro_inicial, km_odometro_final,
       motoristas ( nome_completo, vinculo ),
       veiculos ( nome, placa ),
@@ -308,9 +309,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     reembolso_valor: gastos.reembolso_valor,
     adiantamento_valor: gastos.adiantamento_valor,
     motorista_terceiro: motoristaTerceiro,
-    data_pagamento: motoristaTerceiro
-      ? (viagem.data_pagamento_terceiro as string | null) ?? null
-      : null,
+    data_pagamento: motoristaTerceiro ? resolverDataPagamentoTerceiro(viagem) : null,
     valor_carga: valorCarga,
     valor_icms,
     seguro_valor: gastos.seguro_valor,

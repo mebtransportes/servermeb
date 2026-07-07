@@ -112,7 +112,12 @@ export function FechamentoFrotaDetalhe({
         />
         <FechamentoLinhaCampos
           cols={1}
-          campos={[{ rotulo: "Total litros abastecidos", valor: formatLitros(v.litrosViagem) }]}
+          campos={[
+            {
+              rotulo: "Total litros (consumo KM/L)",
+              valor: formatLitros(v.litrosViagem),
+            },
+          ]}
         />
         <FechamentoLinhaCampos
           cols={1}
