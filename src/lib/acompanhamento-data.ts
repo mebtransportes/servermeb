@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { normalizarPlaca } from "@/lib/cadastro-busca";
 import { dataNoIntervalo } from "@/lib/frota-filters";
-import { formatarDuracaoViagem } from "@/lib/viagem-duracao";
+import { duracaoViagemAteChegada } from "@/lib/viagem-duracao";
 import type { RecursoVinculo, VeiculoTipo } from "@/types";
 import { formatarVeiculosLabel } from "@/lib/viagem-crud";
 import { carregarParceiros, type ParceiroSugestao } from "@/lib/parceiros";
@@ -29,6 +29,8 @@ export type AcompanhamentoVeiculoPlaca = {
 export type AcompanhamentoViagemItem = {
   id: string;
   status: string;
+  data_contratacao?: string | null;
+  duracao_base_saida?: boolean;
   saida_em: string | null;
   chegada_prevista_em: string | null;
   local_saida: string;
@@ -60,7 +62,7 @@ export async function fetchViagensAcompanhamento(): Promise<AcompanhamentoViagem
     .from("viagens")
     .select(
       `
-      id, status, saida_em, chegada_prevista_em, local_saida, numero_cte,
+      id, status, data_contratacao, duracao_base_saida, saida_em, chegada_prevista_em, local_saida, numero_cte,
       created_at, peso_kg, valor_frete,
       fornecedor_atual_ordem, entrega_atual_ordem,
       motoristas ( nome_completo, telefone, vinculo ),
@@ -148,6 +150,8 @@ export async function fetchViagensAcompanhamento(): Promise<AcompanhamentoViagem
     return {
       id: row.id,
       status: row.status as string,
+      data_contratacao: row.data_contratacao as string | null | undefined,
+      duracao_base_saida: Boolean(row.duracao_base_saida),
       saida_em: row.saida_em,
       chegada_prevista_em: row.chegada_prevista_em,
       local_saida: localSaida,
@@ -297,7 +301,16 @@ export function formatarTextoWhatsAppAcompanhamento(
 
   linhas.push(
     `🚚 *Veículo:* ${viagem.veiculos_label}`,
-    `📍 *Status:* ${statusLabel}`,
+    `📍 *Status:* ${statusLabel}`
+  );
+
+  if (viagem.data_contratacao) {
+    linhas.push(
+      `📅 *Contratação:* ${new Date(viagem.data_contratacao).toLocaleString("pt-BR")}`
+    );
+  }
+
+  linhas.push(
     `🏁 *Saída:* ${
       viagem.saida_em
         ? new Date(viagem.saida_em).toLocaleString("pt-BR")
@@ -309,11 +322,9 @@ export function formatarTextoWhatsAppAcompanhamento(
     linhas.push(
       `🕐 *Chegada:* ${new Date(viagem.chegada_prevista_em).toLocaleString("pt-BR")}`
     );
-    if (viagem.saida_em) {
-      const duracao = formatarDuracaoViagem(viagem.saida_em, viagem.chegada_prevista_em);
-      if (duracao) {
-        linhas.push(`⏱ *Duração:* ${duracao}`);
-      }
+    const duracao = duracaoViagemAteChegada(viagem);
+    if (duracao) {
+      linhas.push(`⏱ *Duração:* ${duracao}`);
     }
   }
 

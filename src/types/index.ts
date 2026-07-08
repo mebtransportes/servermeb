@@ -90,6 +90,8 @@ export interface Viagem {
   veiculo_id: string;
   saida_em: string | null;
   chegada_prevista_em: string | null;
+  data_contratacao?: string | null;
+  duracao_base_saida?: boolean;
   local_saida: string | null;
   tipo_trajeto: ViagemTipoTrajeto;
   peso_kg?: number | null;

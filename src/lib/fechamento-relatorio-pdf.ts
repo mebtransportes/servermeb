@@ -201,7 +201,7 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
     [
       { rotulo: "Motorista", valor: f.motorista_nome },
       { rotulo: "Placa", valor: extrairPlacaVeiculo(f.veiculo_label) },
-      { rotulo: "Período", valor: formatPeriodoViagem(f.data_embarque, f.chegada_em) },
+      { rotulo: "Período", valor: formatPeriodoViagem(f.data_embarque, f.chegada_em, f.data_contratacao, f.duracao_base_saida) },
       { rotulo: "Saída", valor: f.local_embarque },
       { rotulo: "Entrega", valor: f.destino ?? "—" },
       { rotulo: "CT-e", valor: f.numero_cte ?? "—" },

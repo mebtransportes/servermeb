@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -104,6 +104,7 @@ export function ViagemForm({
   const [veiculosSelecionados, setVeiculosSelecionados] = useState<VeiculoSelecionado[]>([]);
   const [anexosAuto, setAnexosAuto] = useState<AnexoRef[]>([]);
 
+  const [contratacaoEm, setContratacaoEm] = useState("");
   const [saidaEm, setSaidaEm] = useState("");
   const [chegadaEm, setChegadaEm] = useState("");
   const [fornecedores, setFornecedores] = useState<string[]>([""]);
@@ -122,6 +123,7 @@ export function ViagemForm({
   );
 
   const [saving, setSaving] = useState(false);
+  const salvandoRef = useRef(false);
   const [error, setError] = useState("");
   const [cadastroAgendado, setCadastroAgendado] = useState(false);
   const [statusViagem, setStatusViagem] = useState<ViagemStatus>("EM CARREGAMENTO");
@@ -156,6 +158,9 @@ export function ViagemForm({
     }
     setMotoristaId(viagem.motorista_id);
     setVeiculoIds(viagem.veiculo_ids);
+    setContratacaoEm(
+      viagem.data_contratacao ? isoParaDatetimeLocal(viagem.data_contratacao) : ""
+    );
     setSaidaEm(viagem.saida_em ? isoParaDatetimeLocal(viagem.saida_em) : "");
     setStatusViagem(viagem.status as ViagemStatus);
     setCadastroAgendado(viagem.status === "AGENDADA");
@@ -302,6 +307,7 @@ export function ViagemForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (salvandoRef.current) return;
     setError("");
 
     if (!aptoGeral || !motorista || veiculosSelecionados.length === 0) {
@@ -313,6 +319,11 @@ export function ViagemForm({
 
     const locaisFornecedor = fornecedores.map((l) => l.trim()).filter(Boolean);
     const locaisEntrega = entregas.map((l) => l.trim()).filter(Boolean);
+
+    if (!contratacaoEm) {
+      setError("Informe a data e hora de contratação.");
+      return;
+    }
 
     if (exigeProgramacao) {
       if (locaisFornecedor.length === 0 || locaisEntrega.length === 0) {
@@ -332,195 +343,200 @@ export function ViagemForm({
       }
     }
 
-    const cteInformado = numeroCte.trim();
-    if (cteInformado) {
-      const duplicada = await buscarViagemComMesmoCte(
-        cteInformado,
-        isEdit ? viagem?.id : undefined
-      );
-      if (duplicada) {
-        await mebAlert(
-          `O CT-e ${cteInformado} já está vinculado a outra viagem (${duplicada.motorista_nome}, saída ${formatarDataHoraBr(duplicada.saida_em)}). Informe um número diferente.`
-        );
-        return;
-      }
-    }
-
+    salvandoRef.current = true;
     setSaving(true);
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
 
-    const veiculoPrincipalId = veiculoIds[0];
-    const kmInicial = roundKm(
-      ultimoKmVeiculo?.km ??
-        (await fetchUltimoKmVeiculo(veiculoPrincipalId))?.km ??
-        null
-    );
+    try {
+      const cteInformado = numeroCte.trim();
+      if (cteInformado) {
+        const duplicada = await buscarViagemComMesmoCte(
+          cteInformado,
+          isEdit ? viagem?.id : undefined
+        );
+        if (duplicada) {
+          await mebAlert(
+            `O CT-e ${cteInformado} já está vinculado a outra viagem (${duplicada.motorista_nome}, saída ${formatarDataHoraBr(duplicada.saida_em)}). Informe um número diferente.`
+          );
+          return;
+        }
+      }
 
-    const statusFinal: ViagemStatus = isEdit
-      ? statusViagem
-      : cadastroAgendado
-        ? "AGENDADA"
-        : "EM CARREGAMENTO";
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    const payloadViagem = {
-      motorista_id: motoristaId,
-      veiculo_id: veiculoPrincipalId,
-      saida_em: saidaEm ? new Date(saidaEm).toISOString() : null,
-      local_saida: locaisFornecedor.length
-        ? formatarLocaisParceiros(
-            locaisFornecedor.map((texto, i) => ({ ordem: i + 1, texto }))
-          )
-        : null,
-      tipo_trajeto: tipoTrajeto,
-      peso_kg: parseBrNumber(pesoKg),
-      valor_mercadoria: parseBrNumber(valorMercadoria),
-      valor_frete: parseBrNumber(valorFrete),
-      data_pagamento_terceiro:
-        motorista && !isFrota(motorista.vinculo)
-          ? dataPagamentoTerceiro.trim() || null
+      const veiculoPrincipalId = veiculoIds[0];
+      const kmInicial = roundKm(
+        ultimoKmVeiculo?.km ??
+          (await fetchUltimoKmVeiculo(veiculoPrincipalId))?.km ??
+          null
+      );
+
+      const statusFinal: ViagemStatus = isEdit
+        ? statusViagem
+        : cadastroAgendado
+          ? "AGENDADA"
+          : "EM CARREGAMENTO";
+
+      const payloadViagem = {
+        motorista_id: motoristaId,
+        veiculo_id: veiculoPrincipalId,
+        data_contratacao: contratacaoEm ? new Date(contratacaoEm).toISOString() : null,
+        saida_em: saidaEm ? new Date(saidaEm).toISOString() : null,
+        chegada_prevista_em: chegadaEm ? new Date(chegadaEm).toISOString() : null,
+        local_saida: locaisFornecedor.length
+          ? formatarLocaisParceiros(
+              locaisFornecedor.map((texto, i) => ({ ordem: i + 1, texto }))
+            )
           : null,
-      numero_cte: numeroCte.trim() || null,
-      descricao_mercadoria: descMercadoria || null,
-      km_odometro_inicial: kmInicial,
-      motorista_apto: true,
-      veiculo_apto: true,
-      status: statusFinal,
-    };
+        tipo_trajeto: tipoTrajeto,
+        peso_kg: parseBrNumber(pesoKg),
+        valor_mercadoria: parseBrNumber(valorMercadoria),
+        valor_frete: parseBrNumber(valorFrete),
+        data_pagamento_terceiro:
+          motorista && !isFrota(motorista.vinculo)
+            ? dataPagamentoTerceiro.trim() || null
+            : null,
+        numero_cte: numeroCte.trim() || null,
+        descricao_mercadoria: descMercadoria || null,
+        km_odometro_inicial: kmInicial,
+        motorista_apto: true,
+        veiculo_apto: true,
+        status: statusFinal,
+      };
 
-    let viagemId = viagem?.id;
+      let viagemId = viagem?.id;
 
-    if (isEdit && viagemId) {
-      const updatePayload = { ...payloadViagem };
-      const veiculoMudou = viagem?.veiculo_ids[0] !== veiculoPrincipalId;
-      const preservarKmAnterior =
-        !emModoAgendada &&
-        !veiculoMudou &&
-        viagem?.km_odometro_inicial != null &&
-        Number(viagem.km_odometro_inicial) > 0;
-      if (preservarKmAnterior) {
-        updatePayload.km_odometro_inicial = Number(viagem.km_odometro_inicial);
+      if (isEdit && viagemId) {
+        const updatePayload = { ...payloadViagem };
+        const veiculoMudou = viagem?.veiculo_ids[0] !== veiculoPrincipalId;
+        const preservarKmAnterior =
+          !emModoAgendada &&
+          !veiculoMudou &&
+          viagem?.km_odometro_inicial != null &&
+          Number(viagem.km_odometro_inicial) > 0;
+        if (preservarKmAnterior) {
+          updatePayload.km_odometro_inicial = Number(viagem.km_odometro_inicial);
+        }
+
+        const { error: upErr } = await supabase
+          .from("viagens")
+          .update(updatePayload)
+          .eq("id", viagemId);
+
+        if (upErr) {
+          setError(upErr.message);
+          return;
+        }
+      } else {
+        const { data: nova, error: viagemErr } = await supabase
+          .from("viagens")
+          .insert({
+            ...payloadViagem,
+            created_by: user?.id,
+          })
+          .select("id")
+          .single();
+
+        if (viagemErr || !nova) {
+          setError(viagemErr?.message ?? "Erro ao salvar viagem");
+          return;
+        }
+        viagemId = nova.id;
       }
 
-      const { error: upErr } = await supabase
-        .from("viagens")
-        .update(updatePayload)
-        .eq("id", viagemId);
-
-      if (upErr) {
-        setError(upErr.message);
-        setSaving(false);
+      if (!viagemId) {
+        setError("Erro ao identificar viagem");
         return;
       }
-    } else {
-      const { data: nova, error: viagemErr } = await supabase
-        .from("viagens")
-        .insert({
-          ...payloadViagem,
-          created_by: user?.id,
-        })
-        .select("id")
-        .single();
 
-      if (viagemErr || !nova) {
-        setError(viagemErr?.message ?? "Erro ao salvar viagem");
-        setSaving(false);
-        return;
+      await supabase.from("viagem_fornecedores").delete().eq("viagem_id", viagemId);
+      if (locaisFornecedor.length) {
+        await supabase.from("viagem_fornecedores").insert(
+          locaisFornecedor.map((local, i) => ({
+            viagem_id: viagemId,
+            ordem: i + 1,
+            local_fornecedor: local,
+          }))
+        );
       }
-      viagemId = nova.id;
-    }
 
-    if (!viagemId) {
-      setError("Erro ao identificar viagem");
-      setSaving(false);
-      return;
-    }
+      await supabase.from("viagem_entregas").delete().eq("viagem_id", viagemId);
+      if (locaisEntrega.length) {
+        await supabase.from("viagem_entregas").insert(
+          locaisEntrega.map((local, i) => ({
+            viagem_id: viagemId,
+            ordem: i + 1,
+            local_entrega: local,
+          }))
+        );
+      }
 
-    await supabase.from("viagem_fornecedores").delete().eq("viagem_id", viagemId);
-    if (locaisFornecedor.length) {
-      await supabase.from("viagem_fornecedores").insert(
-        locaisFornecedor.map((local, i) => ({
+      await supabase.from("viagem_veiculos").delete().eq("viagem_id", viagemId);
+      await supabase.from("viagem_veiculos").insert(
+        veiculoIds.map((veiculo_id, i) => ({
           viagem_id: viagemId,
+          veiculo_id,
           ordem: i + 1,
-          local_fornecedor: local,
         }))
       );
-    }
 
-    await supabase.from("viagem_entregas").delete().eq("viagem_id", viagemId);
-    if (locaisEntrega.length) {
-      await supabase.from("viagem_entregas").insert(
-        locaisEntrega.map((local, i) => ({
-          viagem_id: viagemId,
-          ordem: i + 1,
-          local_entrega: local,
-        }))
-      );
-    }
+      const anexosInsert: {
+        viagem_id: string;
+        categoria: string;
+        nome: string;
+        storage_path: string;
+        file_name: string;
+        mime_type: string;
+        origem: string;
+      }[] = [];
 
-    await supabase.from("viagem_veiculos").delete().eq("viagem_id", viagemId);
-    await supabase.from("viagem_veiculos").insert(
-      veiculoIds.map((veiculo_id, i) => ({
-        viagem_id: viagemId,
-        veiculo_id,
-        ordem: i + 1,
-      }))
-    );
-
-    const anexosInsert: {
-      viagem_id: string;
-      categoria: string;
-      nome: string;
-      storage_path: string;
-      file_name: string;
-      mime_type: string;
-      origem: string;
-    }[] = [];
-
-    if (!isEdit) {
-      for (const a of anexosAuto) {
-        anexosInsert.push({
-          viagem_id: viagemId,
-          categoria: a.categoria,
-          nome: a.nome,
-          storage_path: a.storage_path,
-          file_name: a.file_name,
-          mime_type: "application/pdf",
-          origem: a.origem,
-        });
-      }
-    }
-
-    for (const categoria of ANEXOS_VIAGEM_CATEGORIAS_MULTIPLAS) {
-      const arquivos = uploadsMultiplos[categoria] ?? [];
-      for (const file of arquivos) {
-        const up = await uploadFile(file, `viagens/${viagemId}`);
-        if (up) {
+      if (!isEdit) {
+        for (const a of anexosAuto) {
           anexosInsert.push({
             viagem_id: viagemId,
-            categoria,
-            nome: categoria,
-            storage_path: up.path,
-            file_name: up.fileName,
-            mime_type: up.mimeType,
-            origem: "upload",
+            categoria: a.categoria,
+            nome: a.nome,
+            storage_path: a.storage_path,
+            file_name: a.file_name,
+            mime_type: "application/pdf",
+            origem: a.origem,
           });
         }
       }
-    }
 
-    if (anexosInsert.length) {
-      await supabase.from("viagem_anexos").insert(anexosInsert);
-    }
+      for (const categoria of ANEXOS_VIAGEM_CATEGORIAS_MULTIPLAS) {
+        const arquivos = uploadsMultiplos[categoria] ?? [];
+        for (const file of arquivos) {
+          const up = await uploadFile(file, `viagens/${viagemId}`);
+          if (up) {
+            anexosInsert.push({
+              viagem_id: viagemId,
+              categoria,
+              nome: categoria,
+              storage_path: up.path,
+              file_name: up.fileName,
+              mime_type: up.mimeType,
+              origem: "upload",
+            });
+          }
+        }
+      }
 
-    if (isEdit && statusGeraFechamento(statusFinal)) {
-      await syncFechamentoViagem(viagemId);
-    }
+      if (anexosInsert.length) {
+        await supabase.from("viagem_anexos").insert(anexosInsert);
+      }
 
-    setSaving(false);
-    onSaved();
+      if (isEdit && statusGeraFechamento(statusFinal)) {
+        await syncFechamentoViagem(viagemId);
+      }
+
+      onSaved();
+    } finally {
+      salvandoRef.current = false;
+      setSaving(false);
+    }
   }
 
   return (
@@ -717,8 +733,9 @@ export function ViagemForm({
         )}
         {emModoAgendada && (
           <p className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
-            Enquanto o status for <strong>Agendada</strong>, apenas motorista e veículo são
-            obrigatórios. Preencha o restante quando tiver a programação e altere o status.
+            Enquanto o status for <strong>Agendada</strong>, motorista, veículo e{" "}
+            <strong>data de contratação</strong> são obrigatórios. Preencha o restante quando
+            tiver a programação e altere o status.
           </p>
         )}
       </section>
@@ -737,10 +754,19 @@ export function ViagemForm({
           <h2 className="text-lg font-semibold text-slate-800">
             2. Dados da viagem
             {emModoAgendada && (
-              <span className="ml-2 text-sm font-normal text-indigo-700">(opcional)</span>
+              <span className="ml-2 text-sm font-normal text-indigo-700">
+                (demais campos opcionais)
+              </span>
             )}
           </h2>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Input
+              label="Data e hora da contratação"
+              type="datetime-local"
+              value={contratacaoEm}
+              onChange={(e) => setContratacaoEm(e.target.value)}
+              required
+            />
             <Input
               label="Data e hora de saída"
               type="datetime-local"
@@ -753,12 +779,14 @@ export function ViagemForm({
               type="datetime-local"
               value={chegadaEm}
               onChange={(e) => setChegadaEm(e.target.value)}
-              disabled
-              placeholder="Informado no acompanhamento"
             />
-            <p className="text-xs text-slate-500 sm:col-span-2">
-              A chegada é registrada manualmente no acompanhamento da viagem.
-            </p>
+          </div>
+          <p className="text-xs text-slate-500">
+            A data de contratação é obrigatória em todas as viagens, inclusive agendadas. A
+            duração nos relatórios é calculada da contratação até a chegada. A chegada também
+            pode ser ajustada no acompanhamento da viagem.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
             <Select
               label="Tipo de viagem"
               value={tipoTrajeto}

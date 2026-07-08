@@ -63,7 +63,12 @@ export function FechamentoTerceiroDetalhe({
         campos={[
           {
             rotulo: "Saída — Chegada — Duração",
-            valor: formatPeriodoViagem(f.data_embarque, f.chegada_em),
+            valor: formatPeriodoViagem(
+              f.data_embarque,
+              f.chegada_em,
+              f.data_contratacao,
+              f.duracao_base_saida
+            ),
           },
         ]}
       />

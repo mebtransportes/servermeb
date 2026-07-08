@@ -7,6 +7,8 @@ export type ViagemFechamento = {
   motorista_id: string;
   motorista_nome: string;
   data_embarque: string;
+  data_contratacao?: string | null;
+  duracao_base_saida?: boolean;
   chegada_em?: string | null;
   local_embarque: string;
   veiculo_label: string;

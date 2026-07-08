@@ -158,7 +158,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     .from("viagens")
     .select(
       `
-      id, status, motorista_id, veiculo_id, saida_em, chegada_prevista_em, local_saida, km_total,
+      id, status, motorista_id, veiculo_id, data_contratacao, duracao_base_saida, saida_em, chegada_prevista_em, local_saida, km_total,
       valor_frete, valor_mercadoria, data_pagamento_terceiro, data_pagamento, numero_cte,
       km_odometro_inicial, km_odometro_final,
       motoristas ( nome_completo, vinculo ),
@@ -282,6 +282,8 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     motorista_id: viagem.motorista_id,
     motorista_nome: motorista?.nome_completo ?? "—",
     data_embarque: viagem.saida_em,
+    data_contratacao: viagem.data_contratacao ?? null,
+    duracao_base_saida: Boolean(viagem.duracao_base_saida),
     chegada_em: viagem.chegada_prevista_em ?? null,
     local_embarque: viagem.local_saida,
     veiculo_label: formatarVeiculosLabel(listaVeiculos),

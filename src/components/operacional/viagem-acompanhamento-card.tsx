@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn, mebCardSm } from "@/lib/utils";
 import { Check, Copy, Pencil } from "lucide-react";
-import { formatarDuracaoViagem } from "@/lib/viagem-duracao";
+import { duracaoViagemAteChegada } from "@/lib/viagem-duracao";
 import { atualizarChegadaViagem } from "@/lib/viagem-chegada";
 import { isoParaDatetimeLocal } from "@/lib/viagem-crud";
 import { mebAlert } from "@/lib/meb-dialog";
@@ -45,10 +45,7 @@ export function ViagemAcompanhamentoCard({
   const resumoCurto = textoResumoCurto(viagem, statusLabel);
   const precisaSelecionar = viagemPrecisaSelecionarParada(viagem);
   const editarHref = `/operacional/acompanhamento/${viagem.id}`;
-  const duracaoViagem =
-    viagem.saida_em && viagem.chegada_prevista_em != null
-      ? formatarDuracaoViagem(viagem.saida_em, viagem.chegada_prevista_em)
-      : null;
+  const duracaoViagem = duracaoViagemAteChegada(viagem);
 
   async function salvarChegada() {
     if (!chegadaEm) {

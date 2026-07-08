@@ -27,7 +27,7 @@ import {
 } from "@/lib/viagem-status";
 import { formatarVeiculosLabel, isoParaDatetimeLocal } from "@/lib/viagem-crud";
 import { atualizarChegadaViagem } from "@/lib/viagem-chegada";
-import { formatarDuracaoViagem } from "@/lib/viagem-duracao";
+import { duracaoViagemAteChegada } from "@/lib/viagem-duracao";
 import { Input } from "@/components/ui/input";
 import { VEICULO_TIPO_OPCOES } from "@/lib/viagem-validation";
 import type { Veiculo } from "@/types";
@@ -261,10 +261,7 @@ export function ViagemDetail({
 
   if (!viagem) return <p className="text-slate-500">Carregando...</p>;
 
-  const duracaoViagem =
-    viagem.saida_em && viagem.chegada_prevista_em != null
-      ? formatarDuracaoViagem(viagem.saida_em, viagem.chegada_prevista_em)
-      : null;
+  const duracaoViagem = duracaoViagemAteChegada(viagem);
 
   const motoristaTerceiro =
     viagem.motoristas?.vinculo != null && !isFrota(viagem.motoristas.vinculo);
@@ -285,6 +282,13 @@ export function ViagemDetail({
             {m?.nome_completo ?? "Motorista"} · {veiculosLabel}
           </h2>
           <p className="text-sm text-slate-500">
+            {viagem.data_contratacao && (
+              <>
+                Contratação:{" "}
+                {new Date(viagem.data_contratacao).toLocaleString("pt-BR")}
+                {" · "}
+              </>
+            )}
             Saída:{" "}
             {viagem.saida_em
               ? new Date(viagem.saida_em).toLocaleString("pt-BR")

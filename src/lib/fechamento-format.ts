@@ -24,12 +24,17 @@ export function formatDataHoraSeparados(iso: string | null | undefined): {
 
 export function formatPeriodoViagem(
   saidaEm: string,
-  chegadaEm: string | null | undefined
+  chegadaEm: string | null | undefined,
+  dataContratacao?: string | null,
+  duracaoBaseSaida?: boolean
 ): string {
   const saida = formatDataHoraSeparados(saidaEm);
   const chegada = formatDataHoraSeparados(chegadaEm);
+  const inicioDuracao = duracaoBaseSaida
+    ? saidaEm
+    : dataContratacao?.trim() || saidaEm;
   const duracao =
-    chegadaEm != null ? formatarDuracaoViagem(saidaEm, chegadaEm) : null;
+    chegadaEm != null ? formatarDuracaoViagem(inicioDuracao, chegadaEm) : null;
   const trecho = `${saida.data} ${saida.hora} — ${chegada.data} ${chegada.hora}`;
   return duracao ? `${trecho} · ${duracao}` : trecho;
 }
