@@ -38,7 +38,9 @@ import {
   type LitrosTanqueVeiculo,
 } from "@/lib/litros-frota-veiculo";
 import {
+  fetchKmInicialDeViagemAnterior,
   fetchUltimoKmVeiculo,
+  resolverVeiculoOdometroId,
   syncKmInicialAoAbrirViagem,
   type UltimoKmVeiculo,
 } from "@/lib/veiculo-km";
@@ -153,8 +155,8 @@ export function ViagemForm({
 
   useEffect(() => {
     if (!viagem) return;
-    if (viagem.status === "AGENDADA" && viagem.id) {
-      syncKmInicialAoAbrirViagem(viagem.id);
+    if (viagem.id) {
+      void syncKmInicialAoAbrirViagem(viagem.id);
     }
     setMotoristaId(viagem.motorista_id);
     setVeiculoIds(viagem.veiculo_ids);
@@ -293,17 +295,29 @@ export function ViagemForm({
   }, [veiculoIds]);
 
   useEffect(() => {
-    const veiculoPrincipalId = veiculoIds[0];
-    if (!veiculoPrincipalId) {
+    if (!veiculoIds.length) {
       setTanqueVeiculo(null);
       setUltimoKmVeiculo(null);
       return;
     }
     const antesDe = saidaEm ? new Date(saidaEm).toISOString() : undefined;
-    fetchLitrosTotaisVeiculo(veiculoPrincipalId, antesDe).then(setTanqueVeiculo);
-    // KM inicial sempre do abastecimento mais recente (mesmo com viagem anterior em aberto)
-    fetchUltimoKmVeiculo(veiculoPrincipalId).then(setUltimoKmVeiculo);
-  }, [veiculoIds, saidaEm]);
+    void resolverVeiculoOdometroId(veiculoIds).then(async (odometroId) => {
+      if (!odometroId) {
+        setTanqueVeiculo(null);
+        setUltimoKmVeiculo(null);
+        return;
+      }
+      fetchLitrosTotaisVeiculo(odometroId, antesDe).then(setTanqueVeiculo);
+      const km = await fetchKmInicialDeViagemAnterior(odometroId, viagem?.id, {
+        antesDe,
+      });
+      setUltimoKmVeiculo(
+        km != null
+          ? { km, dataHora: new Date().toISOString(), origem: "viagem" }
+          : null
+      );
+    });
+  }, [veiculoIds, saidaEm, viagem?.id]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -367,9 +381,12 @@ export function ViagemForm({
       } = await supabase.auth.getUser();
 
       const veiculoPrincipalId = veiculoIds[0];
+      const odometroId = (await resolverVeiculoOdometroId(veiculoIds)) ?? veiculoPrincipalId;
       const kmInicial = roundKm(
         ultimoKmVeiculo?.km ??
-          (await fetchUltimoKmVeiculo(veiculoPrincipalId))?.km ??
+          (await fetchKmInicialDeViagemAnterior(odometroId, viagem?.id, {
+            antesDe: saidaEm ? new Date(saidaEm).toISOString() : undefined,
+          })) ??
           null
       );
 
@@ -415,13 +432,18 @@ export function ViagemForm({
       if (isEdit && viagemId) {
         const updatePayload = { ...payloadViagem };
         const veiculoMudou = viagem?.veiculo_ids[0] !== veiculoPrincipalId;
+        const kmAtualGravado =
+          viagem?.km_odometro_inicial != null ? Number(viagem.km_odometro_inicial) : null;
         const preservarKmAnterior =
           !emModoAgendada &&
           !veiculoMudou &&
-          viagem?.km_odometro_inicial != null &&
-          Number(viagem.km_odometro_inicial) > 0;
+          kmAtualGravado != null &&
+          kmAtualGravado > 0 &&
+          (kmInicial == null || kmInicial <= kmAtualGravado);
         if (preservarKmAnterior) {
-          updatePayload.km_odometro_inicial = Number(viagem.km_odometro_inicial);
+          updatePayload.km_odometro_inicial = kmAtualGravado;
+        } else if (kmInicial != null) {
+          updatePayload.km_odometro_inicial = kmInicial;
         }
 
         const { error: upErr } = await supabase

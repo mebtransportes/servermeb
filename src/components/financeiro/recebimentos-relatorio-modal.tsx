@@ -5,6 +5,7 @@ import { FileDown } from "lucide-react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { CadastroOpcaoAutocomplete } from "@/components/ui/cadastro-opcao-autocomplete";
 import { Button } from "@/components/ui/button";
 import { MebModal, MebModalBody, MebModalFooter, MebModalHeader } from "@/components/ui/modal";
 import {
@@ -63,12 +64,9 @@ export function RecebimentosRelatorioModal({
       const nome = item.empresa?.trim();
       if (nome && nome !== "—") nomes.add(nome);
     }
-    return [
-      { value: "", label: "Todos os fornecedores" },
-      ...[...nomes]
-        .sort((a, b) => a.localeCompare(b, "pt-BR"))
-        .map((nome) => ({ value: nome, label: nome })),
-    ];
+    return [...nomes]
+      .sort((a, b) => a.localeCompare(b, "pt-BR"))
+      .map((nome) => ({ value: nome, label: nome }));
   }, [itens]);
 
   function validar(): boolean {
@@ -169,12 +167,14 @@ export function RecebimentosRelatorioModal({
             options={STATUS_OPCOES.map((s) => ({ value: s.value, label: s.label }))}
           />
 
-          <Select
+          <CadastroOpcaoAutocomplete
             label="Fornecedor"
-            tone="light"
-            value={fornecedor}
-            onChange={(e) => setFornecedor(e.target.value)}
             options={fornecedorOpcoes}
+            value={fornecedor}
+            onValueChange={setFornecedor}
+            opcional
+            placeholder="Todos — digite o nome (mín. 2 letras)"
+            hint="Deixe em branco para incluir todos os fornecedores."
           />
 
           {erro && <p className="text-sm text-red-600">{erro}</p>}

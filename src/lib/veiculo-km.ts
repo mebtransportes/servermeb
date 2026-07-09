@@ -8,91 +8,96 @@ export type UltimoKmVeiculo = {
   origem: "frota" | "viagem";
 };
 
-function candidatoKm(
-  kmRaw: unknown,
-  dataHora: string,
-  origem: UltimoKmVeiculo["origem"]
-): UltimoKmVeiculo | null {
-  const km = Number(kmRaw);
-  if (!Number.isFinite(km) || km <= 0) return null;
-  const kmRounded = roundKm(km);
-  if (kmRounded == null || kmRounded <= 0) return null;
-  return { km: kmRounded, dataHora, origem };
+export type FetchUltimoKmOpts = {
+  antesDe?: string;
+  excluirViagemId?: string;
+};
+
+function normalizarPlaca(placa: string): string {
+  return placa.replace(/[\s-]/g, "").toUpperCase();
 }
 
-/** Último odômetro registrado em abastecimento (frota ou viagem), pelo registro mais recente. */
-export async function fetchUltimoKmVeiculo(
-  veiculoId: string,
-  antesDe?: string
-): Promise<UltimoKmVeiculo | null> {
-  if (!veiculoId) return null;
+function resolverFetchUltimoKmOpts(
+  opts?: string | FetchUltimoKmOpts
+): FetchUltimoKmOpts {
+  if (typeof opts === "string") return { antesDe: opts };
+  return opts ?? {};
+}
+
+async function listarIdsVeiculosMesmaPlaca(veiculoId: string): Promise<string[]> {
+  const supabase = createClient();
+  const { data: veiculo } = await supabase
+    .from("veiculos")
+    .select("placa")
+    .eq("id", veiculoId)
+    .maybeSingle();
+
+  if (!veiculo?.placa) return [veiculoId];
+
+  const placaNorm = normalizarPlaca(veiculo.placa);
+  const { data: todos } = await supabase.from("veiculos").select("id, placa");
+  const ids = (todos ?? [])
+    .filter((v) => normalizarPlaca(v.placa as string) === placaNorm)
+    .map((v) => v.id as string);
+
+  return ids.length ? ids : [veiculoId];
+}
+
+async function listarViagemIdsPorVeiculos(veiculoIds: string[]): Promise<string[]> {
+  if (!veiculoIds.length) return [];
 
   const supabase = createClient();
-  const candidatos: UltimoKmVeiculo[] = [];
+  const ids = new Set<string>();
 
-  let frotaQuery = supabase
-    .from("frota_abastecimentos")
-    .select("km_abastecimento, data_hora")
-    .eq("veiculo_id", veiculoId)
-    .not("km_abastecimento", "is", null)
-    .order("data_hora", { ascending: false })
-    .limit(1);
+  const { data: vv } = await supabase
+    .from("viagem_veiculos")
+    .select("viagem_id")
+    .in("veiculo_id", veiculoIds);
+  for (const r of vv ?? []) ids.add(r.viagem_id);
 
-  if (antesDe) {
-    frotaQuery = frotaQuery.lte("data_hora", antesDe);
-  }
+  const { data: viaPrimario } = await supabase
+    .from("viagens")
+    .select("id")
+    .in("veiculo_id", veiculoIds);
+  for (const v of viaPrimario ?? []) ids.add(v.id);
 
-  const { data: frota } = await frotaQuery.maybeSingle();
-  const frotaCand = frota
-    ? candidatoKm(frota.km_abastecimento, frota.data_hora, "frota")
-    : null;
-  if (frotaCand) candidatos.push(frotaCand);
-
-  const viagemIds = await listarViagemIdsPorVeiculo(veiculoId);
-
-  if (viagemIds.length > 0) {
-    let viagemQuery = supabase
-      .from("viagem_recursos")
-      .select("km_abastecimento, realizado_em, combustivel_tipo")
-      .eq("tipo", "abastecimento")
-      .in("viagem_id", viagemIds)
-      .not("km_abastecimento", "is", null)
-      .order("realizado_em", { ascending: false })
-      .limit(30);
-
-    if (antesDe) {
-      viagemQuery = viagemQuery.lte("realizado_em", antesDe);
-    }
-
-    const { data: viagemRecs } = await viagemQuery;
-    for (const viagemRec of viagemRecs ?? []) {
-      if (isArlaCombustivel(viagemRec.combustivel_tipo)) continue;
-      const viagemCand = candidatoKm(
-        viagemRec.km_abastecimento,
-        viagemRec.realizado_em,
-        "viagem"
-      );
-      if (viagemCand) {
-        candidatos.push(viagemCand);
-        break;
-      }
-    }
-  }
-
-  if (!candidatos.length) return null;
-
-  candidatos.sort(
-    (a, b) => new Date(b.dataHora).getTime() - new Date(a.dataHora).getTime()
-  );
-  return candidatos[0];
+  return [...ids];
 }
 
-/** KM do odômetro no último abastecimento da viagem (exclui Arla), pelo registro mais recente. */
-export async function fetchUltimoKmAbastecimentoViagem(
+async function listarViagemIdsPorVeiculo(veiculoId: string): Promise<string[]> {
+  const veiculoIds = await listarIdsVeiculosMesmaPlaca(veiculoId);
+  return listarViagemIdsPorVeiculos(veiculoIds);
+}
+
+const TIPOS_VEICULO_ODOMETRO = new Set(["cavalo", "caminhao"]);
+
+export async function resolverVeiculoOdometroId(
+  veiculoIds: string[]
+): Promise<string | null> {
+  if (!veiculoIds.length) return null;
+  if (veiculoIds.length === 1) return veiculoIds[0];
+
+  const supabase = createClient();
+  const { data: veiculos } = await supabase
+    .from("veiculos")
+    .select("id, tipo")
+    .in("id", veiculoIds);
+
+  const tracao = (veiculos ?? []).find((v) =>
+    TIPOS_VEICULO_ODOMETRO.has((v.tipo as string) ?? "")
+  );
+  return (tracao?.id as string | null) ?? veiculoIds[0];
+}
+
+export async function obterVeiculoOdometroId(viagemId: string): Promise<string | null> {
+  const ids = await listarVeiculosDaViagem(viagemId);
+  return resolverVeiculoOdometroId(ids);
+}
+
+/** Último abastecimento da viagem (por data, exclui Arla). */
+async function fetchUltimoKmAbastecimentoPorData(
   viagemId: string
 ): Promise<number | null> {
-  if (!viagemId) return null;
-
   const supabase = createClient();
   const { data } = await supabase
     .from("viagem_recursos")
@@ -104,13 +109,121 @@ export async function fetchUltimoKmAbastecimentoViagem(
 
   for (const r of data ?? []) {
     if (isArlaCombustivel(r.combustivel_tipo)) continue;
-    const km = Number(r.km_abastecimento);
-    if (Number.isFinite(km) && km > 0) return roundKm(km);
+    const km = roundKm(Number(r.km_abastecimento));
+    if (km != null && km > 0) return km;
   }
   return null;
 }
 
-/** KM rodado = odômetro final − odômetro inicial. */
+/**
+ * KM inicial para nova viagem = último abastecimento (por data) em viagens anteriores do mesmo cavalo.
+ */
+export async function fetchKmInicialDeViagemAnterior(
+  veiculoId: string,
+  viagemAtualId?: string,
+  opts?: FetchUltimoKmOpts
+): Promise<number | null> {
+  if (!veiculoId) return null;
+
+  const options = opts ?? {};
+  const viagemIds = await listarViagemIdsPorVeiculo(veiculoId);
+  let viagensAnteriores = viagemAtualId
+    ? viagemIds.filter((id) => id !== viagemAtualId)
+    : [...viagemIds];
+
+  if (!viagensAnteriores.length) return null;
+
+  const supabase = createClient();
+
+  if (viagemAtualId) {
+    const { data: atual } = await supabase
+      .from("viagens")
+      .select("saida_em")
+      .eq("id", viagemAtualId)
+      .maybeSingle();
+
+    const saidaAtual = (atual?.saida_em as string | null) ?? null;
+    if (saidaAtual) {
+      const { data: antes } = await supabase
+        .from("viagens")
+        .select("id")
+        .in("id", viagensAnteriores)
+        .not("saida_em", "is", null)
+        .lt("saida_em", saidaAtual);
+      if (!antes?.length) return null;
+      viagensAnteriores = antes.map((v) => v.id as string);
+    }
+  }
+
+  if (options.antesDe) {
+    const { data: antesDe } = await supabase
+      .from("viagens")
+      .select("id")
+      .in("id", viagensAnteriores)
+      .not("saida_em", "is", null)
+      .lte("saida_em", options.antesDe);
+    if (antesDe?.length) {
+      viagensAnteriores = antesDe.map((v) => v.id as string);
+    }
+  }
+
+  if (!viagensAnteriores.length) return null;
+
+  let abastQuery = supabase
+    .from("viagem_recursos")
+    .select("km_abastecimento, realizado_em, combustivel_tipo")
+    .eq("tipo", "abastecimento")
+    .in("viagem_id", viagensAnteriores)
+    .not("km_abastecimento", "is", null)
+    .order("realizado_em", { ascending: false });
+
+  if (options.antesDe) {
+    abastQuery = abastQuery.lte("realizado_em", options.antesDe);
+  }
+
+  const { data: abastecimentos } = await abastQuery;
+
+  for (const r of abastecimentos ?? []) {
+    if (isArlaCombustivel(r.combustivel_tipo)) continue;
+    const km = roundKm(Number(r.km_abastecimento));
+    if (km != null && km > 0) return km;
+  }
+
+  return null;
+}
+
+/** KM inicial esperado para uma viagem já cadastrada. */
+export async function fetchKmInicialParaViagem(viagemId: string): Promise<number | null> {
+  const veiculoId = await obterVeiculoOdometroId(viagemId);
+  if (!veiculoId) return null;
+  return fetchKmInicialDeViagemAnterior(veiculoId, viagemId);
+}
+
+/**
+ * Último odômetro do cavalo para cadastrar nova viagem.
+ * Regra: último abastecimento da viagem anterior do mesmo cavalo.
+ */
+export async function fetchUltimoKmVeiculo(
+  veiculoId: string,
+  opts?: string | FetchUltimoKmOpts
+): Promise<UltimoKmVeiculo | null> {
+  const options = resolverFetchUltimoKmOpts(opts);
+  const km = await fetchKmInicialDeViagemAnterior(
+    veiculoId,
+    options.excluirViagemId,
+    options
+  );
+  if (km == null) return null;
+  return { km, dataHora: new Date().toISOString(), origem: "viagem" };
+}
+
+/** KM final da viagem = último abastecimento lançado nela (por data). */
+export async function fetchUltimoKmAbastecimentoViagem(
+  viagemId: string
+): Promise<number | null> {
+  return fetchUltimoKmAbastecimentoPorData(viagemId);
+}
+
 export function calcularKmRodado(
   kmInicial: number | null | undefined,
   kmFinal: number | null | undefined
@@ -119,24 +232,6 @@ export function calcularKmRodado(
   const fin = Number(kmFinal);
   if (!Number.isFinite(ini) || !Number.isFinite(fin) || fin < ini) return null;
   return Math.round((fin - ini) * 10) / 10;
-}
-
-async function listarViagemIdsPorVeiculo(veiculoId: string): Promise<string[]> {
-  const supabase = createClient();
-  const { data: vv } = await supabase
-    .from("viagem_veiculos")
-    .select("viagem_id")
-    .eq("veiculo_id", veiculoId);
-
-  const ids = new Set((vv ?? []).map((r) => r.viagem_id));
-
-  const { data: viaPrimario } = await supabase
-    .from("viagens")
-    .select("id")
-    .eq("veiculo_id", veiculoId);
-
-  for (const v of viaPrimario ?? []) ids.add(v.id);
-  return [...ids];
 }
 
 export async function listarVeiculosDaViagem(viagemId: string): Promise<string[]> {
@@ -156,45 +251,71 @@ export async function listarVeiculosDaViagem(viagemId: string): Promise<string[]
   return [...ids];
 }
 
-/** Atualiza km_odometro_inicial das viagens AGENDADAS do veículo com o último KM de abastecimento. */
+async function viagemTemAbastecimentoComKm(viagemId: string): Promise<boolean> {
+  const km = await fetchUltimoKmAbastecimentoPorData(viagemId);
+  return km != null && km > 0;
+}
+
+const STATUS_SEM_ATUALIZAR_KM_INICIAL = new Set([
+  "FINALIZADO",
+  "PAGAMENTO PENDENTE",
+  "ARQUIVADO",
+]);
+
+async function gravarKmInicialViagem(
+  viagemId: string,
+  kmNovo: number
+): Promise<string | null> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("viagens")
+    .update({ km_odometro_inicial: kmNovo })
+    .eq("id", viagemId);
+  return error?.message ?? null;
+}
+
+async function atualizarKmInicialViagem(viagemId: string): Promise<string | null> {
+  const kmNovo = await fetchKmInicialParaViagem(viagemId);
+  if (kmNovo == null) return null;
+
+  const supabase = createClient();
+  const { data: viagem } = await supabase
+    .from("viagens")
+    .select("km_odometro_inicial")
+    .eq("id", viagemId)
+    .maybeSingle();
+
+  const kmAtual = roundKm(
+    viagem?.km_odometro_inicial != null ? Number(viagem.km_odometro_inicial) : null
+  );
+  if (kmAtual === kmNovo) return null;
+
+  return gravarKmInicialViagem(viagemId, kmNovo);
+}
+
 export async function syncKmInicialViagensAgendadas(
   veiculoId: string
 ): Promise<string | null> {
-  if (!veiculoId) return null;
-
-  const ultimo = await fetchUltimoKmVeiculo(veiculoId);
-  if (!ultimo) return null;
-
   const viagemIds = await listarViagemIdsPorVeiculo(veiculoId);
   if (!viagemIds.length) return null;
 
   const supabase = createClient();
   const { data: agendadas, error } = await supabase
     .from("viagens")
-    .select("id, km_odometro_inicial")
+    .select("id")
     .in("id", viagemIds)
     .eq("status", "AGENDADA");
 
   if (error) return error.message;
 
   for (const v of agendadas ?? []) {
-    const kmAtual = roundKm(
-      v.km_odometro_inicial != null ? Number(v.km_odometro_inicial) : null
-    );
-    if (kmAtual === ultimo.km) continue;
-
-    const { error: upErr } = await supabase
-      .from("viagens")
-      .update({ km_odometro_inicial: ultimo.km })
-      .eq("id", v.id);
-
-    if (upErr) return upErr.message;
+    const err = await atualizarKmInicialViagem(v.id);
+    if (err) return err;
   }
 
   return null;
 }
 
-/** Ao abrir uma viagem AGENDADA, atualiza o KM inicial com o último abastecimento do veículo. */
 export async function syncKmInicialAoAbrirViagem(
   viagemId: string
 ): Promise<string | null> {
@@ -208,24 +329,19 @@ export async function syncKmInicialAoAbrirViagem(
     .maybeSingle();
 
   if (error) return error.message;
-  if (!viagem || viagem.status !== "AGENDADA") return null;
+  if (!viagem || STATUS_SEM_ATUALIZAR_KM_INICIAL.has(viagem.status)) return null;
 
-  const veiculoIds = await listarVeiculosDaViagem(viagemId);
-  for (const veiculoId of veiculoIds) {
-    const err = await syncKmInicialViagensAgendadas(veiculoId);
-    if (err) return err;
+  if (
+    viagem.status !== "AGENDADA" &&
+    (await viagemTemAbastecimentoComKm(viagemId))
+  ) {
+    return null;
   }
 
-  return null;
+  return atualizarKmInicialViagem(viagemId);
 }
 
-/**
- * Atualiza KM final da viagem (último abastecimento lançado nela) e propaga o KM inicial
- * para viagens AGENDADAS dos mesmos veículos.
- */
 export async function syncQuilometragemViagem(viagemId: string): Promise<string | null> {
-  if (!viagemId) return null;
-
   const supabase = createClient();
   const ultimoKmViagem = roundKm(await fetchUltimoKmAbastecimentoViagem(viagemId));
 
@@ -248,9 +364,22 @@ export async function syncQuilometragemViagem(viagemId: string): Promise<string 
     if (upErr) return upErr.message;
   }
 
-  const veiculoIds = await listarVeiculosDaViagem(viagemId);
-  for (const veiculoId of veiculoIds) {
-    const err = await syncKmInicialViagensAgendadas(veiculoId);
+  const veiculoId = await obterVeiculoOdometroId(viagemId);
+  if (!veiculoId) return null;
+
+  const viagemIds = await listarViagemIdsPorVeiculo(veiculoId);
+  const { data: outras } = await supabase
+    .from("viagens")
+    .select("id, status")
+    .in("id", viagemIds)
+    .neq("id", viagemId);
+
+  for (const v of outras ?? []) {
+    if (STATUS_SEM_ATUALIZAR_KM_INICIAL.has(v.status)) continue;
+    if (v.status !== "AGENDADA" && (await viagemTemAbastecimentoComKm(v.id))) {
+      continue;
+    }
+    const err = await atualizarKmInicialViagem(v.id);
     if (err) return err;
   }
 

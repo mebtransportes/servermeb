@@ -2,8 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { formatKmBr } from "@/lib/number-format";
-import { calcularKmRodado, fetchUltimoKmAbastecimentoViagem } from "@/lib/veiculo-km";
+import { formatKmBr, roundKm } from "@/lib/number-format";
+import {
+  calcularKmRodado,
+  fetchKmInicialParaViagem,
+  fetchUltimoKmAbastecimentoViagem,
+  syncKmInicialAoAbrirViagem,
+} from "@/lib/veiculo-km";
 import { litrosAbastecimentoParaConsumo } from "@/lib/combustivel-consumo";
 import {
   calcularConsumoKmLitro,
@@ -23,6 +28,45 @@ export function ViagemKmOdometro({
 }) {
   const [kmFinal, setKmFinal] = useState<number | null>(null);
   const [litrosAbastecidos, setLitrosAbastecidos] = useState(0);
+  const [kmInicialExibido, setKmInicialExibido] = useState<number | null>(
+    kmInicial != null ? roundKm(kmInicial) : null
+  );
+
+  useEffect(() => {
+    let cancelado = false;
+
+    async function carregarKm() {
+      await syncKmInicialAoAbrirViagem(viagemId);
+      const kmEsperado = await fetchKmInicialParaViagem(viagemId);
+
+      if (cancelado) return;
+
+      if (kmEsperado != null) {
+        setKmInicialExibido(kmEsperado);
+        return;
+      }
+
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("viagens")
+        .select("km_odometro_inicial")
+        .eq("id", viagemId)
+        .maybeSingle();
+
+      if (cancelado) return;
+
+      const kmDb =
+        data?.km_odometro_inicial != null
+          ? roundKm(Number(data.km_odometro_inicial))
+          : null;
+      setKmInicialExibido(kmDb ?? (kmInicial != null ? roundKm(kmInicial) : null));
+    }
+
+    void carregarKm();
+    return () => {
+      cancelado = true;
+    };
+  }, [viagemId, kmInicial, refreshKey]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -43,8 +87,8 @@ export function ViagemKmOdometro({
   }, [viagemId, refreshKey]);
 
   const kmRodado = useMemo(
-    () => calcularKmRodado(kmInicial, kmFinal),
-    [kmInicial, kmFinal]
+    () => calcularKmRodado(kmInicialExibido, kmFinal),
+    [kmInicialExibido, kmFinal]
   );
 
   const consumo = useMemo(
@@ -59,16 +103,17 @@ export function ViagemKmOdometro({
         <h3 className="font-semibold text-slate-800">Quilometragem da rota</h3>
       </div>
       <p className="mb-4 text-xs text-slate-500">
-        O KM final é preenchido automaticamente pelo último abastecimento registrado nos gastos
-        desta viagem. O consumo é calculado: KM rodado ÷ litros de Diesel Aditivado, BS10, BS10
-        COMUM, S10 e S10 Aditivado (Arla, Diesel Comum e S500 não entram no cálculo).
+        O KM inicial vem do último abastecimento da viagem anterior do mesmo cavalo. O KM
+        final é preenchido automaticamente pelo último abastecimento registrado nos gastos
+        desta viagem. O consumo é calculado: KM rodado ÷ litros de Diesel Aditivado, BS10,
+        BS10 COMUM, S10 e S10 Aditivado (Arla, Diesel Comum e S500 não entram no cálculo).
       </p>
 
       <dl className="grid gap-2 text-sm sm:grid-cols-2">
         <div>
           <dt className="text-slate-500">KM inicial (odômetro saída)</dt>
           <dd className="font-medium text-slate-800">
-            {kmInicial != null ? formatKmBr(kmInicial) : "—"}
+            {kmInicialExibido != null ? formatKmBr(kmInicialExibido) : "—"}
           </dd>
         </div>
         <div>

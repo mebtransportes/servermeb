@@ -62,7 +62,10 @@ export function ViagemDetail({
 
   const load = async () => {
     const supabase = createClient();
-    await syncKmInicialAoAbrirViagem(viagemId);
+    const syncErr = await syncKmInicialAoAbrirViagem(viagemId);
+    if (syncErr) {
+      console.error("Falha ao sincronizar KM inicial:", syncErr);
+    }
     const { data: v } = await supabase
       .from("viagens")
       .select(

@@ -9,6 +9,7 @@ import { partesValorAbastecimento } from "@/lib/abastecimento-valor";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { CadastroOpcaoAutocomplete } from "@/components/ui/cadastro-opcao-autocomplete";
 import { uploadFile, getFileUrl } from "@/lib/storage";
 import type { ViagemRecursoTipo } from "@/types";
 import { COMBUSTIVEL_TIPOS, isFrota } from "@/lib/viagem-validation";
@@ -516,15 +517,14 @@ export function ViagemRecursos({
                   ...COMBUSTIVEL_TIPOS.map((c) => ({ value: c, label: c })),
                 ]}
               />
-              <Select
+              <CadastroOpcaoAutocomplete
                 label="Posto"
-                tone="light"
+                options={postos.map((p) => ({ value: p.id, label: p.nome }))}
                 value={postoId}
-                onChange={(e) => setPostoId(e.target.value)}
-                options={[
-                  { value: "", label: "Selecione ou deixe em branco" },
-                  ...postos.map((p) => ({ value: p.id, label: p.nome })),
-                ]}
+                onValueChange={setPostoId}
+                opcional
+                placeholder="Digite o nome do posto (mín. 2 letras)"
+                hint="Opcional — deixe em branco se não houver posto cadastrado."
               />
               <BrNumberInput
                 label="Litros abastecidos"
@@ -566,15 +566,14 @@ export function ViagemRecursos({
             </>
           )}
           {tipo === "manutencao" && (
-            <Select
+            <CadastroOpcaoAutocomplete
               label="Oficina"
-              tone="light"
+              options={oficinas.map((o) => ({ value: o.id, label: o.nome }))}
               value={oficinaId}
-              onChange={(e) => setOficinaId(e.target.value)}
-              options={[
-                { value: "", label: "Selecione ou deixe em branco" },
-                ...oficinas.map((o) => ({ value: o.id, label: o.nome })),
-              ]}
+              onValueChange={setOficinaId}
+              opcional
+              placeholder="Digite o nome da oficina (mín. 2 letras)"
+              hint="Opcional — deixe em branco se não houver oficina cadastrada."
             />
           )}
           {tipo === "outro" ? (

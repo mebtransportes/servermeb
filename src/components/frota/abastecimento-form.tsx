@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { VeiculoAutocomplete } from "@/components/ui/veiculo-autocomplete";
+import { CadastroOpcaoAutocomplete } from "@/components/ui/cadastro-opcao-autocomplete";
 import { AnexosFrotaCampos } from "@/components/frota/anexos-campos";
 import { salvarAnexosFrota } from "@/lib/frota-anexos";
 import { carregarAbastecimentoEdicao } from "@/lib/frota-crud";
@@ -278,14 +279,14 @@ export function AbastecimentoForm({
           required
           disabled={editando && source === "viagem"}
         />
-        <Select
+        <CadastroOpcaoAutocomplete
           label="Posto"
+          options={postos.map((p) => ({ value: p.id, label: p.nome }))}
           value={postoId}
-          onChange={(e) => setPostoId(e.target.value)}
-          options={[
-            { value: "", label: "Selecione..." },
-            ...postos.map((p) => ({ value: p.id, label: p.nome })),
-          ]}
+          onValueChange={setPostoId}
+          opcional
+          placeholder="Digite o nome do posto (mín. 2 letras)"
+          hint="Opcional — deixe em branco se não houver posto cadastrado."
         />
         <Select
           label="Combustível"

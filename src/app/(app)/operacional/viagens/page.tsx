@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Route, Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { CadastroOpcaoAutocomplete } from "@/components/ui/cadastro-opcao-autocomplete";
 import { ViagemForm } from "@/components/operacional/viagem-form";
 import {
   excluirViagem,
@@ -193,18 +194,15 @@ export default function CadastroViagensPage() {
             ]}
             className="min-w-[200px]"
           />
-          <Select
+          <CadastroOpcaoAutocomplete
             label="Fornecedor"
+            options={fornecedores.map((f) => ({ value: f.id, label: f.nome }))}
             value={filtroFornecedorId}
-            onChange={(e) => setFiltroFornecedorId(e.target.value)}
-            options={[
-              { value: "", label: "Todos os fornecedores" },
-              ...fornecedores.map((f) => ({
-                value: f.id,
-                label: f.nome,
-              })),
-            ]}
+            onValueChange={setFiltroFornecedorId}
+            opcional
             className="min-w-[240px]"
+            placeholder="Todos — digite o nome (mín. 2 letras)"
+            hint="Deixe em branco para listar todos os fornecedores."
           />
         </div>
       )}

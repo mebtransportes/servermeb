@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { VeiculoAutocomplete } from "@/components/ui/veiculo-autocomplete";
+import { CadastroOpcaoAutocomplete } from "@/components/ui/cadastro-opcao-autocomplete";
 import { AnexosFrotaCampos } from "@/components/frota/anexos-campos";
 import { salvarAnexosFrota } from "@/lib/frota-anexos";
 import { carregarManutencaoEdicao } from "@/lib/frota-crud";
@@ -388,14 +389,14 @@ export function ManutencaoForm({
           value={kmVeiculo}
           onChange={setKmVeiculo}
         />
-        <Select
+        <CadastroOpcaoAutocomplete
           label="Oficina (opcional)"
+          options={oficinas.map((o) => ({ value: o.id, label: o.nome }))}
           value={oficinaId}
-          onChange={(e) => setOficinaId(e.target.value)}
-          options={[
-            { value: "", label: "Digitar local manualmente" },
-            ...oficinas.map((o) => ({ value: o.id, label: o.nome })),
-          ]}
+          onValueChange={setOficinaId}
+          opcional
+          placeholder="Digite o nome da oficina (mín. 2 letras)"
+          hint="Opcional — ou preencha o local manualmente abaixo."
         />
         <Input
           label="Onde será feito"

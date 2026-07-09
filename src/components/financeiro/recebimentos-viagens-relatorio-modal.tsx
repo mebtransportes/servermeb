@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { FileDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { CadastroOpcaoAutocomplete } from "@/components/ui/cadastro-opcao-autocomplete";
 import { Button } from "@/components/ui/button";
 import { MebModal, MebModalBody, MebModalFooter, MebModalHeader } from "@/components/ui/modal";
 import { fetchFornecedoresAcompanhamento } from "@/lib/acompanhamento-data";
@@ -108,15 +109,14 @@ export function RecebimentosViagensRelatorioModal({
             />
           </div>
 
-          <Select
+          <CadastroOpcaoAutocomplete
             label="Fornecedor"
-            tone="light"
+            options={fornecedores.map((f) => ({ value: f.id, label: f.nome }))}
             value={fornecedorId}
-            onChange={(e) => setFornecedorId(e.target.value)}
-            options={[
-              { value: "", label: "Todos os fornecedores" },
-              ...fornecedores.map((f) => ({ value: f.id, label: f.nome })),
-            ]}
+            onValueChange={setFornecedorId}
+            opcional
+            placeholder="Todos — digite o nome (mín. 2 letras)"
+            hint="Deixe em branco para incluir todos os fornecedores."
           />
 
           {erro && (
