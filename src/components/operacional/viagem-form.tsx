@@ -398,6 +398,10 @@ export function ViagemForm({
           motorista && !isFrota(motorista.vinculo)
             ? dataPagamentoTerceiro.trim() || null
             : null,
+        data_pagamento:
+          motorista && !isFrota(motorista.vinculo)
+            ? dataPagamentoTerceiro.trim() || null
+            : null,
         numero_cte: numeroCte.trim() || null,
         descricao_mercadoria: descMercadoria || null,
         km_odometro_inicial: kmInicial,

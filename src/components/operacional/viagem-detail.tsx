@@ -15,7 +15,7 @@ import { MapPin } from "lucide-react";
 import { cn, mebFormSubsection } from "@/lib/utils";
 import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
-import { resolverDataPagamentoTerceiro } from "@/lib/viagem-pagamento-terceiro";
+import { resolverDataPagamentoTerceiro, normalizarDataPagamento } from "@/lib/viagem-pagamento-terceiro";
 import { syncKmInicialAoAbrirViagem } from "@/lib/veiculo-km";
 import { syncRecebimentoViagem, aplicarDataPagamentoViagemNoRecebimento } from "@/lib/recebimento-viagem";
 import { ViagemCanhotos } from "@/components/operacional/viagem-canhotos";
@@ -90,7 +90,7 @@ export function ViagemDetail({
           if (terceiro) {
             return resolverDataPagamentoTerceiro(v as Viagem) ?? "";
           }
-          return v.data_pagamento ? String(v.data_pagamento).split("T")[0] : "";
+          return normalizarDataPagamento(v.data_pagamento) ?? "";
         })()
       );
       const vv = v.viagem_veiculos as
@@ -175,21 +175,51 @@ export function ViagemDetail({
     const entregaOrdem =
       entregas.length > 1 && entregaAtualOrdem ? Number(entregaAtualOrdem) : null;
 
-    await supabase
-      .from("viagens")
-      .update({
-        status,
-        fornecedor_atual_ordem: fornecedorOrdem,
-        entrega_atual_ordem: entregaOrdem,
-      })
-      .eq("id", viagemId);
+    const valorPagamento = normalizarDataPagamento(dataPagamento.trim() || null);
+    const motoristaRaw = viagem?.motoristas;
+    const motorista = Array.isArray(motoristaRaw) ? motoristaRaw[0] : motoristaRaw;
+    const terceiro = motorista?.vinculo != null && !isFrota(motorista.vinculo);
+    const pagamentoSalvo = viagem
+      ? terceiro
+        ? resolverDataPagamentoTerceiro(viagem) ?? ""
+        : normalizarDataPagamento(viagem.data_pagamento) ?? ""
+      : "";
+
+    const updatePayload: {
+      status: string;
+      fornecedor_atual_ordem: number | null;
+      entrega_atual_ordem: number | null;
+      data_pagamento?: string | null;
+      data_pagamento_terceiro?: string | null;
+    } = {
+      status,
+      fornecedor_atual_ordem: fornecedorOrdem,
+      entrega_atual_ordem: entregaOrdem,
+    };
+
+    if (valorPagamento !== (pagamentoSalvo || null)) {
+      updatePayload.data_pagamento = valorPagamento;
+      if (terceiro) {
+        updatePayload.data_pagamento_terceiro = valorPagamento;
+      }
+    }
+
+    await supabase.from("viagens").update(updatePayload).eq("id", viagemId);
     if (statusGeraFechamento(status)) {
       const err = await syncFechamentoViagem(viagemId);
       if (err) console.warn("Fechamento:", err);
     }
     if (status === "ARQUIVADO") {
+      const dataRec =
+        valorPagamento !== (pagamentoSalvo || null)
+          ? valorPagamento
+          : pagamentoSalvo || null;
       const errRec = await syncRecebimentoViagem(viagemId);
       if (errRec) console.warn("Recebimento:", errRec);
+      else if (dataRec) {
+        const errData = await aplicarDataPagamentoViagemNoRecebimento(viagemId, dataRec);
+        if (errData) console.warn("Data recebimento:", errData);
+      }
     }
     setSaving(false);
     onUpdated();
@@ -216,7 +246,7 @@ export function ViagemDetail({
     if (!viagem) return;
     setSalvandoDataPagamento(true);
     const supabase = createClient();
-    const valor = dataPagamento.trim() || null;
+    const valor = normalizarDataPagamento(dataPagamento.trim() || null);
     const motoristaRaw = viagem.motoristas;
     const motorista = Array.isArray(motoristaRaw) ? motoristaRaw[0] : motoristaRaw;
     const terceiro = motorista?.vinculo != null && !isFrota(motorista.vinculo);
@@ -267,9 +297,7 @@ export function ViagemDetail({
     viagem.motoristas?.vinculo != null && !isFrota(viagem.motoristas.vinculo);
   const dataPagamentoSalva = motoristaTerceiro
     ? resolverDataPagamentoTerceiro(viagem) ?? ""
-    : viagem.data_pagamento
-      ? String(viagem.data_pagamento).split("T")[0]
-      : "";
+    : normalizarDataPagamento(viagem.data_pagamento) ?? "";
 
   const m = viagem.motoristas;
   const veiculosLabel = formatarVeiculosLabel(veiculosViagem);

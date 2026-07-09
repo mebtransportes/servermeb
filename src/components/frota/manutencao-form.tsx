@@ -8,6 +8,7 @@ import { parseBrNumber, parseBrKm, kmToBrInput, rawNumberStringToBrInput } from 
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { VeiculoAutocomplete } from "@/components/ui/veiculo-autocomplete";
 import { AnexosFrotaCampos } from "@/components/frota/anexos-campos";
 import { salvarAnexosFrota } from "@/lib/frota-anexos";
 import { carregarManutencaoEdicao } from "@/lib/frota-crud";
@@ -373,17 +374,13 @@ export function ManutencaoForm({
           className="sm:col-span-2"
         />
         {source === "preventiva" && (
-          <Select
+          <VeiculoAutocomplete
             label="Veículo (opcional)"
-            value={veiculoId}
-            onChange={(e) => setVeiculoId(e.target.value)}
-            options={[
-              { value: "", label: "Não informar veículo" },
-              ...veiculos.map((v) => ({
-                value: v.id,
-                label: `${v.nome} — ${v.placa}`,
-              })),
-            ]}
+            veiculos={veiculos}
+            veiculoId={veiculoId}
+            onVeiculoIdChange={setVeiculoId}
+            opcional
+            placeholder="Digite a placa ou deixe em branco"
           />
         )}
         <BrKmInput

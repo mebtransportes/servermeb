@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Fuel, Plus, Route, ClipboardList, FileBarChart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { PlacaRelatorioAutocomplete } from "@/components/operacional/placa-relatorio-autocomplete";
 import { PeriodoFilter } from "@/components/frota/periodo-filter";
 import { StatsCards, buildAbastecimentoStats, buildAbastecimentoControleStats } from "@/components/frota/stats-cards";
 import { COMBUSTIVEL_TIPOS } from "@/lib/viagem-validation";
@@ -63,6 +64,11 @@ export default function FrotaAbastecimentosPage() {
         );
       });
   }, []);
+
+  const placasFrota = useMemo(
+    () => veiculosFrota.map((v) => v.placa).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [veiculosFrota]
+  );
 
   const filtradosPeriodoVeiculo = useMemo(
     () =>
@@ -158,18 +164,14 @@ export default function FrotaAbastecimentosPage() {
 
       <div className="flex flex-wrap items-end gap-4">
         <PeriodoFilter value={periodo} onChange={setPeriodo} />
-        <Select
+        <PlacaRelatorioAutocomplete
           label="Veículo"
+          placas={placasFrota}
           value={veiculoPlaca}
-          onChange={(e) => setVeiculoPlaca(e.target.value)}
+          onChange={setVeiculoPlaca}
+          placeholder="Todos — digite a placa (mín. 2 letras)"
+          hint="Deixe em branco para todos os veículos."
           className="min-w-[220px]"
-          options={[
-            { value: "", label: "Todos os veículos" },
-            ...veiculosFrota.map((v) => ({
-              value: v.placa,
-              label: `${v.nome} — ${v.placa}`,
-            })),
-          ]}
         />
         <Select
           label="Combustível"

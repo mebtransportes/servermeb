@@ -8,6 +8,7 @@ import { parseBrNumber, parseBrKm, kmToBrInput, rawNumberStringToBrInput } from 
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { VeiculoAutocomplete } from "@/components/ui/veiculo-autocomplete";
 import { AnexosFrotaCampos } from "@/components/frota/anexos-campos";
 import { salvarAnexosFrota } from "@/lib/frota-anexos";
 import { carregarAbastecimentoEdicao } from "@/lib/frota-crud";
@@ -269,17 +270,13 @@ export function AbastecimentoForm({
         </p>
       )}
       <div className="grid gap-4 sm:grid-cols-2">
-        <Select
+        <VeiculoAutocomplete
           label="Veículo"
-          value={veiculoId}
-          onChange={(e) => setVeiculoId(e.target.value)}
-          options={[
-            { value: "", label: "Selecione..." },
-            ...veiculos.map((v) => ({
-              value: v.id,
-              label: `${v.nome} — ${v.placa}`,
-            })),
-          ]}
+          veiculos={veiculos}
+          veiculoId={veiculoId}
+          onVeiculoIdChange={setVeiculoId}
+          required
+          disabled={editando && source === "viagem"}
         />
         <Select
           label="Posto"

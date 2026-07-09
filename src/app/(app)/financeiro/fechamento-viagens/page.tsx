@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Route, FileText, Wallet, Coins, HandCoins } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
+import { MotoristaAutocomplete } from "@/components/ui/motorista-autocomplete";
 import { PeriodoFilter } from "@/components/frota/periodo-filter";
 import { FechamentoViagemCard } from "@/components/financeiro/fechamento-viagem-card";
 import { EvolucaoMensalChart } from "@/components/financeiro/evolucao-mensal-chart";
@@ -49,10 +49,6 @@ export default function FechamentoViagensPage() {
   useEffect(() => {
     load();
   }, [load]);
-
-  useEffect(() => {
-    if (!motoristaId && motoristas.length) setMotoristaId(motoristas[0].id);
-  }, [motoristas, motoristaId]);
 
   useEffect(() => {
     setSelectedIds(new Set());
@@ -181,17 +177,14 @@ export default function FechamentoViagensPage() {
       </div>
 
       <div className={cn(mebFormSection, "flex flex-wrap items-end gap-4")}>
-        <div className="min-w-[220px] flex-1">
-          <label className="mb-1 block text-xs font-medium text-slate-500">Motorista</label>
-          <Select
-            value={motoristaId}
-            onChange={(e) => setMotoristaId(e.target.value)}
-            options={[
-              { value: "", label: "Selecione..." },
-              ...motoristas.map((m) => ({ value: m.id, label: m.nome_completo })),
-            ]}
-          />
-        </div>
+        <MotoristaAutocomplete
+          label="Motorista"
+          motoristas={motoristas}
+          motoristaId={motoristaId}
+          onMotoristaIdChange={setMotoristaId}
+          required
+          className="min-w-[220px] flex-1"
+        />
         <div>
           <label className="mb-2 block text-xs font-medium text-slate-500">Período</label>
           <PeriodoFilter value={periodo} onChange={setPeriodo} />

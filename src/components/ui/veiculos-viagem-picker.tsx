@@ -111,14 +111,14 @@ export function VeiculosViagemPicker({
           Veículos da viagem (digite a placa)
         </label>
         <p className="text-xs text-slate-500">
-          Adicione cavalo, carretas e demais veículos — um por vez pela placa.
+          Adicione cavalo, carretas e demais veículos — digite ao menos 2 letras da placa.
         </p>
         <input
           type="text"
           value={placa}
           onChange={(e) => handleChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ex: SCC2J60"
+          placeholder="Ex: SCC (mín. 2 caracteres)"
           autoComplete="off"
           className={inputClass}
         />

@@ -1,6 +1,14 @@
 import { createClient } from "@/lib/supabase/client";
+import { differenceInCalendarDays, parseISO, startOfDay } from "date-fns";
 import { isFrota } from "@/lib/viagem-validation";
 import { calcularFreteLiquido, ICMS_FRETE_PERCENT } from "@/types/fechamento";
+import {
+  normalizarDataPagamento,
+  resolverDataPagamentoViagem,
+} from "@/lib/viagem-pagamento-terceiro";
+import {
+  resolverStatusRecebimento,
+} from "@/lib/recebimento-status";
 import type {
   RecebimentoStatus,
   RecebimentoEncargoTipo,
@@ -53,7 +61,7 @@ export async function syncRecebimentoViagem(viagemId: string): Promise<string | 
     .from("viagens")
     .select(
       `
-      id, status, local_saida, valor_frete, data_pagamento,
+      id, status, local_saida, valor_frete, data_pagamento, data_pagamento_terceiro,
       motoristas ( nome_completo ),
       veiculos ( nome, placa ),
       viagem_veiculos ( ordem, veiculos ( nome, placa ) )
@@ -83,7 +91,7 @@ export async function syncRecebimentoViagem(viagemId: string): Promise<string | 
     valor_frete_liquido: Math.round(freteLiquido * 100) / 100,
   };
 
-  const dataPagamento = (viagem.data_pagamento as string | null)?.trim() || null;
+  const dataPagamento = resolverDataPagamentoViagem(viagem);
   if (dataPagamento) {
     payload.data_recebimento = dataPagamento;
   }
@@ -139,6 +147,7 @@ export async function syncRecebimentosFaltantes(viagemIds?: string[]): Promise<v
 
 /** Re-sincroniza todos os recebimentos (usar no botão Atualizar). */
 export async function refreshTodosRecebimentosArquivados(): Promise<void> {
+  await syncStatusVencidosRecebimentos();
   const supabase = createClient();
   const { data: viagens } = await supabase
     .from("viagens")
@@ -149,6 +158,80 @@ export async function refreshTodosRecebimentosArquivados(): Promise<void> {
   const lote = 8;
   for (let i = 0; i < ids.length; i += lote) {
     await Promise.all(ids.slice(i, i + lote).map((id) => syncRecebimentoViagem(id)));
+  }
+}
+
+/** Marca como vencido recebimentos pendentes com data de recebimento já passada. */
+export async function syncStatusVencidosRecebimentos(): Promise<void> {
+  const supabase = createClient();
+  const hoje = startOfDay(new Date());
+
+  const { data: rows, error } = await supabase
+    .from("viagem_recebimentos")
+    .select("id, data_recebimento, status")
+    .eq("status", "pendente")
+    .not("data_recebimento", "is", null);
+
+  if (error) {
+    console.warn("syncStatusVencidosRecebimentos:", error.message);
+    return;
+  }
+
+  const idsVencidos: string[] = [];
+  for (const row of rows ?? []) {
+    const data = normalizarDataPagamento(row.data_recebimento as string | null);
+    if (!data) continue;
+    const venc = parseISO(`${data}T12:00:00`);
+    if (differenceInCalendarDays(hoje, venc) > 0) {
+      idsVencidos.push(row.id as string);
+    }
+  }
+
+  if (!idsVencidos.length) return;
+
+  const { error: upErr } = await supabase
+    .from("viagem_recebimentos")
+    .update({ status: "vencido" })
+    .in("id", idsVencidos);
+
+  if (upErr) console.warn("syncStatusVencidosRecebimentos update:", upErr.message);
+}
+
+/** Preenche data de recebimento vazia a partir da viagem arquivada. */
+export async function syncDatasPagamentoRecebimentos(): Promise<void> {
+  const supabase = createClient();
+
+  const { data: viagens } = await supabase
+    .from("viagens")
+    .select("id, data_pagamento, data_pagamento_terceiro")
+    .eq("status", "ARQUIVADO");
+
+  const ids = (viagens ?? []).map((v) => v.id);
+  if (!ids.length) return;
+
+  const { data: recebimentos } = await supabase
+    .from("viagem_recebimentos")
+    .select("id, viagem_id, data_recebimento")
+    .in("viagem_id", ids);
+
+  const recPorViagem = new Map(
+    (recebimentos ?? []).map((r) => [r.viagem_id, r])
+  );
+
+  for (const viagem of viagens ?? []) {
+    const dataPagamento = resolverDataPagamentoViagem(viagem);
+    if (!dataPagamento) continue;
+
+    const rec = recPorViagem.get(viagem.id);
+    if (!rec) continue;
+
+    const atual = normalizarDataPagamento(rec.data_recebimento as string | null);
+    if (atual) continue;
+
+    await supabase
+      .from("viagem_recebimentos")
+      .update({ data_recebimento: dataPagamento })
+      .eq("id", rec.id);
   }
 }
 
@@ -293,7 +376,7 @@ export async function aplicarDataPagamentoViagemNoRecebimento(
 
   const { error } = await supabase
     .from("viagem_recebimentos")
-    .update({ data_recebimento: dataPagamento?.trim() || null })
+    .update({ data_recebimento: normalizarDataPagamento(dataPagamento) })
     .eq("id", rec.id);
 
   return error?.message ?? null;
@@ -309,7 +392,33 @@ export async function atualizarRecebimento(
   }>
 ): Promise<string | null> {
   const supabase = createClient();
-  const { error } = await supabase.from("viagem_recebimentos").update(patch).eq("id", id);
+
+  const dataNorm =
+    patch.data_recebimento !== undefined
+      ? normalizarDataPagamento(patch.data_recebimento)
+      : undefined;
+
+  let status = patch.status;
+  if (status !== undefined) {
+    let dataRef = dataNorm;
+    if (dataRef === undefined) {
+      const { data: row } = await supabase
+        .from("viagem_recebimentos")
+        .select("data_recebimento")
+        .eq("id", id)
+        .maybeSingle();
+      dataRef = normalizarDataPagamento(row?.data_recebimento as string | null);
+    }
+    status = resolverStatusRecebimento(status, dataRef);
+  }
+
+  const payload = {
+    ...patch,
+    ...(dataNorm !== undefined ? { data_recebimento: dataNorm } : {}),
+    ...(status !== undefined ? { status } : {}),
+  };
+
+  const { error } = await supabase.from("viagem_recebimentos").update(payload).eq("id", id);
   return error?.message ?? null;
 }
 
@@ -321,6 +430,9 @@ export type RecebimentoComCanhotos = ViagemRecebimento & {
 
 export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
   const supabase = createClient();
+
+  await syncDatasPagamentoRecebimentos();
+  await syncStatusVencidosRecebimentos();
 
   const { data: viagensArquivadas } = await supabase
     .from("viagens")

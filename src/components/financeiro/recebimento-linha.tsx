@@ -12,6 +12,7 @@ import {
   excluirEncargoRecebimento,
   atualizarRecebimento,
 } from "@/lib/recebimento-viagem";
+import { resolverStatusRecebimento } from "@/lib/recebimento-status";
 import { formatarMoeda } from "@/lib/frota-filters";
 import {
   calcularTotalAReceber,
@@ -78,7 +79,9 @@ export function RecebimentoLinha({
   item: RecebimentoComCanhotos;
   onAtualizado: () => void;
 }) {
-  const [dataRecebimento, setDataRecebimento] = useState(item.data_recebimento ?? "");
+  const [dataRecebimento, setDataRecebimento] = useState(
+    item.data_recebimento?.split("T")[0] ?? ""
+  );
   const [status, setStatus] = useState<RecebimentoStatus>(item.status);
   const [observacao, setObservacao] = useState(item.observacao ?? "");
   const [salvando, setSalvando] = useState(false);
@@ -96,7 +99,7 @@ export function RecebimentoLinha({
   const diarias = somaEncargosPorTipo(item.encargos, "diaria") || Number(item.valor_diarias) || 0;
 
   useEffect(() => {
-    setDataRecebimento(item.data_recebimento ?? "");
+    setDataRecebimento(item.data_recebimento?.split("T")[0] ?? "");
     setStatus(item.status);
     setObservacao(item.observacao ?? "");
   }, [item]);
@@ -110,9 +113,10 @@ export function RecebimentoLinha({
 
   async function salvar() {
     setSalvando(true);
+    const statusSalvar = resolverStatusRecebimento(status, dataRecebimento || null);
     const err = await atualizarRecebimento(item.id, {
       data_recebimento: dataRecebimento || null,
-      status,
+      status: statusSalvar,
       observacao: observacao.trim() || null,
     });
     setSalvando(false);

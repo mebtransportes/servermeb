@@ -4,20 +4,28 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { LayoutDashboard } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { ViagemStatusCards } from "@/components/dashboard/viagem-status-cards";
+import { ParcelasManutencaoAvisos } from "@/components/dashboard/parcelas-manutencao-avisos";
 import { contarPorStatus, type ViagemResumo } from "@/lib/dashboard-viagens";
+import { fetchAvisosParcelasManutencao } from "@/lib/manutencao-parcelas-avisos";
+import type { AvisoParcelaManutencao } from "@/lib/manutencao-parcelas-avisos";
 
 export default function DashboardPage() {
   const [viagens, setViagens] = useState<ViagemResumo[]>([]);
+  const [avisosParcelas, setAvisosParcelas] = useState<AvisoParcelaManutencao[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     const supabase = createClient();
-    const { data } = await supabase
-      .from("viagens")
-      .select("id, status, created_at")
-      .order("created_at", { ascending: false });
+    const [{ data }, avisos] = await Promise.all([
+      supabase
+        .from("viagens")
+        .select("id, status, created_at")
+        .order("created_at", { ascending: false }),
+      fetchAvisosParcelasManutencao(),
+    ]);
     setViagens((data as ViagemResumo[]) ?? []);
+    setAvisosParcelas(avisos);
     setLoading(false);
   }, []);
 
@@ -38,6 +46,8 @@ export default function DashboardPage() {
           </p>
         </div>
       </header>
+
+      {!loading && <ParcelasManutencaoAvisos avisos={avisosParcelas} />}
 
       {loading ? (
         <p className="text-slate-400">Carregando...</p>

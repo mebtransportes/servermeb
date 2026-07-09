@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Wrench, Plus, FileBarChart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PeriodoFilter } from "@/components/frota/periodo-filter";
@@ -24,6 +25,10 @@ import type { FrotaManutencaoStatus, ManutencaoCard } from "@/types/frota";
 import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 
 export default function FrotaManutencaoPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const editParam = searchParams.get("edit");
+
   const [items, setItems] = useState<ManutencaoCard[]>([]);
   const [periodo, setPeriodo] = useState<PeriodoFiltroState>(PERIODO_FILTRO_INICIAL);
   const [loading, setLoading] = useState(true);
@@ -43,6 +48,16 @@ export default function FrotaManutencaoPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!editParam || loading || showForm) return;
+    const item = items.find((i) => i.id === editParam);
+    if (!item) return;
+    setEditingItem(item);
+    setFormPrefill(undefined);
+    setShowForm(true);
+    router.replace("/frota/manutencao", { scroll: false });
+  }, [editParam, items, loading, router, showForm]);
 
   const filtrados = useMemo(
     () =>

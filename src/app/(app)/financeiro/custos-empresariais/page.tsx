@@ -12,7 +12,7 @@ import {
   Calculator,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
+import { MotoristaAutocomplete } from "@/components/ui/motorista-autocomplete";
 import { PeriodoFilter } from "@/components/frota/periodo-filter";
 import { CustosEmpresariaisChart } from "@/components/financeiro/custos-empresariais-chart";
 import { CustosEmpresariaisCadastroModal } from "@/components/financeiro/custos-empresariais-cadastro-modal";
@@ -209,17 +209,14 @@ export default function CustosEmpresariaisPage() {
               onDetalhe={() => setModalDetalhe("motorista")}
             >
               <div className="mb-3">
-                <Select
+                <MotoristaAutocomplete
                   label="Motorista"
-                  value={motoristaId}
-                  onChange={(e) => setMotoristaId(e.target.value)}
-                  options={[
-                    { value: "", label: "Todos os motoristas" },
-                    ...motoristas.map((m) => ({
-                      value: m.id,
-                      label: m.nome_completo,
-                    })),
-                  ]}
+                  motoristas={motoristas}
+                  motoristaId={motoristaId}
+                  onMotoristaIdChange={setMotoristaId}
+                  opcional
+                  placeholder="Todos os motoristas — digite para filtrar"
+                  hint="Deixe em branco para todos ou digite ao menos 3 letras do nome."
                 />
               </div>
             </CardEmpresarial>

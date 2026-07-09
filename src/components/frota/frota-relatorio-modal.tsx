@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { FileDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { PlacaRelatorioAutocomplete } from "@/components/operacional/placa-relatorio-autocomplete";
 import { Button } from "@/components/ui/button";
 import { MebModal, MebModalBody, MebModalFooter, MebModalHeader } from "@/components/ui/modal";
 import { dataNoIntervalo } from "@/lib/frota-filters";
@@ -57,7 +58,7 @@ export function FrotaRelatorioModal(props: Props) {
   const [erro, setErro] = useState("");
   const [gerando, setGerando] = useState(false);
 
-  const veiculoOpcoes = useMemo(() => {
+  const placasDisponiveis = useMemo(() => {
     const map = new Map<string, string>();
     if (tipo === "manutencao") {
       for (const i of itens as ManutencaoCard[]) {
@@ -66,16 +67,11 @@ export function FrotaRelatorioModal(props: Props) {
     } else {
       for (const i of itens as AbastecimentoCard[]) {
         if (i.veiculoPlaca) {
-          map.set(i.veiculoPlaca, i.veiculoLabel ?? i.veiculoPlaca);
+          map.set(i.veiculoPlaca, i.veiculoPlaca);
         }
       }
     }
-    return [
-      { value: "", label: "Todos os veículos" },
-      ...[...map.entries()]
-        .sort(([, a], [, b]) => a.localeCompare(b, "pt-BR"))
-        .map(([placa, label]) => ({ value: placa, label })),
-    ];
+    return [...map.keys()].sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [itens, tipo]);
 
   function validar(): boolean {
@@ -177,12 +173,13 @@ export function FrotaRelatorioModal(props: Props) {
             />
           </div>
 
-          <Select
+          <PlacaRelatorioAutocomplete
             label="Veículo"
-            tone="light"
+            placas={placasDisponiveis}
             value={veiculoPlaca}
-            onChange={(e) => setVeiculoPlaca(e.target.value)}
-            options={veiculoOpcoes}
+            onChange={setVeiculoPlaca}
+            placeholder="Todos — digite a placa (mín. 2 letras)"
+            hint="Deixe em branco para incluir todos os veículos no relatório."
           />
 
           {tipo === "abastecimento" && (

@@ -17,6 +17,7 @@ type PlacaRelatorioAutocompleteProps = {
   onTextoChange?: (texto: string) => void;
   placeholder?: string;
   hint?: string;
+  className?: string;
 };
 
 export function PlacaRelatorioAutocomplete({
@@ -27,6 +28,7 @@ export function PlacaRelatorioAutocomplete({
   onTextoChange,
   placeholder = "Digite a placa (mín. 2 caracteres)",
   hint,
+  className,
 }: PlacaRelatorioAutocompleteProps) {
   const [texto, setTexto] = useState(value);
   const [aberto, setAberto] = useState(false);
@@ -67,6 +69,10 @@ export function PlacaRelatorioAutocomplete({
     setTexto(val);
     onTextoChange?.(val);
     setAberto(normalizarPlaca(val).length >= MIN_CHARS);
+    if (!val.trim()) {
+      onChange("");
+      return;
+    }
     if (value && normalizarPlaca(value) !== normalizarPlaca(val)) {
       onChange("");
     }
@@ -92,7 +98,7 @@ export function PlacaRelatorioAutocomplete({
   const mostrarLista = aberto && queryOk && sugestoes.length > 0;
 
   return (
-    <div ref={containerRef} className="flex flex-col gap-1">
+    <div ref={containerRef} className={cn("flex flex-col gap-1", className)}>
       <label className="text-sm font-medium text-slate-700">{label}</label>
       <div className="relative">
         <input
