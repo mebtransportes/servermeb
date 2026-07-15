@@ -4,7 +4,14 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { BrNumberInput, BrKmInput } from "@/components/ui/br-number-input";
-import { parseBrNumber, parseBrKm, kmToBrInput, formatKmBr } from "@/lib/number-format";
+import {
+  parseBrNumber,
+  parseBrKm,
+  kmToBrInput,
+  formatKmBr,
+  numberToBrInput,
+  rawNumberStringToBrInput,
+} from "@/lib/number-format";
 import { partesValorAbastecimento } from "@/lib/abastecimento-valor";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -17,8 +24,7 @@ import {
   calcularSeguroCarga,
   MONITORAMENTO_VALOR_FIXO,
 } from "@/types/fechamento";
-import { rawNumberStringToBrInput } from "@/lib/number-format";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { AnexoArquivoRow } from "@/components/shared/anexo-arquivo-row";
 import { FrotaAnexosLinks } from "@/components/frota/frota-anexos-links";
 import { excluirAnexoFrotaInline, excluirAnexoTabela } from "@/lib/anexos-crud";
@@ -29,6 +35,7 @@ import { salvarAnexosFrota } from "@/lib/frota-anexos";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
 import { syncQuilometragemViagem } from "@/lib/veiculo-km";
 import { atualizarOutroDespesaDescontaMotorista } from "@/lib/fechamento-outros-despesas";
+import { isoParaDatetimeLocal } from "@/lib/viagem-crud";
 import { cn, mebFormSubsection } from "@/lib/utils";
 import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 
@@ -41,6 +48,7 @@ type Recurso = {
   oficina_id?: string | null;
   realizado_em: string;
   km_abastecimento?: number | null;
+  km_veiculo?: number | null;
   litros?: number | null;
   abastecimento_inicial?: boolean;
   combustivel_tipo?: string | null;
@@ -75,6 +83,7 @@ export function ViagemRecursos({
   const [oficinas, setOficinas] = useState<{ id: string; nome: string }[]>([]);
   const [showFormGasto, setShowFormGasto] = useState(false);
   const [showFormReembolso, setShowFormReembolso] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const [tipo, setTipo] = useState<ViagemRecursoTipo>("abastecimento");
   const [valor, setValor] = useState("");
@@ -142,6 +151,7 @@ export function ViagemRecursos({
   }, [viagemId]);
 
   useEffect(() => {
+    if (editingId) return;
     if (tipo !== "abastecimento" || kmVeiculo) return;
     const ultimoNaViagem = recursos
       .filter((r) => r.tipo === "abastecimento" && r.km_abastecimento != null)
@@ -154,9 +164,10 @@ export function ViagemRecursos({
     if (km != null) {
       setKmVeiculo(kmToBrInput(km));
     }
-  }, [tipo, recursos, kmOdometroInicial]);
+  }, [tipo, recursos, kmOdometroInicial, kmVeiculo, editingId]);
 
   useEffect(() => {
+    if (editingId) return;
     if (!motoristaTerceiro) return;
     if (tipo === "seguro" && valorCarga) {
       setValor(
@@ -165,12 +176,14 @@ export function ViagemRecursos({
     } else if (tipo === "monitoramento") {
       setValor(rawNumberStringToBrInput(String(MONITORAMENTO_VALOR_FIXO), 2));
     }
-  }, [tipo, valorCarga, motoristaTerceiro]);
+  }, [tipo, valorCarga, motoristaTerceiro, editingId]);
 
   const recursosGastos = recursos.filter((r) => r.tipo !== "reembolso");
   const recursosReembolso = recursos.filter((r) => r.tipo === "reembolso");
 
   function limparFormulario() {
+    setEditingId(null);
+    setTipo("abastecimento");
     setValor("");
     setDescricao("");
     setPostoId("");
@@ -189,7 +202,53 @@ export function ViagemRecursos({
     setValorDescontoCombustivel("");
   }
 
-  async function handleAdd(e: React.FormEvent, tipoFixo?: "reembolso") {
+  function preencherFormulario(r: Recurso) {
+    setEditingId(r.id);
+    setTipo(r.tipo);
+    setValor(numberToBrInput(Number(r.valor) || 0, 2));
+    setDescricao(r.descricao ?? "");
+    setPostoId(r.posto_id ?? "");
+    setOficinaId(r.oficina_id ?? "");
+    setRealizadoEm(isoParaDatetimeLocal(r.realizado_em));
+    const km =
+      r.tipo === "abastecimento"
+        ? r.km_abastecimento
+        : r.tipo === "manutencao"
+          ? r.km_veiculo
+          : null;
+    setKmVeiculo(km != null ? kmToBrInput(km) : "");
+    setLitros(r.litros != null ? numberToBrInput(Number(r.litros), 2) : "");
+    setCombustivelTipo(r.combustivel_tipo ?? "");
+    setNotaFiscal(null);
+    setComprovante(null);
+    setFiles([]);
+    setMotoristaAdiantou(false);
+    setDescontaMotoristaComissao(r.tipo === "outro" && r.desconta_motorista === true);
+    setNaoDescontaMotorista(
+      (r.tipo === "pedagio" || r.tipo === "estacionamento" || r.tipo === "descarga") &&
+        r.desconta_motorista === false
+    );
+    setTeveDescontoCombustivel(r.teve_desconto_combustivel === true);
+    setValorDescontoCombustivel(
+      r.valor_desconto_combustivel != null
+        ? numberToBrInput(Number(r.valor_desconto_combustivel), 2)
+        : ""
+    );
+  }
+
+  function abrirEdicaoGasto(r: Recurso) {
+    setShowFormReembolso(false);
+    preencherFormulario(r);
+    setShowFormGasto(true);
+  }
+
+  function abrirEdicaoReembolso(r: Recurso) {
+    setShowFormGasto(false);
+    preencherFormulario(r);
+    setShowFormReembolso(true);
+  }
+
+  async function handleSave(e: React.FormEvent, tipoFixo?: "reembolso") {
     e.preventDefault();
     const tipoLancamento = tipoFixo ?? tipo;
 
@@ -234,13 +293,18 @@ export function ViagemRecursos({
     const supabase = createClient();
 
     const payload: Record<string, unknown> = {
-      viagem_id: viagemId,
       tipo: tipoLancamento,
       valor: parseBrNumber(valor) ?? 0,
       descricao: descricao || null,
       posto_id: tipoLancamento === "abastecimento" && postoId ? postoId : null,
       oficina_id: tipoLancamento === "manutencao" && oficinaId ? oficinaId : null,
       realizado_em: new Date(realizadoEm).toISOString(),
+      km_abastecimento: null,
+      km_veiculo: null,
+      litros: null,
+      combustivel_tipo: null,
+      teve_desconto_combustivel: false,
+      valor_desconto_combustivel: null,
     };
     if (kmVeiculo) {
       const km = parseBrKm(kmVeiculo);
@@ -262,51 +326,92 @@ export function ViagemRecursos({
     if (tipoLancamento === "outro") {
       payload.desconta_motorista = descontaMotoristaComissao;
     }
+    if (tipoLancamento === "adiantamento") {
+      payload.desconta_motorista = true;
+    }
 
-    const { data: recurso, error } = await supabase
-      .from("viagem_recursos")
-      .insert(payload)
-      .select("id")
-      .single();
+    let recursoId = editingId;
 
-    if (error || !recurso) {
+    if (editingId) {
+      const { error } = await supabase
+        .from("viagem_recursos")
+        .update(payload)
+        .eq("id", editingId);
+      if (error) {
+        await mebAlert(error.message);
+        setSaving(false);
+        return;
+      }
+
+      if (tipoLancamento === "outro") {
+        const vinculados = recursos.filter((r) => r.recurso_par_id === editingId);
+        if (vinculados.length) {
+          const nomeDespesa = descricao.trim();
+          await supabase
+            .from("viagem_recursos")
+            .update({
+              valor: valorNum,
+              realizado_em: new Date(realizadoEm).toISOString(),
+              descricao: `Reembolso — ${nomeDespesa}`,
+            })
+            .in(
+              "id",
+              vinculados.map((r) => r.id)
+            );
+        }
+      }
+    } else {
+      const { data: recurso, error } = await supabase
+        .from("viagem_recursos")
+        .insert({ ...payload, viagem_id: viagemId })
+        .select("id")
+        .single();
+
+      if (error || !recurso) {
+        await mebAlert(error?.message ?? "Não foi possível salvar o lançamento.");
+        setSaving(false);
+        return;
+      }
+      recursoId = recurso.id;
+
+      if (tipoLancamento === "outro" && motoristaAdiantou) {
+        const nomeDespesa = descricao.trim();
+        const { error: errReembolso } = await supabase.from("viagem_recursos").insert({
+          viagem_id: viagemId,
+          tipo: "reembolso",
+          valor: valorNum,
+          descricao: `Reembolso — ${nomeDespesa}`,
+          realizado_em: new Date(realizadoEm).toISOString(),
+          recurso_par_id: recurso.id,
+        });
+        if (errReembolso) {
+          await mebAlert(errReembolso.message);
+          setSaving(false);
+          return;
+        }
+      }
+    }
+
+    if (!recursoId) {
       setSaving(false);
       return;
     }
 
     if (notaFiscal || comprovante) {
       const anexos = await salvarAnexosFrota(
-        `viagens/${viagemId}/recursos/${recurso.id}`,
+        `viagens/${viagemId}/recursos/${recursoId}`,
         notaFiscal,
         comprovante
       );
-      await supabase.from("viagem_recursos").update(anexos).eq("id", recurso.id);
-    }
-
-    if (tipoLancamento === "outro" && motoristaAdiantou) {
-      const valorNum = parseBrNumber(valor) ?? 0;
-      const nomeDespesa = descricao.trim();
-      const { error: errReembolso } = await supabase.from("viagem_recursos").insert({
-        viagem_id: viagemId,
-        tipo: "reembolso",
-        valor: valorNum,
-        descricao: `Reembolso — ${nomeDespesa}`,
-        realizado_em: new Date(realizadoEm).toISOString(),
-        recurso_par_id: recurso.id,
-      });
-      if (errReembolso) {
-        await mebAlert(errReembolso.message);
-        setSaving(false);
-        return;
-      }
+      await supabase.from("viagem_recursos").update(anexos).eq("id", recursoId);
     }
 
     for (const file of files) {
-      const up = await uploadFile(file, `viagens/${viagemId}/recursos/${recurso.id}`);
+      const up = await uploadFile(file, `viagens/${viagemId}/recursos/${recursoId}`);
       if (up) {
         await supabase.from("viagem_anexos").insert({
           viagem_id: viagemId,
-          recurso_id: recurso.id,
+          recurso_id: recursoId,
           categoria: "COMPROVANTE",
           nome: file.name,
           storage_path: up.path,
@@ -405,7 +510,13 @@ export function ViagemRecursos({
             variant="secondary"
             onClick={() => {
               setShowFormReembolso(false);
-              setShowFormGasto(!showFormGasto);
+              if (showFormGasto) {
+                limparFormulario();
+                setShowFormGasto(false);
+              } else {
+                limparFormulario();
+                setShowFormGasto(true);
+              }
             }}
           >
             <Plus className="h-4 w-4" />
@@ -415,13 +526,17 @@ export function ViagemRecursos({
 
       {showFormGasto && (
         <form
-          onSubmit={(e) => handleAdd(e)}
+          onSubmit={(e) => handleSave(e)}
           className={cn(mebFormSubsection, "space-y-3")}
         >
+          {editingId && (
+            <p className="text-sm font-medium text-slate-700">Editando lançamento</p>
+          )}
           <Select
             label="Tipo de gasto"
             tone="light"
             value={tipo}
+            disabled={!!editingId}
             onChange={(e) => {
               const t = e.target.value as ViagemRecursoTipo;
               setTipo(t);
@@ -602,22 +717,24 @@ export function ViagemRecursos({
                   </span>
                 </span>
               </label>
-              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-violet-200 bg-violet-50 px-3 py-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={motoristaAdiantou}
-                  onChange={(e) => setMotoristaAdiantou(e.target.checked)}
-                  className="mt-0.5 rounded border-slate-300"
-                />
-                <span>
-                  <span className="font-medium text-violet-800">
-                    Motorista pagou do bolso
+              {!editingId && (
+                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-violet-200 bg-violet-50 px-3 py-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={motoristaAdiantou}
+                    onChange={(e) => setMotoristaAdiantou(e.target.checked)}
+                    className="mt-0.5 rounded border-slate-300"
+                  />
+                  <span>
+                    <span className="font-medium text-violet-800">
+                      Motorista pagou do bolso
+                    </span>
+                    <span className="mt-0.5 block text-xs text-slate-600">
+                      Gera automaticamente um reembolso com o mesmo valor para devolver ao motorista.
+                    </span>
                   </span>
-                  <span className="mt-0.5 block text-xs text-slate-600">
-                    Gera automaticamente um reembolso com o mesmo valor para devolver ao motorista.
-                  </span>
-                </span>
-              </label>
+                </label>
+              )}
             </>
           ) : tipo === "adiantamento" ? (
             <Textarea
@@ -680,9 +797,16 @@ export function ViagemRecursos({
           />
           <div className="flex gap-2">
             <Button type="submit" variant="success" disabled={saving}>
-              Salvar gasto
+              {editingId ? "Salvar alterações" : "Salvar gasto"}
             </Button>
-            <Button type="button" variant="secondary" onClick={() => setShowFormGasto(false)}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                limparFormulario();
+                setShowFormGasto(false);
+              }}
+            >
               Cancelar
             </Button>
           </div>
@@ -698,6 +822,7 @@ export function ViagemRecursos({
               key={r.id}
               recurso={r}
               viagemId={viagemId}
+              onEditar={() => abrirEdicaoGasto(r)}
               onExcluir={() => handleExcluir(r.id, r)}
               excluindo={excluindoId === r.id}
               onAnexoAlterado={load}
@@ -725,7 +850,13 @@ export function ViagemRecursos({
             variant="secondary"
             onClick={() => {
               setShowFormGasto(false);
-              setShowFormReembolso(!showFormReembolso);
+              if (showFormReembolso) {
+                limparFormulario();
+                setShowFormReembolso(false);
+              } else {
+                limparFormulario();
+                setShowFormReembolso(true);
+              }
             }}
           >
             <Plus className="h-4 w-4" />
@@ -735,9 +866,12 @@ export function ViagemRecursos({
 
         {showFormReembolso && (
           <form
-            onSubmit={(e) => handleAdd(e, "reembolso")}
+            onSubmit={(e) => handleSave(e, "reembolso")}
             className={cn(mebFormSubsection, "space-y-3")}
           >
+            {editingId && (
+              <p className="text-sm font-medium text-slate-700">Editando reembolso</p>
+            )}
             <div className="grid gap-3 sm:grid-cols-2">
               <BrNumberInput
                 label="Valor a reembolsar (R$)"
@@ -773,9 +907,16 @@ export function ViagemRecursos({
             />
             <div className="flex gap-2">
               <Button type="submit" variant="success" disabled={saving}>
-                Salvar reembolso
+                {editingId ? "Salvar alterações" : "Salvar reembolso"}
               </Button>
-              <Button type="button" variant="secondary" onClick={() => setShowFormReembolso(false)}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  limparFormulario();
+                  setShowFormReembolso(false);
+                }}
+              >
                 Cancelar
               </Button>
             </div>
@@ -791,6 +932,7 @@ export function ViagemRecursos({
                 key={r.id}
                 recurso={r}
                 viagemId={viagemId}
+                onEditar={() => abrirEdicaoReembolso(r)}
                 onExcluir={() => handleExcluir(r.id, r)}
                 excluindo={excluindoId === r.id}
                 onAnexoAlterado={load}
@@ -811,6 +953,7 @@ export function ViagemRecursos({
 function RecursoItem({
   recurso,
   viagemId,
+  onEditar,
   onExcluir,
   excluindo,
   onAnexoAlterado,
@@ -820,6 +963,7 @@ function RecursoItem({
 }: {
   recurso: Recurso;
   viagemId: string;
+  onEditar: () => void;
   onExcluir: () => void;
   excluindo: boolean;
   onAnexoAlterado: () => void;
@@ -932,6 +1076,15 @@ function RecursoItem({
             R${" "}
             {partes.valorLiquido.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
           </span>
+          <button
+            type="button"
+            onClick={onEditar}
+            disabled={excluindo}
+            title="Editar"
+            className="rounded-md p-1.5 text-slate-600 transition hover:bg-slate-100 disabled:opacity-50"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
           <button
             type="button"
             onClick={onExcluir}
