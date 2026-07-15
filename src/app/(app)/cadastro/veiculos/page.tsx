@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { CadastroBuscaInput } from "@/components/cadastro/cadastro-busca-input";
 import { VeiculosForm } from "@/components/cadastro/veiculos-form";
 import { matchPlaca } from "@/lib/cadastro-busca";
+import { excluirVeiculo } from "@/lib/veiculo-crud";
 import type { Veiculo } from "@/types";
 import { labelVinculo, VEICULO_TIPO_OPCOES } from "@/lib/viagem-validation";
-import { mebConfirm } from "@/lib/meb-dialog";
+import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 
 function labelTipo(tipo: Veiculo["tipo"] | undefined) {
   return VEICULO_TIPO_OPCOES.find((o) => o.value === tipo)?.label ?? "—";
@@ -43,15 +44,21 @@ export default function VeiculosPage() {
 
   async function handleDelete(id: string) {
     if (
-      !(await mebConfirm("Excluir este veículo?", {
-        variant: "danger",
-        confirmLabel: "Excluir",
-      }))
+      !(await mebConfirm(
+        "Excluir este veículo? Se estiver em alguma viagem junto com outros veículos, os vínculos serão removidos automaticamente.",
+        {
+          variant: "danger",
+          confirmLabel: "Excluir",
+        }
+      ))
     ) {
       return;
     }
-    const supabase = createClient();
-    await supabase.from("veiculos").delete().eq("id", id);
+    const result = await excluirVeiculo(id);
+    if (!result.ok) {
+      await mebAlert(result.message ?? "Não foi possível excluir o veículo.");
+      return;
+    }
     load();
   }
 
