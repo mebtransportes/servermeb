@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Route, Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { CadastroOpcaoAutocomplete } from "@/components/ui/cadastro-opcao-autocomplete";
 import { ViagemForm } from "@/components/operacional/viagem-form";
@@ -31,6 +32,7 @@ export default function CadastroViagensPage() {
   const [msgSucesso, setMsgSucesso] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("");
   const [filtroFornecedorId, setFiltroFornecedorId] = useState("");
+  const [buscaCte, setBuscaCte] = useState("");
   const [fornecedores, setFornecedores] = useState<
     Awaited<ReturnType<typeof fetchFornecedoresAcompanhamento>>
   >([]);
@@ -55,6 +57,7 @@ export default function CadastroViagensPage() {
   );
 
   const filtradas = useMemo(() => {
+    const cteQ = buscaCte.trim().toLowerCase();
     return lista.filter((v) => {
       if (filtroStatus) {
         const statusViagem =
@@ -67,9 +70,12 @@ export default function CadastroViagensPage() {
       ) {
         return false;
       }
+      if (cteQ && !(v.numero_cte ?? "").toLowerCase().includes(cteQ)) {
+        return false;
+      }
       return true;
     });
-  }, [lista, filtroStatus, fornecedorSelecionado]);
+  }, [lista, filtroStatus, fornecedorSelecionado, buscaCte]);
 
   function abrirNova() {
     setEditing(null);
@@ -202,7 +208,13 @@ export default function CadastroViagensPage() {
             opcional
             className="min-w-[240px]"
             placeholder="Todos — digite o nome (mín. 2 letras)"
-            hint="Deixe em branco para listar todos os fornecedores."
+          />
+          <Input
+            label="CT-e"
+            value={buscaCte}
+            onChange={(e) => setBuscaCte(e.target.value)}
+            placeholder="Nº CT-e..."
+            className="w-[140px]"
           />
         </div>
       )}
@@ -215,11 +227,12 @@ export default function CadastroViagensPage() {
         <p className="text-slate-500">Nenhuma viagem encontrada com os filtros selecionados.</p>
       ) : (
         <>
-          {(filtroStatus || filtroFornecedorId) && (
+          {(filtroStatus || filtroFornecedorId || buscaCte.trim()) && (
             <p className="mb-3 text-sm text-slate-500">
               {filtradas.length} viagem(ns) encontrada(s)
               {filtroStatus && <> · {VIAGEM_STATUS_LABEL[filtroStatus] ?? filtroStatus}</>}
               {fornecedorSelecionado && <> · {fornecedorSelecionado.nome}</>}
+              {buscaCte.trim() && <> · CT-e: {buscaCte.trim()}</>}
             </p>
           )}
         <div className="overflow-x-auto rounded-xl border border-slate-200/80 bg-white/60">
