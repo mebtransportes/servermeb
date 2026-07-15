@@ -229,7 +229,7 @@ export default function CadastroViagensPage() {
                 <th className="px-4 py-3">Saída</th>
                 <th className="px-4 py-3">Motorista</th>
                 <th className="px-4 py-3">Veículo</th>
-                <th className="px-4 py-3">Origem</th>
+                <th className="px-4 py-3">Origem / Destino</th>
                 <th className="px-4 py-3">CTE</th>
                 <th className="px-4 py-3">Frete</th>
                 <th className="px-4 py-3">Status</th>
@@ -244,7 +244,12 @@ export default function CadastroViagensPage() {
                   </td>
                   <td className="px-4 py-3">{v.motorista_nome}</td>
                   <td className="px-4 py-3">{v.veiculo_label}</td>
-                  <td className="px-4 py-3 max-w-[200px] truncate">{v.local_saida ?? "—"}</td>
+                  <td
+                    className="px-4 py-3 max-w-[280px] truncate"
+                    title={v.origem_destino_label}
+                  >
+                    {v.origem_destino_label}
+                  </td>
                   <td className="px-4 py-3">{v.numero_cte ?? "—"}</td>
                   <td className="px-4 py-3">
                     {v.valor_frete != null ? formatarMoeda(Number(v.valor_frete)) : "—"}

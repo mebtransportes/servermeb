@@ -29,3 +29,34 @@ export function mapEntregasDb(
     .sort((a, b) => a.ordem - b.ordem)
     .map((r) => ({ ordem: r.ordem, texto: r.local_entrega }));
 }
+
+/**
+ * Extrai "Cidade - UF" do texto salvo do parceiro
+ * (formato típico: Nome — Rua, Bairro, Cidade/UF, CEP ...).
+ */
+export function extrairCidadeEstadoLabel(texto: string | null | undefined): string | null {
+  if (!texto?.trim()) return null;
+  const matches = [
+    ...texto.matchAll(/([^,/—\n]+?)\s*\/\s*([A-Za-z]{2})\b/g),
+  ];
+  if (!matches.length) return null;
+  const ultimo = matches[matches.length - 1];
+  const cidade = ultimo[1]
+    .replace(/^[\s—\-–]+/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const uf = ultimo[2].toUpperCase();
+  if (!cidade || !/^[A-Z]{2}$/.test(uf)) return null;
+  return `${cidade} - ${uf}`;
+}
+
+/** Origem (1º fornecedor/local) → destino (última entrega), só cidade/UF. */
+export function formatarOrigemDestinoCidadeEstado(
+  origemTexto: string | null | undefined,
+  destinoTexto: string | null | undefined
+): string {
+  const origem = extrairCidadeEstadoLabel(origemTexto);
+  const destino = extrairCidadeEstadoLabel(destinoTexto);
+  if (!origem && !destino) return "—";
+  return `${origem ?? "—"} -> ${destino ?? "—"}`;
+}

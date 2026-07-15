@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import type { Viagem } from "@/types";
+import { formatarOrigemDestinoCidadeEstado } from "@/lib/viagem-parceiros-viagem";
 
 export type ViagemCteDuplicada = {
   id: string;
@@ -47,6 +48,7 @@ export type ViagemListItem = {
   saida_em: string | null;
   local_saida: string | null;
   fornecedores: string[];
+  origem_destino_label: string;
   numero_cte?: string | null;
   valor_frete?: number | null;
   motorista_nome: string;
@@ -76,7 +78,8 @@ export async function fetchViagensLista(): Promise<ViagemListItem[]> {
       motoristas ( nome_completo ),
       veiculos ( nome, placa ),
       viagem_veiculos ( ordem, veiculos ( nome, placa ) ),
-      viagem_fornecedores ( ordem, local_fornecedor )
+      viagem_fornecedores ( ordem, local_fornecedor ),
+      viagem_entregas ( ordem, local_entrega )
     `
     )
     .order("saida_em", { ascending: false });
@@ -117,12 +120,22 @@ export async function fetchViagensLista(): Promise<ViagemListItem[]> {
       .sort((a, b) => a.ordem - b.ordem)
       .map((f) => f.local_fornecedor)
       .filter(Boolean);
+    const entregasDb = row.viagem_entregas as
+      | { ordem: number; local_entrega: string }[]
+      | null;
+    const entregas = (entregasDb ?? [])
+      .sort((a, b) => a.ordem - b.ordem)
+      .map((e) => e.local_entrega)
+      .filter(Boolean);
+    const origemTexto = fornecedores[0] ?? row.local_saida ?? null;
+    const destinoTexto = entregas.length ? entregas[entregas.length - 1] : null;
     return {
       id: row.id,
       status: row.status,
       saida_em: row.saida_em,
       local_saida: row.local_saida ?? null,
       fornecedores,
+      origem_destino_label: formatarOrigemDestinoCidadeEstado(origemTexto, destinoTexto),
       numero_cte: row.numero_cte,
       valor_frete: row.valor_frete,
       motorista_nome: motorista?.nome_completo ?? "—",
