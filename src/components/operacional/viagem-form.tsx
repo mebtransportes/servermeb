@@ -340,11 +340,6 @@ export function ViagemForm({
     }
 
     if (exigeProgramacao) {
-      if (locaisFornecedor.length === 0 || locaisEntrega.length === 0) {
-        setError("Informe ao menos um fornecedor (origem) e um local de entrega.");
-        return;
-      }
-
       if (!saidaEm) {
         setError("Informe data/hora de saída.");
         return;
@@ -736,9 +731,10 @@ export function ViagemForm({
             <span>
               <span className="font-medium text-slate-900">Viagem agendada (sem programação)</span>
               <span className="mt-0.5 block text-xs text-slate-600">
-                Use quando motorista e veículo já estão definidos, mas ainda não há fornecedor,
-                entrega, CT-e ou demais dados. Salve agora e complete depois, ao receber a nota
-                fiscal de carregamento.
+                Use quando motorista e veículo já estão definidos, mas ainda não há data de
+                saída, CT-e ou demais dados. Salve agora e complete depois, ao receber a nota
+                fiscal de carregamento. Fornecedor e destino também podem ficar em branco e
+                ser preenchidos depois.
               </span>
             </span>
           </label>
@@ -830,7 +826,8 @@ export function ViagemForm({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-slate-700">
-                Fornecedores (origem / carregamento)
+                Fornecedores (origem / carregamento){" "}
+                <span className="font-normal text-slate-500">— opcional</span>
               </span>
               <Button
                 type="button"
@@ -853,8 +850,7 @@ export function ViagemForm({
                   }}
                   className="flex-1"
                   tipoParceiro="fornecedor"
-                  placeholder="Digite o nome do fornecedor"
-                  required={exigeProgramacao && i === 0}
+                  placeholder="Digite o nome do fornecedor (opcional)"
                 />
                 {fornecedores.length > 1 && (
                   <Button
@@ -872,7 +868,10 @@ export function ViagemForm({
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-700">Locais de entrega</span>
+              <span className="text-sm font-medium text-slate-700">
+                Locais de entrega{" "}
+                <span className="font-normal text-slate-500">— opcional</span>
+              </span>
               <Button
                 type="button"
                 variant="secondary"
@@ -893,6 +892,7 @@ export function ViagemForm({
                     setEntregas(next);
                   }}
                   className="flex-1"
+                  placeholder="Digite o cliente ou destino (opcional)"
                 />
                 {entregas.length > 1 && (
                   <Button

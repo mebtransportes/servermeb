@@ -285,7 +285,7 @@ export async function syncFechamentoViagem(viagemId: string): Promise<string | n
     data_contratacao: viagem.data_contratacao ?? null,
     duracao_base_saida: Boolean(viagem.duracao_base_saida),
     chegada_em: viagem.chegada_prevista_em ?? null,
-    local_embarque: viagem.local_saida,
+    local_embarque: (viagem.local_saida as string | null)?.trim() || "—",
     veiculo_label: formatarVeiculosLabel(listaVeiculos),
     numero_cte: viagem.numero_cte ?? null,
     destino,

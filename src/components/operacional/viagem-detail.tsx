@@ -570,16 +570,20 @@ export function ViagemDetail({
         <p className="mb-1 flex items-center gap-1 text-sm font-medium text-slate-700">
           <MapPin className="h-4 w-4" /> Entregas
         </p>
-        <ul className="ml-5 list-disc text-sm text-slate-600">
-          {entregas.map((e) => (
-            <li key={e.ordem}>
-              Entrega {e.ordem}: {e.local_entrega}
-              {viagem.entrega_atual_ordem === e.ordem && (
-                <span className="ml-1 font-medium text-orange-700">(atual)</span>
-              )}
-            </li>
-          ))}
-        </ul>
+        {entregas.length === 0 ? (
+          <p className="mb-3 text-sm text-slate-500">Nenhum destino cadastrado ainda.</p>
+        ) : (
+          <ul className="ml-5 list-disc text-sm text-slate-600">
+            {entregas.map((e) => (
+              <li key={e.ordem}>
+                Entrega {e.ordem}: {e.local_entrega}
+                {viagem.entrega_atual_ordem === e.ordem && (
+                  <span className="ml-1 font-medium text-orange-700">(atual)</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {viagem.descricao_mercadoria && (
