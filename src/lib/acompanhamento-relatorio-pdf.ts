@@ -4,17 +4,74 @@ import type { AcompanhamentoRelatorioFiltros, AcompanhamentoViagemItem } from "@
 import {
   agruparViagensPorPlaca,
   nomesFornecedoresViagem,
-  resumirViagensPorPlaca,
 } from "@/lib/acompanhamento-data";
 import type { ParceiroSugestao } from "@/lib/parceiros";
 import { formatarDataBr, formatarDataHoraBr, formatarMoeda } from "@/lib/frota-filters";
 import { VIAGEM_STATUS_LABEL } from "@/lib/viagem-status";
 import { VINCULO_OPCOES } from "@/lib/viagem-validation";
+import { createClient } from "@/lib/supabase/client";
+import { calcularFreteLiquido, ICMS_FRETE_PERCENT } from "@/types/fechamento";
+import { extrairCidadeEstadoLabel } from "@/lib/viagem-parceiros-viagem";
+import { normalizarDataPagamento } from "@/lib/viagem-pagamento-terceiro";
 
 type DocComAutoTable = jsPDF & { lastAutoTable?: { finalY: number } };
 
-const MARGEM_X = 12;
+const MARGEM_X = 10;
 const MARGEM_INFERIOR = 16;
+
+export const ACOMPANHAMENTO_RELATORIO_COLUNAS = [
+  { key: "data_embarque", label: "Data do embarque" },
+  { key: "numero_cte", label: "Número do CT-e" },
+  { key: "placa", label: "Placa do veículo" },
+  { key: "motorista", label: "Motorista" },
+  { key: "origem", label: "Origem" },
+  { key: "destino", label: "Destino" },
+  { key: "cliente", label: "Cliente" },
+  { key: "valor_frete", label: "Valor do frete" },
+  { key: "frete_livre_icms", label: "Frete livre de encargos (ICMS)" },
+  { key: "data_pagamento", label: "Data de pagamento" },
+  { key: "peso", label: "Peso" },
+  { key: "descarga", label: "Descarga" },
+  { key: "diaria", label: "Diária" },
+] as const;
+
+export type AcompanhamentoRelatorioColunaKey =
+  (typeof ACOMPANHAMENTO_RELATORIO_COLUNAS)[number]["key"];
+
+export type AcompanhamentoRelatorioColunasSelecionadas = Record<
+  AcompanhamentoRelatorioColunaKey,
+  boolean
+>;
+
+export function colunasRelatorioPadrao(): AcompanhamentoRelatorioColunasSelecionadas {
+  return Object.fromEntries(
+    ACOMPANHAMENTO_RELATORIO_COLUNAS.map((c) => [c.key, true])
+  ) as AcompanhamentoRelatorioColunasSelecionadas;
+}
+
+export function listarColunasAtivas(
+  selecionadas: AcompanhamentoRelatorioColunasSelecionadas
+) {
+  return ACOMPANHAMENTO_RELATORIO_COLUNAS.filter((c) => selecionadas[c.key]);
+}
+
+type LinhaRelatorio = {
+  data_embarque: string;
+  numero_cte: string;
+  placa: string;
+  motorista: string;
+  origem: string;
+  destino: string;
+  cliente: string;
+  valor_frete: string;
+  frete_livre_icms: string;
+  data_pagamento: string;
+  peso: string;
+  descarga: string;
+  diaria: string;
+  peso_num: number;
+  frete_num: number;
+};
 
 function formatarPesoKg(v?: number | null) {
   if (v == null || !Number.isFinite(v) || v <= 0) return "—";
@@ -56,55 +113,153 @@ function rodape(doc: jsPDF, pagina: number, total: number) {
   );
 }
 
-function linhaViagemTabela(
-  v: AcompanhamentoViagemItem,
-  fornecedores: ParceiroSugestao[]
-) {
-  const statusLabel = VIAGEM_STATUS_LABEL[v.status] ?? v.status;
-  const dataViagem = v.saida_em ? formatarDataHoraBr(v.saida_em) : "Agendada";
-  return [
-    nomesFornecedoresViagem(v, fornecedores),
-    dataViagem,
-    statusLabel,
-    v.numero_cte?.trim() || "—",
-    v.motorista_nome,
-    formatarPesoKg(v.peso_kg),
-    v.valor_frete != null && Number(v.valor_frete) > 0
-      ? formatarMoeda(Number(v.valor_frete))
-      : "—",
-  ];
+function extrairNomeParceiro(texto: string | null | undefined): string | null {
+  const t = (texto ?? "").trim();
+  if (!t) return null;
+  const sep = t.search(/\s[—–-]\s/);
+  if (sep >= 0) {
+    const nome = t.slice(0, sep).trim();
+    return nome || null;
+  }
+  return t;
 }
 
-const COLUNAS_VIAGEM = [
-  "Fornecedor",
-  "Data viagem",
-  "Status",
-  "CT-e",
-  "Motorista",
-  "Peso",
-  "Frete bruto",
-];
+function labelOrigem(v: AcompanhamentoViagemItem, fornecedores: ParceiroSugestao[]) {
+  const textos = v.fornecedores.map((f) => f.local_fornecedor).filter(Boolean);
+  if (!textos.length && v.local_saida?.trim()) textos.push(v.local_saida.trim());
+  if (!textos.length) return "—";
+  const cidades = textos
+    .map((t) => extrairCidadeEstadoLabel(t))
+    .filter((t): t is string => !!t);
+  if (cidades.length) return [...new Set(cidades)].join(" · ");
+  return nomesFornecedoresViagem(v, fornecedores) || "—";
+}
 
-const ESTILO_TABELA = {
-  styles: { fontSize: 6.5, cellPadding: 1.2, overflow: "linebreak" as const },
-  headStyles: {
-    fillColor: [0, 100, 120] as [number, number, number],
-    fontSize: 7,
-    fontStyle: "bold" as const,
-    textColor: 255,
-  },
-  alternateRowStyles: { fillColor: [248, 251, 252] as [number, number, number] },
-  columnStyles: {
-    0: { cellWidth: 42 },
-    1: { cellWidth: 26 },
-    2: { cellWidth: 22 },
-    3: { cellWidth: 14 },
-    4: { cellWidth: 34 },
-    5: { cellWidth: 20 },
-    6: { cellWidth: 20 },
-  },
-  margin: { left: MARGEM_X, right: MARGEM_X, bottom: MARGEM_INFERIOR },
-};
+function labelDestino(v: AcompanhamentoViagemItem) {
+  const textos = v.entregas.map((e) => e.local_entrega).filter(Boolean);
+  if (!textos.length) return "—";
+  const cidades = textos
+    .map((t) => extrairCidadeEstadoLabel(t))
+    .filter((t): t is string => !!t);
+  if (cidades.length) return [...new Set(cidades)].join(" · ");
+  return textos.join(" · ");
+}
+
+function labelCliente(v: AcompanhamentoViagemItem) {
+  const nomes = v.entregas
+    .map((e) => extrairNomeParceiro(e.local_entrega))
+    .filter((t): t is string => !!t);
+  return nomes.length ? [...new Set(nomes)].join(" · ") : "—";
+}
+
+function formatarMoedaOuTraco(v: number | null | undefined) {
+  if (v == null || !Number.isFinite(v) || v <= 0) return "—";
+  return formatarMoeda(v);
+}
+
+export async function enriquecerLinhasRelatorioAcompanhamento(
+  viagens: AcompanhamentoViagemItem[],
+  fornecedoresCadastro: ParceiroSugestao[]
+): Promise<LinhaRelatorio[]> {
+  if (!viagens.length) return [];
+
+  const supabase = createClient();
+  const ids = viagens.map((v) => v.id);
+
+  const [{ data: pagamentos }, { data: fechamentos }, { data: recebimentos }] =
+    await Promise.all([
+      supabase
+        .from("viagens")
+        .select("id, data_pagamento, data_pagamento_terceiro")
+        .in("id", ids),
+      supabase
+        .from("viagem_fechamentos")
+        .select("viagem_id, icms_percent, frete_liquido, valor_frete")
+        .in("viagem_id", ids),
+      supabase
+        .from("viagem_recebimentos")
+        .select("viagem_id, valor_descargas_adicionais, valor_diarias")
+        .in("viagem_id", ids),
+    ]);
+
+  const pagPorViagem = new Map(
+    (pagamentos ?? []).map((p) => [
+      p.id as string,
+      normalizarDataPagamento(p.data_pagamento as string | null) ??
+        normalizarDataPagamento(p.data_pagamento_terceiro as string | null),
+    ])
+  );
+  const fechPorViagem = new Map(
+    (fechamentos ?? []).map((f) => [f.viagem_id as string, f])
+  );
+  const recPorViagem = new Map(
+    (recebimentos ?? []).map((r) => [r.viagem_id as string, r])
+  );
+
+  return viagens.map((v) => {
+    const frete = v.valor_frete != null ? Number(v.valor_frete) : 0;
+    const fech = fechPorViagem.get(v.id);
+    const icmsPct =
+      fech?.icms_percent != null && Number.isFinite(Number(fech.icms_percent))
+        ? Number(fech.icms_percent)
+        : ICMS_FRETE_PERCENT;
+    const freteLivre =
+      fech?.frete_liquido != null && Number(fech.frete_liquido) > 0
+        ? Number(fech.frete_liquido)
+        : frete > 0
+          ? calcularFreteLiquido(frete, icmsPct)
+          : 0;
+
+    const rec = recPorViagem.get(v.id);
+    const descarga = Number(rec?.valor_descargas_adicionais) || 0;
+    const diaria = Number(rec?.valor_diarias) || 0;
+    const dataPag = pagPorViagem.get(v.id) ?? null;
+
+    return {
+      data_embarque: v.saida_em ? formatarDataHoraBr(v.saida_em) : "Agendada",
+      numero_cte: v.numero_cte?.trim() || "—",
+      placa: v.placas || "—",
+      motorista: v.motorista_nome || "—",
+      origem: labelOrigem(v, fornecedoresCadastro),
+      destino: labelDestino(v),
+      cliente: labelCliente(v),
+      valor_frete: formatarMoedaOuTraco(frete),
+      frete_livre_icms: formatarMoedaOuTraco(freteLivre),
+      data_pagamento: dataPag ? formatarDataBr(dataPag) : "—",
+      peso: formatarPesoKg(v.peso_kg),
+      descarga: formatarMoedaOuTraco(descarga),
+      diaria: formatarMoedaOuTraco(diaria),
+      peso_num: v.peso_kg != null && Number(v.peso_kg) > 0 ? Number(v.peso_kg) : 0,
+      frete_num: frete > 0 ? frete : 0,
+    };
+  });
+}
+
+function celulasLinha(
+  linha: LinhaRelatorio,
+  colunas: { key: AcompanhamentoRelatorioColunaKey; label: string }[]
+) {
+  return colunas.map((c) => linha[c.key]);
+}
+
+function estiloTabela(qtdColunas: number) {
+  const fontSize = qtdColunas >= 10 ? 5.5 : qtdColunas >= 7 ? 6.2 : 7;
+  return {
+    styles: {
+      fontSize,
+      cellPadding: qtdColunas >= 10 ? 0.9 : 1.2,
+      overflow: "linebreak" as const,
+    },
+    headStyles: {
+      fillColor: [0, 100, 120] as [number, number, number],
+      fontSize: fontSize + 0.5,
+      fontStyle: "bold" as const,
+      textColor: 255,
+    },
+    alternateRowStyles: { fillColor: [248, 251, 252] as [number, number, number] },
+    margin: { left: MARGEM_X, right: MARGEM_X, bottom: MARGEM_INFERIOR },
+  };
+}
 
 function garantirEspaco(doc: jsPDF, y: number, minimo: number) {
   const altura = doc.internal.pageSize.getHeight();
@@ -128,8 +283,14 @@ function desenharTituloPlaca(doc: jsPDF, placa: string, qtd: number, y: number) 
   return y + 9;
 }
 
-function desenharResumoPlaca(doc: DocComAutoTable, placa: string, y: number, viagens: AcompanhamentoViagemItem[]) {
-  const resumo = resumirViagensPorPlaca(viagens);
+function desenharResumoPlaca(
+  doc: DocComAutoTable,
+  placa: string,
+  y: number,
+  linhas: LinhaRelatorio[]
+) {
+  const pesoTotal = linhas.reduce((s, l) => s + l.peso_num, 0);
+  const faturamento = linhas.reduce((s, l) => s + l.frete_num, 0);
   y = garantirEspaco(doc, y, 14);
 
   autoTable(doc, {
@@ -138,9 +299,9 @@ function desenharResumoPlaca(doc: DocComAutoTable, placa: string, y: number, via
     head: [[`Resumo — ${placa}`, "", ""]],
     body: [
       [
-        `Viagens: ${resumo.qtdViagens}`,
-        `Peso: ${formatarPesoKg(resumo.pesoTotalKg)}`,
-        `Faturamento: ${formatarMoeda(resumo.faturamentoBruto)}`,
+        `Viagens: ${linhas.length}`,
+        `Peso: ${formatarPesoKg(pesoTotal || null)}`,
+        `Faturamento: ${formatarMoeda(faturamento)}`,
       ],
     ],
     styles: {
@@ -170,30 +331,31 @@ function desenharResumoPlaca(doc: DocComAutoTable, placa: string, y: number, via
 function renderSecaoPlaca(
   doc: DocComAutoTable,
   placa: string,
-  viagens: AcompanhamentoViagemItem[],
-  fornecedores: ParceiroSugestao[],
+  linhas: LinhaRelatorio[],
+  colunas: { key: AcompanhamentoRelatorioColunaKey; label: string }[],
   startY: number
 ) {
   let y = garantirEspaco(doc, startY, 28);
-  y = desenharTituloPlaca(doc, placa, viagens.length, y);
+  y = desenharTituloPlaca(doc, placa, linhas.length, y);
 
   autoTable(doc, {
     startY: y,
-    head: [COLUNAS_VIAGEM],
-    body: viagens.map((v) => linhaViagemTabela(v, fornecedores)),
-    ...ESTILO_TABELA,
+    head: [colunas.map((c) => c.label)],
+    body: linhas.map((l) => celulasLinha(l, colunas)),
+    ...estiloTabela(colunas.length),
   });
 
   y = finalY(doc, y) + 3;
-  return desenharResumoPlaca(doc, placa, y, viagens);
+  return desenharResumoPlaca(doc, placa, y, linhas);
 }
 
 function cabecalhoRelatorio(
   doc: jsPDF,
   filtros: AcompanhamentoRelatorioFiltros,
   fornecedores: ParceiroSugestao[],
-  viagens: AcompanhamentoViagemItem[],
-  modoTodasPlacas: boolean
+  qtdViagens: number,
+  modoTodasPlacas: boolean,
+  qtdPlacas: number
 ) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
@@ -208,13 +370,12 @@ function cabecalhoRelatorio(
   doc.setFontSize(8);
   doc.setTextColor(80);
   let y = 27;
-  const grupos = modoTodasPlacas ? agruparViagensPorPlaca(viagens).length : 0;
   const linhas = [
     `Período: ${formatarDataBr(filtros.de)} até ${formatarDataBr(filtros.ate)}`,
     `Status: ${labelFiltroStatus(filtros.status)} · Fornecedor: ${labelFiltroFornecedor(filtros.fornecedorId, fornecedores)} · Vínculo: ${labelFiltroVinculo(filtros.vinculo)}`,
     modoTodasPlacas
-      ? `Placas (caminhão/cavalo): ${grupos} veículo(s) · ${viagens.length} viagem(ns) no período`
-      : `Placa: ${filtros.placa} · ${viagens.length} viagem(ns)`,
+      ? `Placas (caminhão/cavalo): ${qtdPlacas} veículo(s) · ${qtdViagens} viagem(ns) no período`
+      : `Placa: ${filtros.placa} · ${qtdViagens} viagem(ns)`,
     `Gerado em: ${new Date().toLocaleString("pt-BR")}`,
   ];
   for (const linha of linhas) {
@@ -224,23 +385,45 @@ function cabecalhoRelatorio(
   return y + 4;
 }
 
-export function gerarPdfAcompanhamentoRelatorio(
+export async function gerarPdfAcompanhamentoRelatorio(
   viagens: AcompanhamentoViagemItem[],
   filtros: AcompanhamentoRelatorioFiltros,
-  fornecedores: ParceiroSugestao[]
+  fornecedores: ParceiroSugestao[],
+  colunasSelecionadas: AcompanhamentoRelatorioColunasSelecionadas = colunasRelatorioPadrao()
 ) {
-  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" }) as DocComAutoTable;
+  const colunas = listarColunasAtivas(colunasSelecionadas);
+  if (!colunas.length) {
+    throw new Error("Selecione ao menos um dado para exibir no relatório.");
+  }
+
+  const linhas = await enriquecerLinhasRelatorioAcompanhamento(viagens, fornecedores);
+  const linhaPorId = new Map(viagens.map((v, i) => [v.id, linhas[i]!]));
+
+  const doc = new jsPDF({
+    orientation: "landscape",
+    unit: "mm",
+    format: "a4",
+  }) as DocComAutoTable;
   const modoTodasPlacas = !filtros.placa;
 
-  let y = cabecalhoRelatorio(doc, filtros, fornecedores, viagens, modoTodasPlacas);
+  const grupos = modoTodasPlacas
+    ? agruparViagensPorPlaca(viagens)
+    : [{ placa: filtros.placa, viagens }];
 
-  if (modoTodasPlacas) {
-    const grupos = agruparViagensPorPlaca(viagens);
-    for (const grupo of grupos) {
-      y = renderSecaoPlaca(doc, grupo.placa, grupo.viagens, fornecedores, y);
-    }
-  } else {
-    y = renderSecaoPlaca(doc, filtros.placa, viagens, fornecedores, y);
+  let y = cabecalhoRelatorio(
+    doc,
+    filtros,
+    fornecedores,
+    viagens.length,
+    modoTodasPlacas,
+    grupos.length
+  );
+
+  for (const grupo of grupos) {
+    const linhasGrupo = grupo.viagens
+      .map((v) => linhaPorId.get(v.id))
+      .filter((l): l is LinhaRelatorio => !!l);
+    y = renderSecaoPlaca(doc, grupo.placa, linhasGrupo, colunas, y);
   }
 
   const total = doc.getNumberOfPages();
@@ -250,6 +433,8 @@ export function gerarPdfAcompanhamentoRelatorio(
   }
 
   const slug = `${filtros.de}_${filtros.ate}`.replace(/[^\d-]/g, "");
-  const sufixo = filtros.placa ? `_${filtros.placa.replace(/[^a-zA-Z0-9]/g, "")}` : "_por-placa";
+  const sufixo = filtros.placa
+    ? `_${filtros.placa.replace(/[^a-zA-Z0-9]/g, "")}`
+    : "_por-placa";
   doc.save(`relatorio-acompanhamento${sufixo}_${slug}.pdf`);
 }

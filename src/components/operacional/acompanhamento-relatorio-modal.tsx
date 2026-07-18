@@ -15,7 +15,13 @@ import {
   type AcompanhamentoRelatorioFiltros,
   type AcompanhamentoViagemItem,
 } from "@/lib/acompanhamento-data";
-import { gerarPdfAcompanhamentoRelatorio } from "@/lib/acompanhamento-relatorio-pdf";
+import {
+  ACOMPANHAMENTO_RELATORIO_COLUNAS,
+  colunasRelatorioPadrao,
+  gerarPdfAcompanhamentoRelatorio,
+  type AcompanhamentoRelatorioColunaKey,
+  type AcompanhamentoRelatorioColunasSelecionadas,
+} from "@/lib/acompanhamento-relatorio-pdf";
 import { PlacaRelatorioAutocomplete } from "@/components/operacional/placa-relatorio-autocomplete";
 import type { ParceiroSugestao } from "@/lib/parceiros";
 import { VIAGEM_STATUS_FILTRO_ACOMPANHAMENTO, VINCULO_OPCOES } from "@/lib/viagem-validation";
@@ -49,10 +55,29 @@ export function AcompanhamentoRelatorioModal({
   const [vinculo, setVinculo] = useState<"" | RecursoVinculo>("");
   const [placa, setPlaca] = useState("");
   const [placaDigitada, setPlacaDigitada] = useState("");
+  const [colunas, setColunas] = useState<AcompanhamentoRelatorioColunasSelecionadas>(
+    colunasRelatorioPadrao
+  );
   const [erro, setErro] = useState("");
   const [gerando, setGerando] = useState(false);
 
   const placasRelatorio = useMemo(() => listarPlacasAcompanhamento(viagens), [viagens]);
+  const qtdColunas = useMemo(
+    () => ACOMPANHAMENTO_RELATORIO_COLUNAS.filter((c) => colunas[c.key]).length,
+    [colunas]
+  );
+
+  function toggleColuna(key: AcompanhamentoRelatorioColunaKey) {
+    setColunas((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  function marcarTodas(valor: boolean) {
+    setColunas(
+      Object.fromEntries(
+        ACOMPANHAMENTO_RELATORIO_COLUNAS.map((c) => [c.key, valor])
+      ) as AcompanhamentoRelatorioColunasSelecionadas
+    );
+  }
 
   function validar(): boolean {
     if (!de || !ate) {
@@ -63,11 +88,15 @@ export function AcompanhamentoRelatorioModal({
       setErro("A data inicial não pode ser posterior à data final.");
       return false;
     }
+    if (qtdColunas === 0) {
+      setErro("Selecione ao menos um dado para aparecer no relatório.");
+      return false;
+    }
     setErro("");
     return true;
   }
 
-  function handleGerar() {
+  async function handleGerar() {
     if (!validar()) return;
 
     const placaFiltro = placa.trim();
@@ -109,7 +138,7 @@ export function AcompanhamentoRelatorioModal({
         setErro("Nenhuma viagem encontrada para o período e filtros selecionados.");
         return;
       }
-      gerarPdfAcompanhamentoRelatorio(filtradas, filtros, fornecedores);
+      await gerarPdfAcompanhamentoRelatorio(filtradas, filtros, fornecedores, colunas);
       onClose();
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Erro ao gerar PDF.");
@@ -124,11 +153,11 @@ export function AcompanhamentoRelatorioModal({
         <MebModalHeader
           id="acompanhamento-relatorio-titulo"
           title="Relatório de Acompanhamento"
-          description="Defina o período e os filtros. O relatório considera apenas placas de caminhão e cavalo (carretas são ignoradas). Deixe a placa vazia para gerar uma seção por veículo."
+          description="Defina o período, os filtros e quais dados devem aparecer no PDF. O relatório considera apenas placas de caminhão e cavalo (carretas são ignoradas)."
           onClose={onClose}
         />
 
-        <MebModalBody className="mt-4 space-y-4">
+        <MebModalBody className="mt-4 max-h-[70vh] space-y-4 overflow-y-auto">
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
               label="De"
@@ -167,7 +196,6 @@ export function AcompanhamentoRelatorioModal({
             onValueChange={setFornecedorId}
             opcional
             placeholder="Todos — digite o nome (mín. 2 letras)"
-            hint="Deixe em branco para incluir todos os fornecedores no relatório."
           />
 
           <PlacaRelatorioAutocomplete
@@ -192,6 +220,50 @@ export function AcompanhamentoRelatorioModal({
               ...VINCULO_OPCOES.map((o) => ({ value: o.value, label: o.label })),
             ]}
           />
+
+          <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-medium text-slate-800">Dados do relatório</p>
+                <p className="text-xs text-slate-500">
+                  Marque o que deve aparecer no PDF ({qtdColunas} selecionado
+                  {qtdColunas === 1 ? "" : "s"}).
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => marcarTodas(true)}
+                  className="text-xs font-medium text-cyan-700 hover:underline"
+                >
+                  Marcar todos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => marcarTodas(false)}
+                  className="text-xs font-medium text-slate-500 hover:underline"
+                >
+                  Limpar
+                </button>
+              </div>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {ACOMPANHAMENTO_RELATORIO_COLUNAS.map((c) => (
+                <label
+                  key={c.key}
+                  className="flex cursor-pointer items-start gap-2 rounded-md px-1 py-1 text-sm text-slate-700 hover:bg-white/80"
+                >
+                  <input
+                    type="checkbox"
+                    checked={colunas[c.key]}
+                    onChange={() => toggleColuna(c.key)}
+                    className="mt-0.5 rounded border-slate-300"
+                  />
+                  <span>{c.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
 
           {erro && (
             <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
