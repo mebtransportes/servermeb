@@ -328,6 +328,46 @@ function desenharResumoPlaca(
   return finalY(doc, y) + 10;
 }
 
+function desenharResumoGeral(doc: DocComAutoTable, y: number, linhas: LinhaRelatorio[]) {
+  const pesoTotal = linhas.reduce((s, l) => s + l.peso_num, 0);
+  const faturamento = linhas.reduce((s, l) => s + l.frete_num, 0);
+  y = garantirEspaco(doc, y, 16);
+
+  autoTable(doc, {
+    startY: y,
+    theme: "grid",
+    head: [["Resumo geral", "", ""]],
+    body: [
+      [
+        `Viagens: ${linhas.length}`,
+        `Peso: ${formatarPesoKg(pesoTotal || null)}`,
+        `Valor total do frete: ${formatarMoeda(faturamento)}`,
+      ],
+    ],
+    styles: {
+      fontSize: 8,
+      cellPadding: 2.2,
+      fontStyle: "bold",
+      textColor: [20, 40, 50],
+    },
+    headStyles: {
+      fillColor: [0, 100, 120],
+      textColor: 255,
+      fontSize: 8,
+      fontStyle: "bold",
+    },
+    bodyStyles: { fillColor: [232, 244, 248] },
+    columnStyles: {
+      0: { cellWidth: 55 },
+      1: { cellWidth: 55 },
+      2: { cellWidth: 70 },
+    },
+    margin: { left: MARGEM_X, right: MARGEM_X, bottom: MARGEM_INFERIOR },
+  });
+
+  return finalY(doc, y) + 6;
+}
+
 function renderSecaoPlaca(
   doc: DocComAutoTable,
   placa: string,
@@ -425,6 +465,8 @@ export async function gerarPdfAcompanhamentoRelatorio(
       .filter((l): l is LinhaRelatorio => !!l);
     y = renderSecaoPlaca(doc, grupo.placa, linhasGrupo, colunas, y);
   }
+
+  desenharResumoGeral(doc, y, linhas);
 
   const total = doc.getNumberOfPages();
   for (let i = 1; i <= total; i++) {
