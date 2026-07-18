@@ -221,11 +221,11 @@ export function AcompanhamentoRelatorioModal({
             ]}
           />
 
-          <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+          <div className="rounded-lg border border-slate-200 bg-white p-3">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <p className="text-sm font-medium text-slate-800">Dados do relatório</p>
-                <p className="text-xs text-slate-500">
+                <p className="text-sm font-semibold text-slate-900">Dados do relatório</p>
+                <p className="text-xs text-slate-600">
                   Marque o que deve aparecer no PDF ({qtdColunas} selecionado
                   {qtdColunas === 1 ? "" : "s"}).
                 </p>
@@ -234,14 +234,14 @@ export function AcompanhamentoRelatorioModal({
                 <button
                   type="button"
                   onClick={() => marcarTodas(true)}
-                  className="text-xs font-medium text-cyan-700 hover:underline"
+                  className="text-xs font-semibold text-cyan-700 hover:underline"
                 >
                   Marcar todos
                 </button>
                 <button
                   type="button"
                   onClick={() => marcarTodas(false)}
-                  className="text-xs font-medium text-slate-500 hover:underline"
+                  className="text-xs font-semibold text-slate-700 hover:underline"
                 >
                   Limpar
                 </button>
@@ -251,13 +251,13 @@ export function AcompanhamentoRelatorioModal({
               {ACOMPANHAMENTO_RELATORIO_COLUNAS.map((c) => (
                 <label
                   key={c.key}
-                  className="flex cursor-pointer items-start gap-2 rounded-md px-1 py-1 text-sm text-slate-700 hover:bg-white/80"
+                  className="flex cursor-pointer items-start gap-2 rounded-md px-1 py-1 text-sm font-medium text-slate-900 hover:bg-slate-50"
                 >
                   <input
                     type="checkbox"
                     checked={colunas[c.key]}
                     onChange={() => toggleColuna(c.key)}
-                    className="mt-0.5 rounded border-slate-300"
+                    className="mt-0.5 rounded border-slate-400"
                   />
                   <span>{c.label}</span>
                 </label>
