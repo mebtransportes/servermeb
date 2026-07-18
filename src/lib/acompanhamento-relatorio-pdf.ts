@@ -395,7 +395,8 @@ function cabecalhoRelatorio(
   fornecedores: ParceiroSugestao[],
   qtdViagens: number,
   modoTodasPlacas: boolean,
-  qtdPlacas: number
+  qtdPlacas: number,
+  valorTotalFrete: number
 ) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
@@ -416,6 +417,7 @@ function cabecalhoRelatorio(
     modoTodasPlacas
       ? `Placas (caminhão/cavalo): ${qtdPlacas} veículo(s) · ${qtdViagens} viagem(ns) no período`
       : `Placa: ${filtros.placa} · ${qtdViagens} viagem(ns)`,
+    `Valor total do frete: ${formatarMoeda(valorTotalFrete)}`,
     `Gerado em: ${new Date().toLocaleString("pt-BR")}`,
   ];
   for (const linha of linhas) {
@@ -450,13 +452,16 @@ export async function gerarPdfAcompanhamentoRelatorio(
     ? agruparViagensPorPlaca(viagens)
     : [{ placa: filtros.placa, viagens }];
 
+  const valorTotalFrete = linhas.reduce((s, l) => s + l.frete_num, 0);
+
   let y = cabecalhoRelatorio(
     doc,
     filtros,
     fornecedores,
     viagens.length,
     modoTodasPlacas,
-    grupos.length
+    grupos.length,
+    valorTotalFrete
   );
 
   for (const grupo of grupos) {
