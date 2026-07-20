@@ -426,6 +426,7 @@ export type RecebimentoComCanhotos = ViagemRecebimento & {
   canhotos: { id: string; file_name: string; storage_path: string }[];
   encargos: ViagemRecebimentoEncargo[];
   eh_frota: boolean;
+  saida_em: string | null;
 };
 
 export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
@@ -438,7 +439,7 @@ export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
     .from("viagens")
     .select(
       `
-      id, numero_cte, valor_frete,
+      id, numero_cte, valor_frete, saida_em,
       veiculos ( vinculo ),
       viagem_veiculos ( ordem, veiculos ( vinculo ) )
     `
@@ -457,6 +458,9 @@ export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
 
   const ctePorViagem = new Map(
     (viagensArquivadas ?? []).map((v) => [v.id, v.numero_cte as string | null])
+  );
+  const saidaPorViagem = new Map(
+    (viagensArquivadas ?? []).map((v) => [v.id, (v.saida_em as string | null) ?? null])
   );
   const freteBrutoPorViagem = new Map(
     (viagensArquivadas ?? []).map((v) => [v.id, Number(v.valor_frete) || 0])
@@ -535,6 +539,7 @@ export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
       valor_frete_total: valorFreteTotal,
       valor_diarias: Number(row.valor_diarias) || 0,
       numero_cte: ctePorViagem.get(r.viagem_id) ?? null,
+      saida_em: saidaPorViagem.get(r.viagem_id) ?? null,
       eh_frota: frotaPorViagem.get(r.viagem_id) ?? true,
       canhotos: canhotosPorViagem.get(r.viagem_id) ?? [],
       encargos: encargosPorRecebimento.get(r.id) ?? [],

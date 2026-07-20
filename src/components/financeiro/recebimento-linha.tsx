@@ -13,7 +13,7 @@ import {
   atualizarRecebimento,
 } from "@/lib/recebimento-viagem";
 import { resolverStatusRecebimento } from "@/lib/recebimento-status";
-import { formatarMoeda } from "@/lib/frota-filters";
+import { formatarDataBr, formatarMoeda } from "@/lib/frota-filters";
 import {
   calcularTotalAReceber,
   RECEBIMENTO_ENCARGO_LABEL,
@@ -203,6 +203,11 @@ export function RecebimentoLinha({
             text={item.numero_cte?.trim() || "—"}
             className="font-mono text-slate-800"
           />
+        </Campo>
+        <Campo label="Data saída">
+          <Valor className="text-slate-800">
+            {item.saida_em ? formatarDataBr(item.saida_em) : "—"}
+          </Valor>
         </Campo>
         <Campo label="Placas">
           <TextoMarquee text={item.veiculos_placas} className="font-mono text-cyan-700" />

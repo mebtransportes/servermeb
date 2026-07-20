@@ -67,12 +67,19 @@ const PERIODO_OPCOES: { value: PeriodoPreset; label: string }[] = [
   { value: "custom", label: "Datas específicas" },
 ];
 
+const PERIODO_SAIDA_INICIAL: PeriodoFiltroState = {
+  preset: "todos",
+  dataDe: "",
+  dataAte: "",
+};
+
 function filtrosRecebimentosAtivos(opts: {
   filtroVinculo: FiltroVinculo;
   filtroStatus: FiltroStatus;
   filtroEncargoTipo: FiltroEncargoTipo;
   filtroEncargoStatus: FiltroEncargoStatus;
   periodo: PeriodoFiltroState;
+  periodoSaida: PeriodoFiltroState;
   buscaCte: string;
 }) {
   return (
@@ -81,12 +88,19 @@ function filtrosRecebimentosAtivos(opts: {
     opts.filtroEncargoTipo !== "todos" ||
     opts.filtroEncargoStatus !== "todos" ||
     opts.buscaCte.trim() !== "" ||
-    opts.periodo.preset !== PERIODO_FILTRO_INICIAL.preset
+    opts.periodo.preset !== PERIODO_FILTRO_INICIAL.preset ||
+    opts.periodoSaida.preset !== PERIODO_SAIDA_INICIAL.preset ||
+    (opts.periodoSaida.preset === "custom" &&
+      (!!opts.periodoSaida.dataDe || !!opts.periodoSaida.dataAte))
   );
 }
 
 function dataReferenciaRecebimento(item: RecebimentoComCanhotos): string {
   return item.data_recebimento ?? item.created_at ?? "";
+}
+
+function dataReferenciaSaida(item: RecebimentoComCanhotos): string {
+  return item.saida_em ?? "";
 }
 
 function recebimentoNoPeriodo(
@@ -95,6 +109,16 @@ function recebimentoNoPeriodo(
 ): boolean {
   const dataRef = dataReferenciaRecebimento(item);
   if (!dataRef) return periodo.preset === "todos";
+  return dataNoPeriodoConfig(dataRef, periodo);
+}
+
+function saidaNoPeriodo(
+  item: RecebimentoComCanhotos,
+  periodo: PeriodoFiltroState
+): boolean {
+  if (periodo.preset === "todos") return true;
+  const dataRef = dataReferenciaSaida(item);
+  if (!dataRef) return false;
   return dataNoPeriodoConfig(dataRef, periodo);
 }
 
@@ -137,6 +161,7 @@ export function RecebimentosPageContent() {
   const [filtroEncargoTipo, setFiltroEncargoTipo] = useState<FiltroEncargoTipo>("todos");
   const [filtroEncargoStatus, setFiltroEncargoStatus] = useState<FiltroEncargoStatus>("todos");
   const [periodo, setPeriodo] = useState<PeriodoFiltroState>(PERIODO_FILTRO_INICIAL);
+  const [periodoSaida, setPeriodoSaida] = useState<PeriodoFiltroState>(PERIODO_SAIDA_INICIAL);
   const [showRelatorio, setShowRelatorio] = useState(false);
   const [showRelatorioViagens, setShowRelatorioViagens] = useState(false);
   const [modoRelatorio, setModoRelatorio] = useState<"recebimentos" | "encargos">("recebimentos");
@@ -162,8 +187,11 @@ export function RecebimentosPageContent() {
   );
 
   const noPeriodo = useMemo(
-    () => porVinculo.filter((i) => recebimentoNoPeriodo(i, periodo)),
-    [porVinculo, periodo]
+    () =>
+      porVinculo.filter(
+        (i) => recebimentoNoPeriodo(i, periodo) && saidaNoPeriodo(i, periodoSaida)
+      ),
+    [porVinculo, periodo, periodoSaida]
   );
 
   const filtrados = useMemo(() => {
@@ -206,6 +234,7 @@ export function RecebimentosPageContent() {
     filtroEncargoTipo,
     filtroEncargoStatus,
     periodo,
+    periodoSaida,
     buscaCte,
   });
 
@@ -215,6 +244,7 @@ export function RecebimentosPageContent() {
     setFiltroEncargoTipo("todos");
     setFiltroEncargoStatus("todos");
     setPeriodo(PERIODO_FILTRO_INICIAL);
+    setPeriodoSaida(PERIODO_SAIDA_INICIAL);
     setBuscaCte("");
   }
 
@@ -223,6 +253,14 @@ export function RecebimentosPageContent() {
       preset,
       dataDe: preset === "custom" ? periodo.dataDe : "",
       dataAte: preset === "custom" ? periodo.dataAte : "",
+    });
+  }
+
+  function alterarPeriodoSaida(preset: PeriodoPreset) {
+    setPeriodoSaida({
+      preset,
+      dataDe: preset === "custom" ? periodoSaida.dataDe : "",
+      dataAte: preset === "custom" ? periodoSaida.dataAte : "",
     });
   }
 
@@ -317,12 +355,19 @@ export function RecebimentosPageContent() {
           )}
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <Select
             label="Período"
             tone="light"
             value={periodo.preset}
             onChange={(e) => alterarPeriodo(e.target.value as PeriodoPreset)}
+            options={PERIODO_OPCOES.map((p) => ({ value: p.value, label: p.label }))}
+          />
+          <Select
+            label="Data de saída"
+            tone="light"
+            value={periodoSaida.preset}
+            onChange={(e) => alterarPeriodoSaida(e.target.value as PeriodoPreset)}
             options={PERIODO_OPCOES.map((p) => ({ value: p.value, label: p.label }))}
           />
           <Select
@@ -339,7 +384,7 @@ export function RecebimentosPageContent() {
             onChange={(e) => setFiltroStatus(e.target.value as FiltroStatus)}
             options={STATUS_FILTROS.map((s) => ({ value: s.value, label: s.label }))}
           />
-          <div className="relative sm:col-span-2 lg:col-span-1 xl:col-span-2">
+          <div className="relative sm:col-span-2 lg:col-span-1 xl:col-span-1">
             <label className="mb-1 block text-sm font-medium text-slate-600">
               Buscar CT-e
             </label>
@@ -356,22 +401,48 @@ export function RecebimentosPageContent() {
           </div>
         </div>
 
-        {periodo.preset === "custom" && (
-          <div className="grid max-w-md gap-3 sm:grid-cols-2">
-            <Input
-              label="De"
-              type="date"
-              tone="light"
-              value={periodo.dataDe}
-              onChange={(e) => setPeriodo({ ...periodo, dataDe: e.target.value })}
-            />
-            <Input
-              label="Até"
-              type="date"
-              tone="light"
-              value={periodo.dataAte}
-              onChange={(e) => setPeriodo({ ...periodo, dataAte: e.target.value })}
-            />
+        {(periodo.preset === "custom" || periodoSaida.preset === "custom") && (
+          <div className="space-y-3">
+            {periodo.preset === "custom" && (
+              <div className="grid max-w-md gap-3 sm:grid-cols-2">
+                <Input
+                  label="Período — De"
+                  type="date"
+                  tone="light"
+                  value={periodo.dataDe}
+                  onChange={(e) => setPeriodo({ ...periodo, dataDe: e.target.value })}
+                />
+                <Input
+                  label="Período — Até"
+                  type="date"
+                  tone="light"
+                  value={periodo.dataAte}
+                  onChange={(e) => setPeriodo({ ...periodo, dataAte: e.target.value })}
+                />
+              </div>
+            )}
+            {periodoSaida.preset === "custom" && (
+              <div className="grid max-w-md gap-3 sm:grid-cols-2">
+                <Input
+                  label="Saída — De"
+                  type="date"
+                  tone="light"
+                  value={periodoSaida.dataDe}
+                  onChange={(e) =>
+                    setPeriodoSaida({ ...periodoSaida, dataDe: e.target.value })
+                  }
+                />
+                <Input
+                  label="Saída — Até"
+                  type="date"
+                  tone="light"
+                  value={periodoSaida.dataAte}
+                  onChange={(e) =>
+                    setPeriodoSaida({ ...periodoSaida, dataAte: e.target.value })
+                  }
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -418,6 +489,9 @@ export function RecebimentosPageContent() {
           )}
           {buscaCte.trim() && <> · CT-e: {buscaCte.trim()}</>}
           {periodo.preset !== "todos" && <> · {labelPeriodoConfig(periodo)}</>}
+          {periodoSaida.preset !== "todos" && (
+            <> · Saída: {labelPeriodoConfig(periodoSaida)}</>
+          )}
           {" · "}
           total listado{" "}
           {formatarMoeda(filtrados.reduce((s, i) => s + calcularTotalAReceber(i), 0))}
