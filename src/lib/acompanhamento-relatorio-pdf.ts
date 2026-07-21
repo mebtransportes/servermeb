@@ -166,7 +166,7 @@ export async function enriquecerLinhasRelatorioAcompanhamento(
   const supabase = createClient();
   const ids = viagens.map((v) => v.id);
 
-  const [{ data: pagamentos }, { data: fechamentos }, { data: recebimentos }] =
+  const [{ data: pagamentos }, { data: fechamentos }, { data: recebimentos }, { data: recursosDescarga }] =
     await Promise.all([
       supabase
         .from("viagens")
@@ -180,6 +180,11 @@ export async function enriquecerLinhasRelatorioAcompanhamento(
         .from("viagem_recebimentos")
         .select("viagem_id, valor_descargas_adicionais, valor_diarias")
         .in("viagem_id", ids),
+      supabase
+        .from("viagem_recursos")
+        .select("viagem_id, valor")
+        .in("viagem_id", ids)
+        .eq("tipo", "descarga"),
     ]);
 
   const pagPorViagem = new Map(
@@ -195,6 +200,13 @@ export async function enriquecerLinhasRelatorioAcompanhamento(
   const recPorViagem = new Map(
     (recebimentos ?? []).map((r) => [r.viagem_id as string, r])
   );
+  const descargaGastoPorViagem = new Map<string, number>();
+  for (const r of recursosDescarga ?? []) {
+    const viagemId = r.viagem_id as string;
+    const valor = Number(r.valor) || 0;
+    if (valor <= 0) continue;
+    descargaGastoPorViagem.set(viagemId, (descargaGastoPorViagem.get(viagemId) ?? 0) + valor);
+  }
 
   return viagens.map((v) => {
     const frete = v.valor_frete != null ? Number(v.valor_frete) : 0;
@@ -211,7 +223,9 @@ export async function enriquecerLinhasRelatorioAcompanhamento(
           : 0;
 
     const rec = recPorViagem.get(v.id);
-    const descarga = Number(rec?.valor_descargas_adicionais) || 0;
+    const descargaRecebimento = Number(rec?.valor_descargas_adicionais) || 0;
+    const descargaGasto = descargaGastoPorViagem.get(v.id) ?? 0;
+    const descarga = descargaRecebimento + descargaGasto;
     const diaria = Number(rec?.valor_diarias) || 0;
     const dataPag = pagPorViagem.get(v.id) ?? null;
 
