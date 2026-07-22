@@ -217,13 +217,15 @@ export function RecebimentosPageContent() {
     let pendente = 0;
     let pago = 0;
     let vencido = 0;
+    let semData = 0;
     for (const i of noPeriodo) {
       const t = calcularTotalAReceber(i);
+      if (recebimentoSemDataRecebimento(i)) semData += t;
       if (i.status === "pago") pago += t;
       else if (i.status === "vencido") vencido += t;
       else pendente += t;
     }
-    return { pendente, pago, vencido, total: pendente + pago + vencido };
+    return { pendente, pago, vencido, semData, total: pendente + pago + vencido };
   }, [noPeriodo]);
 
   const vinculoLabel = VINCULO_FILTROS.find((v) => v.value === filtroVinculo)?.label ?? "Todos";
@@ -316,7 +318,7 @@ export function RecebimentosPageContent() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <ResumoCard
           label="Pendente"
           valor={resumo.pendente}
@@ -337,6 +339,13 @@ export function RecebimentosPageContent() {
           cor="text-emerald-700"
           ativo={filtroStatus === "pago"}
           onClick={() => setFiltroStatus((s) => (s === "pago" ? "todos" : "pago"))}
+        />
+        <ResumoCard
+          label="Sem Datas"
+          valor={resumo.semData}
+          cor="text-slate-700"
+          ativo={filtroStatus === "sem_data"}
+          onClick={() => setFiltroStatus((s) => (s === "sem_data" ? "todos" : "sem_data"))}
         />
       </div>
 
