@@ -220,7 +220,9 @@ export function RecebimentosPageContent() {
     let semData = 0;
     for (const i of noPeriodo) {
       const t = calcularTotalAReceber(i);
-      if (recebimentoSemDataRecebimento(i)) semData += t;
+      if (recebimentoSemDataRecebimento(i)) {
+        semData += Number(i.valor_frete_total) || 0;
+      }
       if (i.status === "pago") pago += t;
       else if (i.status === "vencido") vencido += t;
       else pendente += t;
