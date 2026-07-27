@@ -378,10 +378,6 @@ export async function gerarPdfFechamentoViagem(f: ViagemFechamento) {
           valor: formatarMoeda(despesasMotorista),
         },
         {
-          rotulo: "Frete líquido retirando os gastos totais",
-          valor: formatarMoeda(calc.frete_menos_gastos_totais ?? calc.frete_menos_gastos ?? 0),
-        },
-        {
           rotulo: "Frete líquido retirando os gastos do motorista",
           valor: formatarMoeda(calc.frete_menos_gastos_motorista ?? 0),
         },
