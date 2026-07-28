@@ -1,11 +1,17 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { applySecurityHeaders } from "@/lib/security-headers";
+
+function withSecurity(response: NextResponse) {
+  applySecurityHeaders(response.headers);
+  return response;
+}
 
 function redirectToLogin(request: NextRequest, error?: "config") {
   const url = request.nextUrl.clone();
   url.pathname = "/login";
   if (error) url.searchParams.set("error", error);
-  return NextResponse.redirect(url);
+  return withSecurity(NextResponse.redirect(url));
 }
 
 export async function updateSession(request: NextRequest) {
@@ -14,7 +20,7 @@ export async function updateSession(request: NextRequest) {
   const isLogin = request.nextUrl.pathname === "/login";
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    if (isLogin) return NextResponse.next({ request });
+    if (isLogin) return withSecurity(NextResponse.next({ request }));
     return redirectToLogin(request, "config");
   }
 
@@ -50,12 +56,12 @@ export async function updateSession(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = "/";
       url.search = "";
-      return NextResponse.redirect(url);
+      return withSecurity(NextResponse.redirect(url));
     }
 
-    return supabaseResponse;
+    return withSecurity(supabaseResponse);
   } catch {
-    if (isLogin) return NextResponse.next({ request });
+    if (isLogin) return withSecurity(NextResponse.next({ request }));
     return redirectToLogin(request);
   }
 }
