@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { LOGO_SRC } from "@/components/brand/logo";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,12 +13,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MEB — Gestão de Transporte",
+  title: "M&B — Gestão de Transporte",
   description: "Sistema de gestão de transporte",
   icons: {
-    icon: LOGO_SRC,
-    shortcut: LOGO_SRC,
-    apple: LOGO_SRC,
+    icon: [{ url: "/icon?v=2", type: "image/png" }],
+    shortcut: "/icon?v=2",
+    apple: "/icon?v=2",
   },
 };
 

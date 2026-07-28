@@ -106,7 +106,7 @@ function rodape(doc: jsPDF, pagina: number, total: number) {
   doc.setFontSize(7);
   doc.setTextColor(120);
   doc.text(
-    `MEB Gestão de Transporte — Página ${pagina} de ${total}`,
+    `M&B Gestão de Transporte — Página ${pagina} de ${total}`,
     doc.internal.pageSize.getWidth() / 2,
     y,
     { align: "center" }
@@ -415,7 +415,7 @@ function cabecalhoRelatorio(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
   doc.setTextColor(0, 100, 120);
-  doc.text("MEB Gestão de Transporte", MARGEM_X, 14);
+  doc.text("M&B Gestão de Transporte", MARGEM_X, 14);
 
   doc.setFontSize(11);
   doc.setTextColor(30, 30, 30);

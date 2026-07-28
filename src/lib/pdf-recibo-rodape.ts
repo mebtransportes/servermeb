@@ -45,8 +45,8 @@ export function desenharRodapeAssinaturasRecibo(
   const texto =
     opts.textoDeclaracao ??
     (opts.ehTerceiro
-      ? "Declaro ter recebido da MEB Transportes o valor líquido acima, referente ao repasse do frete das viagens relacionadas neste recibo."
-      : "Declaro ter recebido da MEB Transportes o valor líquido acima, referente à comissão das viagens relacionadas neste recibo.");
+      ? "Declaro ter recebido da M&B Transportes o valor líquido acima, referente ao repasse do frete das viagens relacionadas neste recibo."
+      : "Declaro ter recebido da M&B Transportes o valor líquido acima, referente à comissão das viagens relacionadas neste recibo.");
 
   doc.setFont("helvetica", "italic");
   doc.setFontSize(6.5);
@@ -68,7 +68,7 @@ export function desenharRodapeAssinaturasRecibo(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
   doc.setTextColor(30, 41, 59);
-  doc.text("MEB Transportes", esqX + assinW / 2, assinY + 4.5, { align: "center" });
+  doc.text("M&B Transportes", esqX + assinW / 2, assinY + 4.5, { align: "center" });
   doc.text(opts.beneficiarioNome, dirX + assinW / 2, assinY + 4.5, { align: "center" });
 
   doc.setFont("helvetica", "normal");

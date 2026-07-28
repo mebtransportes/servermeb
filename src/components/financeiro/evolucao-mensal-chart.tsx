@@ -41,6 +41,26 @@ const THEMES = {
     value: "text-cyan-700",
     gradientId: "lineFillCyan",
   },
+  indigo: {
+    border: "border-[#33388d]/30",
+    line: "#33388d",
+    fillStart: "rgb(51, 56, 141)",
+    dot: "#2a2f7a",
+    dotHover: "#4a50a8",
+    tooltipBorder: "border-[#33388d]/40",
+    value: "text-[#33388d]",
+    gradientId: "lineFillIndigo",
+  },
+  emerald: {
+    border: "border-emerald-200/80",
+    line: "#059669",
+    fillStart: "rgb(16, 185, 129)",
+    dot: "#047857",
+    dotHover: "#10b981",
+    tooltipBorder: "border-emerald-200",
+    value: "text-emerald-700",
+    gradientId: "lineFillEmerald",
+  },
 } as const;
 
 export function EvolucaoMensalChart({
@@ -88,87 +108,90 @@ export function EvolucaoMensalChart({
       {dados.length === 0 ? (
         <p className="py-10 text-center text-base text-slate-400">Sem dados para o gráfico.</p>
       ) : (
-        <div className="relative w-full overflow-x-auto">
-          <svg
-            viewBox={`0 0 ${W} ${H}`}
-            className="w-full min-w-[320px] max-h-[300px]"
-            preserveAspectRatio="xMidYMid meet"
-          >
-            <defs>
-              <linearGradient id={t.gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={t.fillStart} stopOpacity="0.35" />
-                <stop offset="100%" stopColor={t.fillStart} stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            {chart.gridY.map((g, i) => (
-              <g key={i}>
-                <line
-                  x1={PAD.left}
-                  y1={g.y}
-                  x2={W - PAD.right}
-                  y2={g.y}
-                  stroke="#e2e8f0"
-                  strokeDasharray="4 4"
-                />
-                <text x={PAD.left - 6} y={g.y + 4} textAnchor="end" className="fill-slate-500 text-xs">
-                  {g.label}
-                </text>
-              </g>
-            ))}
-            {chart.areaPath && <path d={chart.areaPath} fill={`url(#${t.gradientId})`} />}
-            {chart.linePath && (
-              <path
-                d={chart.linePath}
-                fill="none"
-                stroke={t.line}
-                strokeWidth="2.5"
-                strokeLinecap="round"
-              />
-            )}
-            {chart.points.map((p, i) => (
-              <g
-                key={p.chave}
-                onMouseEnter={() => setHovered(i)}
-                onMouseLeave={() => setHovered(null)}
-                className="cursor-pointer"
-              >
-                <circle
-                  cx={p.x}
-                  cy={p.y}
-                  r={hovered === i ? 7 : 5}
-                  fill={hovered === i ? t.dotHover : t.dot}
-                  stroke="#fff"
-                  strokeWidth="2"
-                />
-              </g>
-            ))}
-            {chart.points.map((p) => (
-              <text
-                key={`l-${p.chave}`}
-                x={p.x}
-                y={H - 14}
-                textAnchor="middle"
-                className="fill-slate-500 text-xs"
-              >
-                {p.label}
-              </text>
-            ))}
-          </svg>
-          {active && hovered != null && chart.points[hovered] && (
-            <div
-              className={cn(
-                "pointer-events-none absolute top-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-md",
-                t.tooltipBorder
-              )}
-              style={{
-                left: `${(chart.points[hovered].x / W) * 100}%`,
-                transform: "translateX(-50%)",
-              }}
+        <div className="relative">
+          <div className="w-full overflow-x-auto">
+            <svg
+              viewBox={`0 0 ${W} ${H}`}
+              className="w-full min-w-[320px] max-h-[300px]"
+              preserveAspectRatio="xMidYMid meet"
             >
-              <p className="text-xs text-slate-400">{active.label}</p>
-              <p className={cn("text-lg font-bold", t.value)}>{formatarMoeda(active.total)}</p>
-              {active.variacaoPct != null && <VariacaoBadge pct={active.variacaoPct} />}
-            </div>
+              <defs>
+                <linearGradient id={t.gradientId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={t.fillStart} stopOpacity="0.35" />
+                  <stop offset="100%" stopColor={t.fillStart} stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              {chart.gridY.map((g, i) => (
+                <g key={i}>
+                  <line
+                    x1={PAD.left}
+                    y1={g.y}
+                    x2={W - PAD.right}
+                    y2={g.y}
+                    stroke="#e2e8f0"
+                    strokeDasharray="4 4"
+                  />
+                  <text
+                    x={PAD.left - 6}
+                    y={g.y + 4}
+                    textAnchor="end"
+                    className="fill-slate-500 text-xs"
+                  >
+                    {g.label}
+                  </text>
+                </g>
+              ))}
+              {chart.areaPath && <path d={chart.areaPath} fill={`url(#${t.gradientId})`} />}
+              {chart.linePath && (
+                <path
+                  d={chart.linePath}
+                  fill="none"
+                  stroke={t.line}
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                />
+              )}
+              {chart.points.map((p, i) => (
+                <g
+                  key={p.chave}
+                  onMouseEnter={() => setHovered(i)}
+                  onMouseLeave={() => setHovered(null)}
+                  className="cursor-pointer"
+                >
+                  <circle
+                    cx={p.x}
+                    cy={p.y}
+                    r={hovered === i ? 7 : 5}
+                    fill={hovered === i ? t.dotHover : t.dot}
+                    stroke="#fff"
+                    strokeWidth="2"
+                  />
+                  {/* Área de hit maior para facilitar o hover */}
+                  <circle cx={p.x} cy={p.y} r={16} fill="transparent" />
+                </g>
+              ))}
+              {chart.points.map((p) => (
+                <text
+                  key={`l-${p.chave}`}
+                  x={p.x}
+                  y={H - 14}
+                  textAnchor="middle"
+                  className="fill-slate-500 text-xs"
+                >
+                  {p.label}
+                </text>
+              ))}
+            </svg>
+          </div>
+          {active && hovered != null && chart.points[hovered] && (
+            <TooltipMensal
+              label={active.label}
+              total={active.total}
+              variacaoPct={active.variacaoPct}
+              xPct={(chart.points[hovered].x / W) * 100}
+              valueClass={t.value}
+              borderClass={t.tooltipBorder}
+            />
           )}
         </div>
       )}
@@ -212,6 +235,48 @@ function smoothLinePath(points: { x: number; y: number }[]) {
     d += ` C ${cx} ${p0.y}, ${cx} ${p1.y}, ${p1.x} ${p1.y}`;
   }
   return d;
+}
+
+function TooltipMensal({
+  label,
+  total,
+  variacaoPct,
+  xPct,
+  valueClass,
+  borderClass,
+}: {
+  label: string;
+  total: number;
+  variacaoPct?: number | null;
+  xPct: number;
+  valueClass: string;
+  borderClass: string;
+}) {
+  // Evita corte nas bordas: ancora à esquerda no início, à direita no fim.
+  const edge =
+    xPct < 18 ? "left" : xPct > 82 ? "right" : "center";
+  const style =
+    edge === "left"
+      ? { left: `${Math.max(xPct, 2)}%`, transform: "translateX(0)" }
+      : edge === "right"
+        ? { left: `${Math.min(xPct, 98)}%`, transform: "translateX(-100%)" }
+        : { left: `${xPct}%`, transform: "translateX(-50%)" };
+
+  return (
+    <div
+      className={cn(
+        "pointer-events-none absolute top-2 z-10 min-w-[9.5rem] rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-md",
+        borderClass
+      )}
+      style={style}
+    >
+      <p className="text-xs text-slate-400">{label}</p>
+      <p className={cn("whitespace-nowrap text-lg font-bold tabular-nums", valueClass)}>
+        {formatarMoeda(total)}
+      </p>
+      {variacaoPct != null && <VariacaoBadge pct={variacaoPct} />}
+    </div>
+  );
 }
 
 function VariacaoBadge({ pct }: { pct: number }) {

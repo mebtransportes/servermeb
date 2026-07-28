@@ -10,7 +10,7 @@ export function CustosEmpresariaisChart({ dados }: { dados: PontoGraficoEmpresar
       dados={dados as PontoGraficoMensal[]}
       titulo="Evolução dos custos empresariais"
       subtitulo="Últimos 6 meses · comissões, manutenções, abastecimentos e despesas cadastradas"
-      tema="purple"
+      tema="emerald"
     />
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Fuel, Plus, Route, ClipboardList, FileBarChart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -28,6 +28,7 @@ import { FrotaRelatorioModal } from "@/components/frota/frota-relatorio-modal";
 import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 
 export default function FrotaAbastecimentosPage() {
+  const formRef = useRef<HTMLDivElement>(null);
   const [items, setItems] = useState<AbastecimentoCard[]>([]);
   const [periodo, setPeriodo] = useState<PeriodoFiltroState>(PERIODO_FILTRO_INICIAL);
   const [veiculoPlaca, setVeiculoPlaca] = useState("");
@@ -49,6 +50,23 @@ export default function FrotaAbastecimentosPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!showForm) return;
+    const timer = window.setTimeout(() => {
+      const el = formRef.current;
+      if (!el) return;
+      const main = el.closest(".meb-app-main") as HTMLElement | null;
+      if (main) {
+        const top =
+          el.getBoundingClientRect().top - main.getBoundingClientRect().top + main.scrollTop - 16;
+        main.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+      } else {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [showForm, editingItem?.id]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -170,7 +188,6 @@ export default function FrotaAbastecimentosPage() {
           value={veiculoPlaca}
           onChange={setVeiculoPlaca}
           placeholder="Todos — digite a placa (mín. 2 letras)"
-          hint="Deixe em branco para todos os veículos."
           className="min-w-[220px]"
         />
         <Select
@@ -188,18 +205,20 @@ export default function FrotaAbastecimentosPage() {
       <StatsCards stats={statsControle} compact />
 
       {showForm && (
-        <AbastecimentoForm
-          item={editingItem ?? undefined}
-          onSaved={() => {
-            setShowForm(false);
-            setEditingItem(null);
-            load();
-          }}
-          onCancel={() => {
-            setShowForm(false);
-            setEditingItem(null);
-          }}
-        />
+        <div ref={formRef} className="scroll-mt-4">
+          <AbastecimentoForm
+            item={editingItem ?? undefined}
+            onSaved={() => {
+              setShowForm(false);
+              setEditingItem(null);
+              load();
+            }}
+            onCancel={() => {
+              setShowForm(false);
+              setEditingItem(null);
+            }}
+          />
+        </div>
       )}
 
       <FrotaRelatorioModal

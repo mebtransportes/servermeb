@@ -107,14 +107,30 @@ export function DocumentacaoAvisos() {
       </p>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <ResumoCard label="Total de avisos" value={resumo.total} icon={AlertTriangle} />
-        <ResumoCard label="Vencidos" value={resumo.vencidos} icon={AlertTriangle} />
+        <ResumoCard
+          label="Total de avisos"
+          value={resumo.total}
+          icon={AlertTriangle}
+          tone="cyan"
+        />
+        <ResumoCard
+          label="Vencidos"
+          value={resumo.vencidos}
+          icon={AlertTriangle}
+          tone="rose"
+        />
         <ResumoCard
           label="Vencendo em breve"
           value={resumo.vencendo}
           icon={CalendarClock}
+          tone="amber"
         />
-        <ResumoCard label="Sem data" value={resumo.semData} icon={HelpCircle} />
+        <ResumoCard
+          label="Sem data"
+          value={resumo.semData}
+          icon={HelpCircle}
+          tone="slate"
+        />
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -231,24 +247,59 @@ export function DocumentacaoAvisos() {
   );
 }
 
+const RESUMO_TONES = {
+  cyan: {
+    accent: "border-l-cyan-500",
+    iconWrap: "bg-cyan-100",
+    icon: "text-cyan-600",
+  },
+  rose: {
+    accent: "border-l-rose-500",
+    iconWrap: "bg-rose-100",
+    icon: "text-rose-600",
+  },
+  amber: {
+    accent: "border-l-amber-500",
+    iconWrap: "bg-amber-100",
+    icon: "text-amber-600",
+  },
+  slate: {
+    accent: "border-l-slate-400",
+    iconWrap: "bg-slate-100",
+    icon: "text-slate-600",
+  },
+} as const;
+
 function ResumoCard({
   label,
   value,
   icon: Icon,
+  tone,
 }: {
   label: string;
   value: number;
   icon: ComponentType<{ className?: string }>;
+  tone: keyof typeof RESUMO_TONES;
 }) {
+  const style = RESUMO_TONES[tone];
   return (
-    <div className={cn(mebCard, "p-4")}>
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
-          {label}
-        </span>
-        <Icon className="h-4 w-4 text-slate-400" />
+    <div className={cn(mebCard, "border-l-4 bg-white/90 p-4 shadow-sm", style.accent)}>
+      <div className="flex items-start gap-3">
+        <div
+          className={cn(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+            style.iconWrap
+          )}
+        >
+          <Icon className={cn("h-5 w-5", style.icon)} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            {label}
+          </p>
+          <p className="mt-0.5 text-2xl font-bold tracking-tight text-slate-900">{value}</p>
+        </div>
       </div>
-      <p className="text-2xl font-bold text-slate-900">{value}</p>
     </div>
   );
 }

@@ -1,17 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useState, type ComponentType, type ReactNode } from "react";
 import {
-  Truck,
-  Fuel,
-  Wrench,
-  Route,
-  Receipt,
+  ChevronRight,
   Droplets,
-  ParkingCircle,
-  Landmark,
   FileBarChart,
   FlaskConical,
+  Fuel,
+  Landmark,
+  ParkingCircle,
+  Receipt,
+  Route,
+  Truck,
+  Wrench,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PeriodoFilter } from "@/components/frota/periodo-filter";
@@ -28,42 +29,151 @@ import {
   PERIODO_FILTRO_INICIAL,
   type PeriodoFiltroState,
 } from "@/lib/frota-filters";
-import { cn, mebCard, mebCardSm } from "@/lib/utils";
+import { cn, mebCard } from "@/lib/utils";
+
+type Tone = "sky" | "amber" | "violet" | "emerald" | "cyan" | "orange" | "slate" | "rose";
+
+const TONES: Record<
+  Tone,
+  { accent: string; iconWrap: string; icon: string; hover: string }
+> = {
+  sky: {
+    accent: "border-l-sky-500",
+    iconWrap: "bg-sky-100",
+    icon: "text-sky-600",
+    hover: "hover:border-sky-200 hover:shadow-sky-100/50",
+  },
+  amber: {
+    accent: "border-l-amber-500",
+    iconWrap: "bg-amber-100",
+    icon: "text-amber-600",
+    hover: "hover:border-amber-200 hover:shadow-amber-100/50",
+  },
+  violet: {
+    accent: "border-l-violet-500",
+    iconWrap: "bg-violet-100",
+    icon: "text-violet-600",
+    hover: "hover:border-violet-200 hover:shadow-violet-100/50",
+  },
+  emerald: {
+    accent: "border-l-emerald-500",
+    iconWrap: "bg-emerald-100",
+    icon: "text-emerald-600",
+    hover: "hover:border-emerald-200 hover:shadow-emerald-100/50",
+  },
+  cyan: {
+    accent: "border-l-cyan-500",
+    iconWrap: "bg-cyan-100",
+    icon: "text-cyan-600",
+    hover: "hover:border-cyan-200 hover:shadow-cyan-100/50",
+  },
+  orange: {
+    accent: "border-l-orange-500",
+    iconWrap: "bg-orange-100",
+    icon: "text-orange-600",
+    hover: "hover:border-orange-200 hover:shadow-orange-100/50",
+  },
+  slate: {
+    accent: "border-l-slate-400",
+    iconWrap: "bg-slate-100",
+    icon: "text-slate-600",
+    hover: "hover:border-slate-300 hover:shadow-slate-100/50",
+  },
+  rose: {
+    accent: "border-l-rose-500",
+    iconWrap: "bg-rose-100",
+    icon: "text-rose-600",
+    hover: "hover:border-rose-200 hover:shadow-rose-100/50",
+  },
+};
 
 function CardCusto({
   label,
   valor,
   icon: Icon,
   sub,
+  tone,
+  qtd,
   onClick,
 }: {
   label: string;
   valor: number;
   icon: ComponentType<{ className?: string }>;
   sub?: string;
+  tone: Tone;
+  qtd?: number;
   onClick?: () => void;
 }) {
+  const style = TONES[tone];
   const Tag = onClick ? "button" : "article";
   return (
     <Tag
       type={onClick ? "button" : undefined}
       onClick={onClick}
       className={cn(
-        mebCardSm,
-        "p-3 text-left transition",
-        onClick && "cursor-pointer hover:border-cyan-200 hover:bg-white/80"
+        mebCard,
+        "border-l-4 bg-white/90 p-4 text-left shadow-sm transition",
+        style.accent,
+        onClick &&
+          cn(
+            "cursor-pointer hover:-translate-y-0.5 hover:bg-white hover:shadow-md",
+            style.hover
+          )
       )}
     >
-      <div className="mb-1 flex items-center gap-2 text-slate-500">
-        <Icon className="h-4 w-4 text-cyan-600" />
-        <span className="text-xs font-medium text-slate-600">{label}</span>
+      <div className="flex items-start gap-3">
+        <div
+          className={cn(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+            style.iconWrap
+          )}
+        >
+          <Icon className={cn("h-5 w-5", style.icon)} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              {label}
+            </p>
+            {typeof qtd === "number" && (
+              <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                {qtd}
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 truncate text-xl font-bold tracking-tight tabular-nums text-slate-900">
+            {formatarMoeda(valor)}
+          </p>
+          {sub && <p className="mt-1 text-[11px] leading-snug text-slate-500">{sub}</p>}
+          {onClick && (
+            <span className="mt-2 inline-flex items-center gap-0.5 text-[11px] font-medium text-slate-500">
+              Ver detalhes
+              <ChevronRight className="h-3.5 w-3.5" />
+            </span>
+          )}
+        </div>
       </div>
-      <p className="text-lg font-bold text-slate-900">{formatarMoeda(valor)}</p>
-      {sub && <p className="mt-0.5 text-[10px] text-slate-500">{sub}</p>}
-      {onClick && (
-        <p className="mt-1 text-[10px] text-cyan-700">Clique para ver detalhes</p>
-      )}
     </Tag>
+  );
+}
+
+function Secao({
+  titulo,
+  descricao,
+  children,
+}: {
+  titulo: string;
+  descricao?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-sm font-semibold text-slate-800">{titulo}</h2>
+        {descricao && <p className="text-xs text-slate-500">{descricao}</p>}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{children}</div>
+    </section>
   );
 }
 
@@ -88,12 +198,16 @@ export default function CustosOperacionaisPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Truck className="h-8 w-8 text-cyan-600" />
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#33388d]/10 text-[#33388d]">
+            <Truck className="h-6 w-6" />
+          </span>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Custos Operacionais</h1>
-            <p className="text-sm text-slate-500">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              Custos Operacionais
+            </h1>
+            <p className="mt-0.5 text-sm text-slate-500">
               Gastos em serviços de operação · {periodoLabel}
             </p>
           </div>
@@ -113,19 +227,52 @@ export default function CustosOperacionaisPage() {
       </header>
 
       {loading || !resumo ? (
-        <p className="text-slate-500">Carregando...</p>
+        <div className={cn(mebCard, "p-10 text-center text-sm text-slate-500")}>
+          Carregando custos do período...
+        </div>
       ) : (
         <>
-          <article className={cn(mebCard, "border-cyan-200/80 p-4 text-center")}>
-            <p className="text-xs text-slate-500">Total operacional no período</p>
-            <p className="text-2xl font-bold text-cyan-700">{formatarMoeda(resumo.total)}</p>
-          </article>
+          <section className="relative overflow-hidden rounded-2xl bg-[#33388d] px-6 py-6 text-white shadow-sm">
+            <div className="pointer-events-none absolute -right-12 top-0 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+            <div className="pointer-events-none absolute -bottom-16 left-1/3 h-32 w-32 rounded-full bg-sky-300/20 blur-2xl" />
+            <div className="relative flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/65">
+                  Total operacional
+                </p>
+                <p className="mt-1 text-3xl font-bold tracking-tight tabular-nums">
+                  {formatarMoeda(resumo.total)}
+                </p>
+                <p className="mt-1 text-sm text-white/70">{periodoLabel}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <MiniStat
+                  label="Abastecimentos"
+                  value={formatarMoeda(resumo.abastecimentos)}
+                />
+                <MiniStat
+                  label="Manutenções"
+                  value={formatarMoeda(resumo.manutencoes)}
+                />
+                <MiniStat
+                  label="Pedágios"
+                  value={formatarMoeda(resumo.pedagios)}
+                  className="col-span-2 sm:col-span-1"
+                />
+              </div>
+            </div>
+          </section>
 
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <Secao
+            titulo="No total operacional"
+            descricao="Entram no somatório principal do período"
+          >
             <CardCusto
               label="Abastecimentos"
               valor={resumo.abastecimentos}
               icon={Fuel}
+              tone="sky"
+              qtd={resumo.linhas.abastecimentos.length}
               sub={`Frota ${formatarMoeda(resumo.abastecimentosFrota)} · Viagem ${formatarMoeda(resumo.abastecimentosViagem)}`}
               onClick={() => setDetalheCategoria("abastecimentos")}
             />
@@ -133,6 +280,8 @@ export default function CustosOperacionaisPage() {
               label="Manutenções"
               valor={resumo.manutencoes}
               icon={Wrench}
+              tone="amber"
+              qtd={resumo.linhas.manutencoes.length}
               sub={`Preventiva ${formatarMoeda(resumo.manutencoesPreventivas)} · Viagem ${formatarMoeda(resumo.manutencoesViagem)}`}
               onClick={() => setDetalheCategoria("manutencoes")}
             />
@@ -140,19 +289,33 @@ export default function CustosOperacionaisPage() {
               label="Pedágios"
               valor={resumo.pedagios}
               icon={Route}
+              tone="violet"
+              qtd={resumo.linhas.pedagios.length}
               onClick={() => setDetalheCategoria("pedagios")}
             />
-            <CardCusto
-              label="Reembolsos"
-              valor={resumo.reembolsos}
-              icon={Receipt}
-              sub="Fora do total operacional"
-              onClick={() => setDetalheCategoria("reembolsos")}
-            />
+            {resumo.outros > 0 && (
+              <CardCusto
+                label="Outros"
+                valor={resumo.outros}
+                icon={ParkingCircle}
+                tone="slate"
+                qtd={resumo.linhas.outros.length}
+                sub="Estacionamento, seguro, monitoramento"
+                onClick={() => setDetalheCategoria("outros")}
+              />
+            )}
+          </Secao>
+
+          <Secao
+            titulo="Controle de combustível"
+            descricao="Entram no total, mas ficam fora do consumo KM/L"
+          >
             <CardCusto
               label="Arla"
               valor={resumo.arla}
               icon={Droplets}
+              tone="cyan"
+              qtd={resumo.linhas.arla.length}
               sub="Controle separado · fora do consumo KM/L"
               onClick={() => setDetalheCategoria("arla")}
             />
@@ -160,6 +323,8 @@ export default function CustosOperacionaisPage() {
               label="Diesel Comum"
               valor={resumo.dieselComum}
               icon={FlaskConical}
+              tone="orange"
+              qtd={resumo.linhas.diesel_comum.length}
               sub="Controle separado · fora do consumo KM/L"
               onClick={() => setDetalheCategoria("diesel_comum")}
             />
@@ -167,26 +332,36 @@ export default function CustosOperacionaisPage() {
               label="Diesel S500"
               valor={resumo.dieselS500}
               icon={FlaskConical}
+              tone="amber"
+              qtd={resumo.linhas.diesel_s500.length}
               sub="Controle separado · fora do consumo KM/L"
               onClick={() => setDetalheCategoria("diesel_s500")}
+            />
+          </Secao>
+
+          <Secao
+            titulo="Fora do total operacional"
+            descricao="Acompanhe à parte — não somam no total do período"
+          >
+            <CardCusto
+              label="Reembolsos"
+              valor={resumo.reembolsos}
+              icon={Receipt}
+              tone="emerald"
+              qtd={resumo.linhas.reembolsos.length}
+              sub="Fora do total operacional"
+              onClick={() => setDetalheCategoria("reembolsos")}
             />
             <CardCusto
               label="ICMS"
               valor={resumo.icms}
               icon={Landmark}
-              sub="Imposto sobre frete das viagens · Fora do total operacional"
+              tone="rose"
+              qtd={resumo.linhas.icms.length}
+              sub="Imposto sobre frete das viagens"
               onClick={() => setDetalheCategoria("icms")}
             />
-            {resumo.outros > 0 && (
-              <CardCusto
-                label="Outros"
-                valor={resumo.outros}
-                icon={ParkingCircle}
-                sub="Estacionamento, seguro, monitoramento"
-                onClick={() => setDetalheCategoria("outros")}
-              />
-            )}
-          </div>
+          </Secao>
         </>
       )}
 
@@ -197,6 +372,30 @@ export default function CustosOperacionaisPage() {
           onClose={() => setDetalheCategoria(null)}
         />
       )}
+    </div>
+  );
+}
+
+function MiniStat({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-xl border border-white/20 bg-white/10 px-3 py-2 backdrop-blur-sm",
+        className
+      )}
+    >
+      <p className="text-[10px] font-medium uppercase tracking-wide text-white/65">
+        {label}
+      </p>
+      <p className="mt-0.5 text-sm font-semibold tabular-nums">{value}</p>
     </div>
   );
 }

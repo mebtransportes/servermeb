@@ -131,15 +131,25 @@ export function FechamentoViagemCard({
   const temDataPagamento = !!dataPagamento.trim();
 
   return (
-    <article className={cn(mebCard, "p-4")}>
-      <div className="mb-3 flex justify-end">
+    <article
+      className={cn(
+        mebCard,
+        "border-l-4 p-4 shadow-sm",
+        isTerceiro ? "border-l-sky-500" : "border-l-emerald-500"
+      )}
+    >
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+          {isTerceiro ? "Fechamento terceiro" : "Fechamento frota"}
+        </p>
         <Button
           type="button"
           variant="secondary"
+          className="h-9 px-3 text-sm"
           disabled={gerandoPdf}
           onClick={handleGerarRelatorio}
         >
-          <FileText className="mr-2 h-4 w-4" />
+          <FileText className="h-4 w-4" />
           {gerandoPdf ? "Gerando..." : "Gerar relatório PDF"}
         </Button>
       </div>

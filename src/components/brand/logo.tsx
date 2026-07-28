@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 export const LOGO_SRC = "/mebtransportes.png";
 
 type LogoProps = {
-  variant?: "login" | "sidebar";
+  variant?: "login" | "sidebar" | "sidebarIcon" | "sidebarWatermark" | "dashboard";
   linked?: boolean;
   homeHref?: string;
   className?: string;
@@ -18,17 +18,35 @@ export function Logo({
   className,
 }: LogoProps) {
   const isLogin = variant === "login";
+  const isSidebarIcon = variant === "sidebarIcon";
+  const isWatermark = variant === "sidebarWatermark";
+  const isDashboard = variant === "dashboard";
 
   const image = (
     <Image
       src={LOGO_SRC}
-      alt="MEB Transporte"
-      width={isLogin ? 360 : 320}
-      height={isLogin ? 130 : 120}
-      priority={isLogin}
+      alt="M&B Transporte"
+      width={
+        isLogin ? 360 : isDashboard ? 1536 : isSidebarIcon ? 256 : isWatermark ? 200 : 320
+      }
+      height={
+        isLogin ? 240 : isDashboard ? 1024 : isSidebarIcon ? 256 : isWatermark ? 72 : 120
+      }
+      priority={isLogin || isDashboard}
+      quality={isDashboard ? 100 : undefined}
+      unoptimized={isLogin || isDashboard || isSidebarIcon}
+      sizes={isDashboard ? "(max-width: 1280px) 90vw, 640px" : undefined}
       className={cn(
         "object-contain object-center",
-        isLogin ? "h-32 w-auto max-w-[min(360px,100%)]" : "h-[7.5rem] w-full",
+        isLogin
+          ? "h-auto w-full max-w-[min(300px,85vw)]"
+          : isDashboard
+            ? "h-[21rem] w-auto max-w-full"
+            : isSidebarIcon
+              ? "h-10 w-10"
+              : isWatermark
+                ? "h-16 w-auto max-w-full opacity-80"
+                : "h-[7.5rem] w-full",
         className
       )}
     />

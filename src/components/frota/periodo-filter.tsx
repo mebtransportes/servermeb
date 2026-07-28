@@ -6,7 +6,12 @@ import {
   type PeriodoPreset,
 } from "@/lib/frota-filters";
 import { Input } from "@/components/ui/input";
-import { cn, mebFilterActive, mebFilterInactive } from "@/lib/utils";
+import { Select } from "@/components/ui/select";
+
+const PERIODO_OPCOES: { value: PeriodoPreset; label: string }[] = [
+  ...PERIODOS,
+  { value: "custom", label: "Datas específicas" },
+];
 
 export function PeriodoFilter({
   value,
@@ -26,48 +31,33 @@ export function PeriodoFilter({
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
-        {PERIODOS.map((p) => (
-          <button
-            key={p.value}
-            type="button"
-            onClick={() => setPreset(p.value)}
-            className={cn(
-              "rounded-lg px-3.5 py-2 text-sm font-medium transition",
-              value.preset === p.value ? mebFilterActive : mebFilterInactive
-            )}
-          >
-            {p.label}
-          </button>
-        ))}
-        <button
-          type="button"
-          onClick={() => setPreset("custom")}
-          className={cn(
-            "rounded-lg px-3.5 py-2 text-sm font-medium transition",
-            isCustom ? mebFilterActive : mebFilterInactive
-          )}
-        >
-          Datas específicas
-        </button>
-      </div>
+    <div className="flex flex-wrap items-end gap-3">
+      <Select
+        label="Período"
+        tone="light"
+        value={value.preset}
+        onChange={(e) => setPreset(e.target.value as PeriodoPreset)}
+        options={PERIODO_OPCOES.map((p) => ({ value: p.value, label: p.label }))}
+        className="min-w-[11rem] h-10"
+      />
 
       {isCustom && (
-        <div className="grid max-w-md gap-3 sm:grid-cols-2">
+        <>
           <Input
             label="De"
             type="date"
+            tone="light"
             value={value.dataDe}
             onChange={(e) => onChange({ ...value, dataDe: e.target.value })}
           />
           <Input
             label="Até"
             type="date"
+            tone="light"
             value={value.dataAte}
             onChange={(e) => onChange({ ...value, dataAte: e.target.value })}
           />
-        </div>
+        </>
       )}
     </div>
   );

@@ -2,14 +2,14 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { Eye, EyeOff, Lock, UserRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/brand/logo";
 import {
   isActiveProfileRole,
   normalizeProfileRole,
 } from "@/lib/roles";
+import { cn } from "@/lib/utils";
 
 const supabaseConfigured =
   Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
@@ -18,6 +18,7 @@ const supabaseConfigured =
 function LoginPageContent() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const searchParams = useSearchParams();
@@ -40,7 +41,6 @@ function LoginPageContent() {
     let authEmail: string | null = null;
     let profileRole: string | null = null;
 
-    // Aceita e-mail ou nome de usuário
     if (input.includes("@")) {
       const { data: profileByEmail, error: emailLookupError } = await supabase
         .from("profiles")
@@ -140,50 +140,114 @@ function LoginPageContent() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#e8edf2] p-4">
-      <div className="w-full max-w-md rounded-2xl border border-[#2a2f7a] bg-[#33388d] p-8 shadow-xl">
-        <div className="mb-8 flex flex-col items-center gap-4">
+    <div className="relative flex h-dvh max-h-dvh flex-col items-center justify-center overflow-hidden bg-[#0b0d1a] px-4 py-4">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-1/2 top-[18%] h-[28rem] w-[28rem] -translate-x-1/2 rounded-full bg-[#33388d]/35 blur-[100px]" />
+        <div className="absolute bottom-0 left-0 h-64 w-64 rounded-full bg-sky-600/10 blur-[80px]" />
+        <div
+          className="absolute inset-0 opacity-[0.12]"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.12) 1px, transparent 1px)",
+            backgroundSize: "56px 56px",
+          }}
+        />
+      </div>
+
+      <div className="login-panel relative z-10 flex w-full max-w-[24rem] flex-col items-center">
+        <div className="mb-4 flex w-full justify-center">
           <Logo variant="login" />
-          <p className="text-center text-sm text-white/80">
-            Gestão de transporte — acesse com seu usuário
-          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="login-on-brand space-y-4">
-          <Input
-            tone="light"
-            label="Usuário ou e-mail"
-            name="username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            autoComplete="username"
-            required
-            placeholder="admin ou admin@meb.local"
-          />
-          <Input
-            tone="light"
-            label="Senha"
-            name="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-            required
-            placeholder="••••••"
-          />
-          {error && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
+        <div className="w-full rounded-2xl border border-white/10 bg-[#12152a]/85 p-5 shadow-2xl shadow-black/40 backdrop-blur-md sm:p-6">
+          <div className="mb-5 text-center">
+            <h1 className="text-lg font-semibold text-white">Bem-vindo(a)</h1>
+            <p className="mt-1 text-sm text-white/55">
+              Acesse o painel com seu usuário e senha.
             </p>
-          )}
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={loading || !supabaseConfigured}
-          >
-            {loading ? "Entrando..." : "Entrar"}
-          </Button>
-        </form>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-3.5">
+            <div className="space-y-1.5">
+              <label
+                htmlFor="login-username"
+                className="text-[11px] font-semibold uppercase tracking-wide text-white/50"
+              >
+                Usuário ou e-mail
+              </label>
+              <div className="relative">
+                <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+                <input
+                  id="login-username"
+                  name="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  autoComplete="username"
+                  required
+                  placeholder="admin ou admin@meb.local"
+                  className="w-full rounded-xl border border-white/10 bg-[#0b0d1a] py-2.5 pl-10 pr-3 text-sm text-white placeholder:text-white/30 outline-none transition focus:border-[#33388d] focus:ring-2 focus:ring-[#33388d]/40"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="login-password"
+                className="text-[11px] font-semibold uppercase tracking-wide text-white/50"
+              >
+                Senha
+              </label>
+              <div className="relative">
+                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+                <input
+                  id="login-password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  required
+                  placeholder="••••••"
+                  className="w-full rounded-xl border border-white/10 bg-[#0b0d1a] py-2.5 pl-10 pr-10 text-sm text-white placeholder:text-white/30 outline-none transition focus:border-[#33388d] focus:ring-2 focus:ring-[#33388d]/40"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 transition hover:text-white/70"
+                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {error && (
+              <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2.5 text-sm text-red-200">
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading || !supabaseConfigured}
+              className={cn(
+                "mt-1 w-full rounded-xl bg-[#33388d] py-2.5 text-sm font-semibold text-white transition",
+                "shadow-[0_0_24px_rgba(51,56,141,0.45)] hover:bg-[#3d43a0]",
+                "disabled:cursor-not-allowed disabled:opacity-50"
+              )}
+            >
+              {loading ? "Entrando..." : "Entrar"}
+            </button>
+          </form>
+        </div>
+
+        <p className="mt-5 text-center text-[11px] text-white/35">
+          M&B — Gestão de Transporte
+        </p>
       </div>
     </div>
   );
@@ -191,7 +255,13 @@ function LoginPageContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-[#0b0d1a] text-white/60">
+          Carregando...
+        </div>
+      }
+    >
       <LoginPageContent />
     </Suspense>
   );

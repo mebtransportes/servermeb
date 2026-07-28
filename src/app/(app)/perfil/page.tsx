@@ -1,11 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  ArrowRight,
+  CheckCircle2,
+  KeyRound,
+  Shield,
+  User,
+  Users,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Settings } from "lucide-react";
-import Link from "next/link";
 import { ROLE_LABELS, normalizeProfileRole } from "@/lib/roles";
 import { cn, mebFormSection } from "@/lib/utils";
 
@@ -63,7 +70,9 @@ export default function PerfilPage() {
 
     setLoading(false);
     if (err) {
-      setError(err.message.includes("unique") ? "Este nome de usuário já existe." : err.message);
+      setError(
+        err.message.includes("unique") ? "Este nome de usuário já existe." : err.message
+      );
       return;
     }
     setUsername(normalized);
@@ -125,79 +134,131 @@ export default function PerfilPage() {
     setMessage("Senha atualizada com sucesso.");
   }
 
+  const inicial = (username || newUsername || "?").slice(0, 1).toUpperCase();
+
   return (
-    <div className="max-w-lg">
-      <header className="mb-8 flex items-center gap-3">
-        <Settings className="h-8 w-8 text-cyan-600" />
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Minha conta</h1>
-          <p className="text-slate-500">
-            {role ? `Perfil: ${role} · ` : ""}
-            Altere usuário e senha
-          </p>
+    <div className="mx-auto max-w-4xl space-y-3">
+      <section className="relative overflow-hidden rounded-xl bg-[#33388d] px-4 py-3.5 text-white shadow-sm">
+        <div className="pointer-events-none absolute -right-8 top-0 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
+        <div className="relative flex flex-wrap items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-base font-bold">
+            {inicial}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight">Minha conta</h1>
+              {role && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/90">
+                  <Shield className="h-3 w-3" />
+                  {role}
+                </span>
+              )}
+            </div>
+            <p className="truncate text-xs text-white/75">
+              {username ? `@${username}` : "Carregando perfil..."} · altere usuário e senha
+            </p>
+          </div>
+          {isAdmin && (
+            <Link
+              href="/configuracoes/usuarios"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/20"
+            >
+              <Users className="h-3.5 w-3.5" />
+              Gerenciar usuários
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          )}
         </div>
-      </header>
+      </section>
 
       {message && (
-        <p className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+        <p className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
           {message}
         </p>
       )}
       {error && (
-        <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
         </p>
       )}
 
-      {isAdmin && (
-        <Link
-          href="/configuracoes/usuarios"
-          className="mb-6 block rounded-xl border border-cyan-200 bg-cyan-50/80 px-4 py-3 text-sm text-cyan-800 hover:border-cyan-300 hover:bg-cyan-50"
+      <div className="grid gap-3 lg:grid-cols-2">
+        <form
+          onSubmit={updateUsername}
+          className={cn(
+            mebFormSection,
+            "space-y-3 border border-slate-300 bg-white p-4 shadow-none"
+          )}
         >
-          Gerenciar usuários do sistema →
-        </Link>
-      )}
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600">
+              <User className="h-4 w-4" />
+            </span>
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900">Nome de usuário</h2>
+              <p className="text-[11px] text-slate-500">Usado para entrar no sistema</p>
+            </div>
+          </div>
+          <Input
+            label="Novo nome de usuário"
+            value={newUsername}
+            onChange={(e) => setNewUsername(e.target.value)}
+            className="border-slate-300 bg-white py-2 text-sm"
+            required
+          />
+          <Button type="submit" variant="success" className="py-2 text-sm" disabled={loading}>
+            Salvar usuário
+          </Button>
+        </form>
 
-      <form onSubmit={updateUsername} className={cn(mebFormSection, "mb-8 space-y-4")}>
-        <h2 className="font-semibold text-slate-900">Nome de usuário</h2>
-        <Input
-          label="Novo nome de usuário"
-          value={newUsername}
-          onChange={(e) => setNewUsername(e.target.value)}
-          required
-        />
-        <Button type="submit" variant="success" disabled={loading}>
-          Salvar usuário
-        </Button>
-      </form>
-
-      <form onSubmit={updatePassword} className={cn(mebFormSection, "space-y-4")}>
-        <h2 className="font-semibold text-slate-900">Senha</h2>
-        <Input
-          label="Senha atual"
-          type="password"
-          value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
-          required
-        />
-        <Input
-          label="Nova senha"
-          type="password"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          required
-        />
-        <Input
-          label="Confirmar nova senha"
-          type="password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          required
-        />
-        <Button type="submit" variant="success" disabled={loading}>
-          Alterar senha
-        </Button>
-      </form>
+        <form
+          onSubmit={updatePassword}
+          className={cn(
+            mebFormSection,
+            "space-y-3 border border-slate-300 bg-white p-4 shadow-none"
+          )}
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700">
+              <KeyRound className="h-4 w-4" />
+            </span>
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900">Senha</h2>
+              <p className="text-[11px] text-slate-500">Confirme com a senha atual</p>
+            </div>
+          </div>
+          <Input
+            label="Senha atual"
+            type="password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            className="border-slate-300 bg-white py-2 text-sm"
+            required
+          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              label="Nova senha"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="border-slate-300 bg-white py-2 text-sm"
+              required
+            />
+            <Input
+              label="Confirmar nova senha"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="border-slate-300 bg-white py-2 text-sm"
+              required
+            />
+          </div>
+          <Button type="submit" variant="success" className="py-2 text-sm" disabled={loading}>
+            Alterar senha
+          </Button>
+        </form>
+      </div>
     </div>
   );
 }

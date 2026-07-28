@@ -9,7 +9,7 @@ import type { RecursoVinculo } from "@/types";
 const MIN_CHARS_NOME = 3;
 
 const inputClass =
-  "rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400";
+  "h-10 rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400";
 
 export type MotoristaOption = {
   id: string;

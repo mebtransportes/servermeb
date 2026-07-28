@@ -290,7 +290,7 @@ export function formatarTextoWhatsAppAcompanhamento(
   statusLabel: string
 ): string {
   const linhas: string[] = [
-    "🚛 *MEB Transportes — Acompanhamento*",
+    "🚛 *M&B Transportes — Acompanhamento*",
     "",
     `👤 *Motorista:* ${viagem.motorista_nome}`,
   ];

@@ -162,7 +162,7 @@ export default function CadastroViagensPage() {
   }
 
   return (
-    <div>
+    <div className="min-w-0">
       <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Route className="h-8 w-8 text-cyan-400" />
@@ -186,7 +186,7 @@ export default function CadastroViagensPage() {
       )}
 
       {!loading && lista.length > 0 && (
-        <div className={`mb-4 flex flex-wrap items-end gap-3 p-4 ${mebCard}`}>
+        <div className={`mb-4 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 ${mebCard}`}>
           <Select
             label="Status"
             value={filtroStatus}
@@ -198,7 +198,6 @@ export default function CadastroViagensPage() {
                 label: VIAGEM_STATUS_LABEL[s] ?? s,
               })),
             ]}
-            className="min-w-[200px]"
           />
           <CadastroOpcaoAutocomplete
             label="Fornecedor"
@@ -206,7 +205,6 @@ export default function CadastroViagensPage() {
             value={filtroFornecedorId}
             onValueChange={setFiltroFornecedorId}
             opcional
-            className="min-w-[240px]"
             placeholder="Todos — digite o nome (mín. 2 letras)"
           />
           <Input
@@ -214,7 +212,6 @@ export default function CadastroViagensPage() {
             value={buscaCte}
             onChange={(e) => setBuscaCte(e.target.value)}
             placeholder="Nº CT-e..."
-            className="w-[140px]"
           />
         </div>
       )}
@@ -235,53 +232,75 @@ export default function CadastroViagensPage() {
               {buscaCte.trim() && <> · CT-e: {buscaCte.trim()}</>}
             </p>
           )}
-        <div className="overflow-x-auto rounded-xl border border-slate-200/80 bg-white/60">
-          <table className="w-full text-left text-sm">
+        <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200/80 bg-white/60">
+          <table className="w-full table-fixed text-left text-sm">
+            <colgroup>
+              <col className="w-[12%]" />
+              <col className="w-[14%]" />
+              <col className="w-[15%]" />
+              <col className="w-[20%]" />
+              <col className="w-[8%]" />
+              <col className="w-[10%]" />
+              <col className="w-[13%]" />
+              <col className="w-[8%]" />
+            </colgroup>
             <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
               <tr>
-                <th className="px-4 py-3">Saída</th>
-                <th className="px-4 py-3">Motorista</th>
-                <th className="px-4 py-3">Veículo</th>
-                <th className="px-4 py-3">Origem / Destino</th>
-                <th className="px-4 py-3">CTE</th>
-                <th className="px-4 py-3">Frete</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Ações</th>
+                <th className="px-2 py-3 font-medium sm:px-3">Saída</th>
+                <th className="px-2 py-3 font-medium sm:px-3">Motorista</th>
+                <th className="px-2 py-3 font-medium sm:px-3">Veículo</th>
+                <th className="px-2 py-3 font-medium sm:px-3">Origem / Destino</th>
+                <th className="px-2 py-3 font-medium sm:px-3">CTE</th>
+                <th className="px-2 py-3 font-medium sm:px-3">Frete</th>
+                <th className="px-2 py-3 font-medium sm:px-3">Status</th>
+                <th className="px-2 py-3 text-right font-medium sm:px-3">Ações</th>
               </tr>
             </thead>
             <tbody>
               {filtradas.map((v) => (
                 <tr key={v.id} className="border-t border-slate-100 hover:bg-white/50">
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {v.saida_em ? formatarDataHoraBr(v.saida_em) : "—"}
-                  </td>
-                  <td className="px-4 py-3">{v.motorista_nome}</td>
-                  <td className="px-4 py-3">{v.veiculo_label}</td>
                   <td
-                    className="px-4 py-3 max-w-[280px] truncate"
-                    title={v.origem_destino_label}
+                    className="px-2 py-3 sm:px-3"
+                    title={v.saida_em ? formatarDataHoraBr(v.saida_em) : undefined}
                   >
-                    {v.origem_destino_label}
-                  </td>
-                  <td className="px-4 py-3">{v.numero_cte ?? "—"}</td>
-                  <td className="px-4 py-3">
-                    {v.valor_frete != null ? formatarMoeda(Number(v.valor_frete)) : "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={cn(
-                        "meb-status-badge rounded-full px-2 py-0.5 text-xs font-medium",
-                        VIAGEM_STATUS_CORES[v.status] ?? "bg-slate-100 text-slate-600"
-                      )}
-                    >
-                      {v.status}
+                    <span className="line-clamp-2 break-words">
+                      {v.saida_em ? formatarDataHoraBr(v.saida_em) : "—"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                  <td className="px-2 py-3 sm:px-3" title={v.motorista_nome}>
+                    <span className="line-clamp-2 break-words">{v.motorista_nome}</span>
+                  </td>
+                  <td className="px-2 py-3 sm:px-3" title={v.veiculo_label}>
+                    <span className="line-clamp-2 break-words">{v.veiculo_label}</span>
+                  </td>
+                  <td
+                    className="px-2 py-3 sm:px-3"
+                    title={v.origem_destino_label}
+                  >
+                    <span className="line-clamp-2 break-words">{v.origem_destino_label}</span>
+                  </td>
+                  <td className="truncate px-2 py-3 sm:px-3" title={v.numero_cte ?? undefined}>
+                    {v.numero_cte ?? "—"}
+                  </td>
+                  <td className="truncate px-2 py-3 sm:px-3">
+                    {v.valor_frete != null ? formatarMoeda(Number(v.valor_frete)) : "—"}
+                  </td>
+                  <td className="px-2 py-3 sm:px-3">
+                    <span
+                      className={cn(
+                        "meb-status-badge inline-block max-w-full truncate rounded-full px-2 py-0.5 text-xs font-medium",
+                        VIAGEM_STATUS_CORES[v.status] ?? "bg-slate-100 text-slate-600"
+                      )}
+                      title={VIAGEM_STATUS_LABEL[v.status] ?? v.status}
+                    >
+                      {VIAGEM_STATUS_LABEL[v.status] ?? v.status}
+                    </span>
+                  </td>
+                  <td className="px-2 py-3 text-right whitespace-nowrap sm:px-3">
                     <button
                       type="button"
                       onClick={() => abrirEdicao(v)}
-                      className="mr-2 text-cyan-400 hover:text-cyan-300"
+                      className="mr-1.5 text-cyan-600 hover:text-cyan-500"
                       title="Editar"
                     >
                       <Pencil className="inline h-4 w-4" />
@@ -289,7 +308,7 @@ export default function CadastroViagensPage() {
                     <button
                       type="button"
                       onClick={() => handleExcluir(v)}
-                      className="text-red-400 hover:text-red-300"
+                      className="text-red-500 hover:text-red-400"
                       title="Excluir"
                     >
                       <Trash2 className="inline h-4 w-4" />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Wrench, Plus, FileBarChart } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ export default function FrotaManutencaoPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editParam = searchParams.get("edit");
+  const formRef = useRef<HTMLDivElement>(null);
 
   const [items, setItems] = useState<ManutencaoCard[]>([]);
   const [periodo, setPeriodo] = useState<PeriodoFiltroState>(PERIODO_FILTRO_INICIAL);
@@ -58,6 +59,23 @@ export default function FrotaManutencaoPage() {
     setShowForm(true);
     router.replace("/frota/manutencao", { scroll: false });
   }, [editParam, items, loading, router, showForm]);
+
+  useEffect(() => {
+    if (!showForm) return;
+    const timer = window.setTimeout(() => {
+      const el = formRef.current;
+      if (!el) return;
+      const main = el.closest(".meb-app-main") as HTMLElement | null;
+      if (main) {
+        const top =
+          el.getBoundingClientRect().top - main.getBoundingClientRect().top + main.scrollTop - 16;
+        main.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+      } else {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [showForm, editingItem?.id]);
 
   const filtrados = useMemo(
     () =>
@@ -141,22 +159,24 @@ export default function FrotaManutencaoPage() {
       <StatsCards stats={stats} />
 
       {showForm && (
-        <ManutencaoForm
-          item={editingItem ?? undefined}
-          prefill={editingItem ? undefined : formPrefill}
-          statusInicial={editingItem?.status ?? statusForm}
-          onSaved={() => {
-            setShowForm(false);
-            setEditingItem(null);
-            setFormPrefill(undefined);
-            load();
-          }}
-          onCancel={() => {
-            setShowForm(false);
-            setEditingItem(null);
-            setFormPrefill(undefined);
-          }}
-        />
+        <div ref={formRef} className="scroll-mt-4">
+          <ManutencaoForm
+            item={editingItem ?? undefined}
+            prefill={editingItem ? undefined : formPrefill}
+            statusInicial={editingItem?.status ?? statusForm}
+            onSaved={() => {
+              setShowForm(false);
+              setEditingItem(null);
+              setFormPrefill(undefined);
+              load();
+            }}
+            onCancel={() => {
+              setShowForm(false);
+              setEditingItem(null);
+              setFormPrefill(undefined);
+            }}
+          />
+        </div>
       )}
 
       <p className="text-xs text-slate-500">

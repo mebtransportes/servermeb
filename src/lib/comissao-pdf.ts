@@ -180,7 +180,7 @@ export async function gerarPdfComissaoMotorista(opts: {
     ehTerceiro ? "Transportador terceiro" : "Motorista — frota própria",
   ];
   desenharCaixa(doc, MARGIN, y, boxW, 24, "Pagador", [
-    "MEB Transportes",
+    "M&B Transportes",
     "Gestão de Transporte Rodoviário",
   ]);
   desenharCaixa(doc, MARGIN + boxW + 4, y, boxW, 24, "Beneficiário", beneficiarioLinhas);

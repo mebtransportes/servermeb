@@ -1,11 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import {
+  CalendarDays,
+  ChevronDown,
+  FileText,
+  Paperclip,
+  Receipt,
+  Save,
+  Truck,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { AnexoArquivoRow } from "@/components/shared/anexo-arquivo-row";
-import { TextoMarquee } from "@/components/shared/texto-marquee";
 import {
   adicionarEncargoRecebimento,
   atualizarEncargoRecebimento,
@@ -30,6 +38,24 @@ import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 
 const inputCompact = "py-1.5 text-sm";
 
+const STATUS_STYLE: Record<
+  RecebimentoStatus,
+  { accent: string; badge: string }
+> = {
+  pendente: {
+    accent: "border-l-amber-500",
+    badge: "bg-amber-100 text-amber-800",
+  },
+  vencido: {
+    accent: "border-l-rose-500",
+    badge: "bg-rose-100 text-rose-800",
+  },
+  pago: {
+    accent: "border-l-emerald-500",
+    badge: "bg-emerald-100 text-emerald-800",
+  },
+};
+
 function Campo({
   label,
   children,
@@ -41,25 +67,82 @@ function Campo({
 }) {
   return (
     <div className={cn("flex min-w-0 flex-col gap-1", className)}>
-      <p className="text-xs text-slate-500">{label}</p>
+      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
       {children}
     </div>
   );
 }
 
-function Valor({
-  children,
-  className,
-  title,
+function Metric({
+  label,
+  value,
+  hint,
+  tone = "default",
 }: {
-  children: ReactNode;
-  className?: string;
-  title?: string;
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: "default" | "muted" | "positive" | "emphasis";
 }) {
   return (
-    <p title={title} className={cn("flex min-h-[34px] items-center text-sm", className)}>
-      {children}
-    </p>
+    <div className="min-w-0 rounded-lg border border-slate-200/70 bg-white/80 px-3 py-2.5">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
+      <p
+        title={hint}
+        className={cn(
+          "mt-0.5 truncate text-sm font-semibold tabular-nums",
+          tone === "default" && "text-slate-800",
+          tone === "muted" && "text-slate-600",
+          tone === "positive" && "text-emerald-700",
+          tone === "emphasis" && "text-amber-700"
+        )}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function ToggleLink({
+  open,
+  onClick,
+  icon: Icon,
+  label,
+  count,
+}: {
+  open: boolean;
+  onClick: () => void;
+  icon: typeof Paperclip;
+  label: string;
+  count: number;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition",
+        open
+          ? "border-cyan-200 bg-cyan-50 text-cyan-800"
+          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+      )}
+    >
+      <Icon className="h-3.5 w-3.5" />
+      {label}
+      <span
+        className={cn(
+          "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+          open ? "bg-cyan-100 text-cyan-800" : "bg-slate-100 text-slate-600"
+        )}
+      >
+        {count}
+      </span>
+      <ChevronDown className={cn("h-3.5 w-3.5 transition", open && "rotate-180")} />
+    </button>
   );
 }
 
@@ -95,8 +178,12 @@ export function RecebimentoLinha({
   const [encargoEditandoId, setEncargoEditandoId] = useState<string | null>(null);
   const [salvandoEncargo, setSalvandoEncargo] = useState(false);
 
-  const descargas = somaEncargosPorTipo(item.encargos, "descarga") || Number(item.valor_descargas_adicionais) || 0;
-  const diarias = somaEncargosPorTipo(item.encargos, "diaria") || Number(item.valor_diarias) || 0;
+  const descargas =
+    somaEncargosPorTipo(item.encargos, "descarga") ||
+    Number(item.valor_descargas_adicionais) ||
+    0;
+  const diarias =
+    somaEncargosPorTipo(item.encargos, "diaria") || Number(item.valor_diarias) || 0;
 
   useEffect(() => {
     setDataRecebimento(item.data_recebimento?.split("T")[0] ?? "");
@@ -110,6 +197,8 @@ export function RecebimentoLinha({
     valor_diarias: diarias,
     encargos: item.encargos,
   });
+
+  const statusVisual = STATUS_STYLE[status];
 
   async function salvar() {
     setSalvando(true);
@@ -193,97 +282,121 @@ export function RecebimentoLinha({
   }
 
   return (
-    <div className={cn(mebCard, "min-w-0 overflow-hidden p-4")}>
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-        <Campo label="Motorista">
-          <TextoMarquee text={item.motorista_nome} className="font-medium text-slate-900" />
-        </Campo>
-        <Campo label="CTE">
-          <TextoMarquee
-            text={item.numero_cte?.trim() || "—"}
-            className="font-mono text-slate-800"
-          />
-        </Campo>
-        <Campo label="Data saída">
-          <Valor className="text-slate-800">
-            {item.saida_em ? formatarDataBr(item.saida_em) : "—"}
-          </Valor>
-        </Campo>
-        <Campo label="Placas">
-          <TextoMarquee text={item.veiculos_placas} className="font-mono text-cyan-700" />
-        </Campo>
-        <Campo label="Fornecedor">
-          <TextoMarquee text={item.empresa} className="text-slate-700" />
-        </Campo>
-        <Campo label="Frete bruto">
-          <Valor className="font-medium text-emerald-700">
-            {formatarMoeda(item.valor_frete_total)}
-          </Valor>
-        </Campo>
-        <Campo label="Frete líquido (sem ICMS)">
-          <Valor className="text-slate-700" title="Frete bruto − ICMS (12%)">
-            {formatarMoeda(item.valor_frete_liquido)}
-          </Valor>
-        </Campo>
-        <Campo label="Descargas">
-          <Valor className="font-medium text-slate-800">{formatarMoeda(descargas)}</Valor>
-        </Campo>
-        <Campo label="Diárias">
-          <Valor className="font-medium text-slate-800">{formatarMoeda(diarias)}</Valor>
-        </Campo>
-        <Campo label="Total a receber com Encargos">
-          <Valor className="font-bold text-amber-700" title="Frete líquido + encargos">
-            {formatarMoeda(totalReceber)}
-          </Valor>
-        </Campo>
-        <Campo label="Data receb." className="xl:col-span-2">
+    <div
+      className={cn(
+        mebCard,
+        "min-w-0 overflow-hidden border-l-4 p-4 shadow-sm",
+        statusVisual.accent
+      )}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="truncate text-base font-semibold text-slate-900">
+              {item.motorista_nome || "—"}
+            </h3>
+            <span
+              className={cn(
+                "rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
+                statusVisual.badge
+              )}
+            >
+              {RECEBIMENTO_STATUS_LABEL[status]}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+            <span className="inline-flex items-center gap-1 font-mono text-slate-700">
+              <FileText className="h-3.5 w-3.5 text-slate-400" />
+              CT-e {item.numero_cte?.trim() || "—"}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <CalendarDays className="h-3.5 w-3.5 text-slate-400" />
+              Saída {item.saida_em ? formatarDataBr(item.saida_em) : "—"}
+            </span>
+            <span
+              className="inline-flex min-w-0 max-w-[16rem] items-center gap-1 font-mono text-cyan-700"
+              title={item.veiculos_placas || undefined}
+            >
+              <Truck className="h-3.5 w-3.5 shrink-0 text-cyan-600" />
+              <span className="truncate">{item.veiculos_placas || "—"}</span>
+            </span>
+          </div>
+          <p className="truncate text-sm text-slate-600" title={item.empresa}>
+            {item.empresa || "—"}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <Metric
+          label="Frete bruto"
+          value={formatarMoeda(item.valor_frete_total)}
+          tone="positive"
+        />
+        <Metric
+          label="Líquido (sem ICMS)"
+          value={formatarMoeda(item.valor_frete_liquido)}
+          hint="Frete bruto − ICMS (12%)"
+          tone="muted"
+        />
+        <Metric label="Descargas" value={formatarMoeda(descargas)} />
+        <Metric label="Diárias" value={formatarMoeda(diarias)} />
+        <Metric
+          label="Total a receber"
+          value={formatarMoeda(totalReceber)}
+          hint="Frete líquido + encargos"
+          tone="emphasis"
+        />
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200/80 bg-slate-50/70 p-3">
+        <Campo label="Data receb." className="min-w-[10.5rem] flex-1 sm:flex-none">
           <Input
             type="date"
             value={dataRecebimento}
             onChange={(e) => setDataRecebimento(e.target.value)}
-            className={cn(inputCompact, "min-w-[10.5rem] w-full")}
+            className={cn(inputCompact, "w-full min-w-[10.5rem] bg-white")}
           />
         </Campo>
-        <Campo label="Status" className="xl:col-span-2">
+        <Campo label="Status" className="min-w-[9.5rem] flex-1 sm:flex-none">
           <Select
             value={status}
             onChange={(e) => setStatus(e.target.value as RecebimentoStatus)}
-            className={cn(inputCompact, "min-w-[9.5rem] w-full")}
+            className={cn(inputCompact, "w-full min-w-[9.5rem] bg-white")}
             options={(
               Object.entries(RECEBIMENTO_STATUS_LABEL) as [RecebimentoStatus, string][]
             ).map(([v, l]) => ({ value: v, label: l }))}
           />
         </Campo>
-        <Campo label="Ações">
-          <div className="flex min-h-[34px] flex-col justify-center gap-1">
-            <Button
-              type="button"
-              variant="success"
-              className="h-8 w-full px-2 text-xs"
-              disabled={salvando}
-              onClick={salvar}
-            >
-              {salvando ? "..." : "Salvar"}
-            </Button>
-            <button
-              type="button"
-              onClick={() => setCanhotosAbertos((v) => !v)}
-              className="text-left text-xs text-cyan-700 hover:underline"
-            >
-              Canhotos ({item.canhotos.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setEncargosAbertos((v) => !v)}
-              className="text-left text-xs text-cyan-700 hover:underline"
-            >
-              Encargos ({item.encargos.length})
-            </button>
-          </div>
-        </Campo>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="success"
+            className="h-9 px-4 text-sm"
+            disabled={salvando}
+            onClick={salvar}
+          >
+            <Save className="h-4 w-4" />
+            {salvando ? "Salvando..." : "Salvar"}
+          </Button>
+          <ToggleLink
+            open={canhotosAbertos}
+            onClick={() => setCanhotosAbertos((v) => !v)}
+            icon={Paperclip}
+            label="Canhotos"
+            count={item.canhotos.length}
+          />
+          <ToggleLink
+            open={encargosAbertos}
+            onClick={() => setEncargosAbertos((v) => !v)}
+            icon={Receipt}
+            label="Encargos"
+            count={item.encargos.length}
+          />
+        </div>
       </div>
 
-      <div className="mt-4 border-t border-slate-200/80 pt-4">
+      <div className="mt-3">
         <Input
           label="Observação"
           value={observacao}
@@ -430,10 +543,14 @@ export function RecebimentoLinha({
                       <td className="px-3 py-2 font-medium">{formatarMoeda(e.valor)}</td>
                       <td className="px-3 py-2">
                         {e.data_recebimento
-                          ? new Date(`${e.data_recebimento}T12:00:00`).toLocaleDateString("pt-BR")
+                          ? new Date(`${e.data_recebimento}T12:00:00`).toLocaleDateString(
+                              "pt-BR"
+                            )
                           : "—"}
                       </td>
-                      <td className="px-3 py-2">{RECEBIMENTO_ENCARGO_STATUS_LABEL[e.status]}</td>
+                      <td className="px-3 py-2">
+                        {RECEBIMENTO_ENCARGO_STATUS_LABEL[e.status]}
+                      </td>
                       <td className="px-3 py-2 text-right">
                         <div className="flex justify-end gap-2">
                           <button
@@ -465,22 +582,11 @@ export function RecebimentoLinha({
 
           <p className="text-xs text-slate-500">
             Encargos lançados entram no{" "}
-            <strong className="text-slate-700">Total a receber com Encargos</strong> (frete líquido
-            sem ICMS + soma dos encargos).
+            <strong className="text-slate-700">Total a receber</strong> (frete líquido sem ICMS +
+            soma dos encargos).
           </p>
         </div>
       )}
-
-      <p
-        className={cn(
-          "mt-2 text-[10px] text-slate-400",
-          status === "vencido" && "text-red-600",
-          status === "pago" && "text-emerald-600"
-        )}
-      >
-        Frete líquido sem encargos e imposto = frete total − ICMS · Total com encargos = líquido +
-        diárias + descargas
-      </p>
     </div>
   );
 }

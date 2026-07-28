@@ -227,25 +227,26 @@ export function AcompanhamentoRelatorioModal({
     <MebModal
       open={open}
       onClose={onClose}
-      maxWidth={etapa === "revisao" ? "max-w-2xl" : "max-w-md"}
+      maxWidth={etapa === "revisao" ? "max-w-2xl" : "max-w-xl"}
+      panelClassName="flex max-h-[85vh] flex-col"
       aria-labelledby="acompanhamento-relatorio-titulo"
     >
-      <div className="p-6">
+      <div className="flex min-h-0 flex-1 flex-col p-4">
         <MebModalHeader
           id="acompanhamento-relatorio-titulo"
           title="Relatório de Acompanhamento"
           description={
             etapa === "filtros"
-              ? "Defina o período, os filtros e quais dados devem aparecer no PDF. O relatório considera apenas placas de caminhão e cavalo (carretas são ignoradas)."
-              : "Desmarque as viagens que não devem entrar no PDF. As demais serão incluídas no relatório."
+              ? "Filtros e colunas do PDF (apenas caminhão e cavalo)."
+              : "Desmarque as viagens que não devem entrar no PDF."
           }
           onClose={onClose}
         />
 
-        <MebModalBody className="mt-4 max-h-[70vh] space-y-4 overflow-y-auto">
+        <MebModalBody className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto">
           {etapa === "filtros" ? (
             <>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <Input
                   label="De"
                   type="date"
@@ -260,64 +261,61 @@ export function AcompanhamentoRelatorioModal({
                   value={ate}
                   onChange={(e) => setAte(e.target.value)}
                 />
+                <Select
+                  label="Status"
+                  tone="light"
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  options={[
+                    { value: "", label: "Todos os status" },
+                    ...VIAGEM_STATUS_FILTRO_ACOMPANHAMENTO.map((s) => ({
+                      value: s,
+                      label: VIAGEM_STATUS_LABEL[s] ?? s,
+                    })),
+                  ]}
+                />
+                <Select
+                  label="Vínculo"
+                  tone="light"
+                  value={vinculo}
+                  onChange={(e) => setVinculo(e.target.value as "" | RecursoVinculo)}
+                  options={[
+                    { value: "", label: "Todos (frota e terceiro)" },
+                    ...VINCULO_OPCOES.map((o) => ({ value: o.value, label: o.label })),
+                  ]}
+                />
+                <CadastroOpcaoAutocomplete
+                  label="Fornecedor"
+                  options={fornecedores.map((f) => ({ value: f.id, label: f.nome }))}
+                  value={fornecedorId}
+                  onValueChange={setFornecedorId}
+                  opcional
+                  placeholder="Todos — digite o nome (mín. 2 letras)"
+                />
+                <PlacaRelatorioAutocomplete
+                  label="Placa do veículo"
+                  placas={placasRelatorio}
+                  value={placa}
+                  onChange={(p) => {
+                    setPlaca(p);
+                    setErro("");
+                  }}
+                  onTextoChange={setPlacaDigitada}
+                />
               </div>
 
-              <Select
-                label="Status"
-                tone="light"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                options={[
-                  { value: "", label: "Todos os status" },
-                  ...VIAGEM_STATUS_FILTRO_ACOMPANHAMENTO.map((s) => ({
-                    value: s,
-                    label: VIAGEM_STATUS_LABEL[s] ?? s,
-                  })),
-                ]}
-              />
-
-              <CadastroOpcaoAutocomplete
-                label="Fornecedor"
-                options={fornecedores.map((f) => ({ value: f.id, label: f.nome }))}
-                value={fornecedorId}
-                onValueChange={setFornecedorId}
-                opcional
-                placeholder="Todos — digite o nome (mín. 2 letras)"
-              />
-
-              <PlacaRelatorioAutocomplete
-                label="Placa do veículo"
-                placas={placasRelatorio}
-                value={placa}
-                onChange={(p) => {
-                  setPlaca(p);
-                  setErro("");
-                }}
-                onTextoChange={setPlacaDigitada}
-                hint="Deixe vazio para todas as placas (caminhão e cavalo). Digite ao menos 2 caracteres para ver sugestões."
-              />
-
-              <Select
-                label="Vínculo"
-                tone="light"
-                value={vinculo}
-                onChange={(e) => setVinculo(e.target.value as "" | RecursoVinculo)}
-                options={[
-                  { value: "", label: "Todos (frota e terceiro)" },
-                  ...VINCULO_OPCOES.map((o) => ({ value: o.value, label: o.label })),
-                ]}
-              />
-
-              <div className="rounded-lg border border-slate-200 bg-white p-3">
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Dados do relatório</p>
-                    <p className="text-xs text-slate-600">
-                      Marque o que deve aparecer no PDF ({qtdColunas} selecionado
-                      {qtdColunas === 1 ? "" : "s"}).
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
+              <details className="rounded-lg border border-slate-200 bg-white open:pb-2">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-sm font-semibold text-slate-900 marker:content-none [&::-webkit-details-marker]:hidden">
+                  <span>
+                    Dados do relatório
+                    <span className="ml-1.5 font-normal text-slate-500">
+                      ({qtdColunas} selecionado{qtdColunas === 1 ? "" : "s"})
+                    </span>
+                  </span>
+                  <span className="text-xs font-medium text-slate-500">Abrir / fechar</span>
+                </summary>
+                <div className="border-t border-slate-100 px-3 pt-2">
+                  <div className="mb-2 flex gap-2">
                     <button
                       type="button"
                       onClick={() => marcarTodas(true)}
@@ -333,29 +331,29 @@ export function AcompanhamentoRelatorioModal({
                       Limpar
                     </button>
                   </div>
+                  <div className="grid gap-1.5 sm:grid-cols-2">
+                    {ACOMPANHAMENTO_RELATORIO_COLUNAS.map((c) => (
+                      <label
+                        key={c.key}
+                        className="flex cursor-pointer items-start gap-2 rounded-md px-1 py-0.5 text-sm font-medium text-slate-900 hover:bg-slate-50"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={colunas[c.key]}
+                          onChange={() => toggleColuna(c.key)}
+                          className="mt-0.5 rounded border-slate-400"
+                        />
+                        <span>{c.label}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {ACOMPANHAMENTO_RELATORIO_COLUNAS.map((c) => (
-                    <label
-                      key={c.key}
-                      className="flex cursor-pointer items-start gap-2 rounded-md px-1 py-1 text-sm font-medium text-slate-900 hover:bg-slate-50"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={colunas[c.key]}
-                        onChange={() => toggleColuna(c.key)}
-                        className="mt-0.5 rounded border-slate-400"
-                      />
-                      <span>{c.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
+              </details>
             </>
           ) : (
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm text-slate-700">
+                <p className="text-sm text-slate-300">
                   {qtdIncluidas} de {viagensPreview.length} viagem
                   {viagensPreview.length === 1 ? "" : "ns"} no PDF
                   {excluidas.size > 0
@@ -366,21 +364,21 @@ export function AcompanhamentoRelatorioModal({
                   <button
                     type="button"
                     onClick={() => marcarTodasViagens(true)}
-                    className="text-xs font-semibold text-cyan-700 hover:underline"
+                    className="text-xs font-semibold text-cyan-400 hover:underline"
                   >
                     Incluir todas
                   </button>
                   <button
                     type="button"
                     onClick={() => marcarTodasViagens(false)}
-                    className="text-xs font-semibold text-slate-700 hover:underline"
+                    className="text-xs font-semibold text-slate-400 hover:underline"
                   >
                     Excluir todas
                   </button>
                 </div>
               </div>
 
-              <ul className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 bg-white">
+              <ul className="max-h-[45vh] divide-y divide-slate-200 overflow-y-auto overflow-hidden rounded-lg border border-slate-200 bg-white">
                 {viagensPreview.map((v) => {
                   const fora = excluidas.has(v.id);
                   const destino =
@@ -440,7 +438,7 @@ export function AcompanhamentoRelatorioModal({
           )}
         </MebModalBody>
 
-        <MebModalFooter className="mt-6">
+        <MebModalFooter className="mt-4 shrink-0">
           {etapa === "filtros" ? (
             <>
               <Button type="button" variant="secondary" onClick={onClose}>

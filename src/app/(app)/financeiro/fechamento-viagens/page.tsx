@@ -1,7 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Route, FileText, Wallet, Coins, HandCoins } from "lucide-react";
+import {
+  Coins,
+  FileText,
+  HandCoins,
+  Route,
+  Truck,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MotoristaAutocomplete } from "@/components/ui/motorista-autocomplete";
 import { PeriodoFilter } from "@/components/frota/periodo-filter";
@@ -25,6 +33,79 @@ import { cn, mebCard, mebFormSection } from "@/lib/utils";
 import { mebAlert } from "@/lib/meb-dialog";
 
 type ModoFechamento = "frota" | "terceiro";
+
+function KpiCard({
+  label,
+  valor,
+  icon: Icon,
+  tone,
+}: {
+  label: string;
+  valor: number;
+  icon: typeof Wallet;
+  tone: "amber" | "orange" | "emerald" | "sky";
+}) {
+  const styles = {
+    amber: {
+      accent: "border-l-amber-500",
+      iconWrap: "bg-amber-100",
+      icon: "text-amber-600",
+      value: "text-amber-800",
+    },
+    orange: {
+      accent: "border-l-orange-500",
+      iconWrap: "bg-orange-100",
+      icon: "text-orange-600",
+      value: "text-orange-800",
+    },
+    emerald: {
+      accent: "border-l-emerald-500",
+      iconWrap: "bg-emerald-100",
+      icon: "text-emerald-600",
+      value: "text-emerald-800",
+    },
+    sky: {
+      accent: "border-l-sky-500",
+      iconWrap: "bg-sky-100",
+      icon: "text-sky-600",
+      value: "text-sky-800",
+    },
+  }[tone];
+
+  return (
+    <article
+      className={cn(
+        mebCard,
+        "border-l-4 bg-white/90 p-4 shadow-sm",
+        styles.accent
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className={cn(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+            styles.iconWrap
+          )}
+        >
+          <Icon className={cn("h-5 w-5", styles.icon)} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            {label}
+          </p>
+          <p
+            className={cn(
+              "mt-0.5 truncate text-xl font-bold tracking-tight tabular-nums",
+              styles.value
+            )}
+          >
+            {formatarMoeda(valor)}
+          </p>
+        </div>
+      </div>
+    </article>
+  );
+}
 
 export default function FechamentoViagensPage() {
   const [fechamentos, setFechamentos] = useState<ViagemFechamento[]>([]);
@@ -131,11 +212,17 @@ export default function FechamentoViagensPage() {
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Route className="h-8 w-8 text-emerald-600" />
+        <div className="flex items-start gap-3">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-100 text-sky-700">
+            <Route className="h-6 w-6" />
+          </span>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Fechamento de Viagens</h1>
-            <p className="text-slate-500">{tituloModo} · viagens finalizadas e pagamento pendente</p>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              Fechamento de Viagens
+            </h1>
+            <p className="mt-0.5 text-sm text-slate-500">
+              {tituloModo} · viagens finalizadas e pagamento pendente
+            </p>
           </div>
         </div>
         <Button
@@ -144,113 +231,159 @@ export default function FechamentoViagensPage() {
           disabled={!motoristaId || !selectedIds.size}
           onClick={abrirComissao}
         >
-          <FileText className="mr-2 h-4 w-4" />
+          <FileText className="h-4 w-4" />
           {labelGerar}
         </Button>
       </header>
 
-      <div className="flex gap-2 border-b border-slate-200 pb-1">
+      <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
         <button
           type="button"
           onClick={() => setModo("frota")}
           className={cn(
-            "rounded-t-lg px-4 py-2 text-sm font-medium transition",
+            "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition",
             modo === "frota"
-              ? "border border-b-0 border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "text-slate-500 hover:text-slate-800"
+              ? "bg-sky-600 text-white shadow-sm"
+              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
           )}
         >
+          <Truck className="h-4 w-4" />
           Frota
         </button>
         <button
           type="button"
           onClick={() => setModo("terceiro")}
           className={cn(
-            "rounded-t-lg px-4 py-2 text-sm font-medium transition",
+            "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition",
             modo === "terceiro"
-              ? "border border-b-0 border-cyan-200 bg-cyan-50 text-cyan-800"
-              : "text-slate-500 hover:text-slate-800"
+              ? "bg-sky-600 text-white shadow-sm"
+              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
           )}
         >
+          <Users className="h-4 w-4" />
           Terceiros
         </button>
       </div>
 
-      <div className={cn(mebFormSection, "flex flex-wrap items-end gap-4")}>
-        <MotoristaAutocomplete
-          label="Motorista"
-          motoristas={motoristas}
-          motoristaId={motoristaId}
-          onMotoristaIdChange={setMotoristaId}
-          required
-          className="min-w-[220px] flex-1"
-        />
-        <div>
-          <label className="mb-2 block text-xs font-medium text-slate-500">Período</label>
+      <div className={cn(mebFormSection, "space-y-0")}>
+        <div className="flex flex-wrap items-end gap-4">
+          <MotoristaAutocomplete
+            label="Motorista"
+            motoristas={motoristas}
+            motoristaId={motoristaId}
+            onMotoristaIdChange={setMotoristaId}
+            required
+            className="min-w-[220px] flex-1"
+          />
           <PeriodoFilter value={periodo} onChange={setPeriodo} />
+          <div className="flex flex-col gap-1">
+            <span className="invisible text-sm font-medium text-slate-600" aria-hidden>
+              Período
+            </span>
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-10 py-0 text-sm"
+              disabled={!motoristaId || filtrados.length === 0}
+              onClick={selecionarTodasVisiveis}
+            >
+              Selecionar todas no período
+            </Button>
+          </div>
         </div>
-        <Button type="button" variant="secondary" onClick={selecionarTodasVisiveis}>
-          Selecionar todas no período
-        </Button>
       </div>
 
       {!motoristaId ? (
-        <p className="text-slate-500">Selecione um motorista para ver os fechamentos.</p>
+        <div className={cn(mebCard, "border-dashed p-10 text-center")}>
+          <Users className="mx-auto h-8 w-8 text-slate-300" />
+          <p className="mt-3 text-sm font-medium text-slate-700">
+            Selecione um motorista
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Escolha o motorista acima para ver os fechamentos do período.
+          </p>
+        </div>
       ) : loading ? (
-        <p className="text-slate-500">Carregando...</p>
+        <div className={cn(mebCard, "p-10 text-center text-sm text-slate-500")}>
+          Carregando fechamentos...
+        </div>
       ) : (
         <>
+          <section className="relative overflow-hidden rounded-2xl bg-sky-700 px-6 py-6 text-white shadow-sm">
+            <div className="pointer-events-none absolute -right-12 top-0 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+            <div className="pointer-events-none absolute -bottom-16 left-1/3 h-32 w-32 rounded-full bg-cyan-300/20 blur-2xl" />
+            <div className="relative flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
+                  {modo === "frota" ? "Comissão líquida" : "Repasse terceiro"}
+                </p>
+                <p className="mt-1 text-3xl font-bold tracking-tight tabular-nums">
+                  {formatarMoeda(totalComissao)}
+                </p>
+                <p className="mt-1 text-sm text-white/75">
+                  {motoristaNome} · {periodoLabel} · {filtrados.length} viagem(ns)
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 backdrop-blur-sm">
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-white/70">
+                    Despesas
+                  </p>
+                  <p className="mt-0.5 text-sm font-semibold tabular-nums">
+                    {formatarMoeda(totalDespesas)}
+                  </p>
+                </div>
+                {modo === "frota" ? (
+                  <div className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 backdrop-blur-sm">
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-white/70">
+                      Adiantamentos
+                    </p>
+                    <p className="mt-0.5 text-sm font-semibold tabular-nums">
+                      {formatarMoeda(totalAdiantamentos)}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 backdrop-blur-sm">
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-white/70">
+                      Selecionadas
+                    </p>
+                    <p className="mt-0.5 text-sm font-semibold tabular-nums">
+                      {selectedIds.size}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+
           <div
             className={cn(
-              "grid gap-4",
-              modo === "frota" ? "sm:grid-cols-2 lg:grid-cols-3" : "sm:grid-cols-2"
+              "grid gap-3",
+              modo === "frota" ? "sm:grid-cols-3" : "sm:grid-cols-2"
             )}
           >
-            <article className={cn(mebCard, "border-amber-200/80 p-4")}>
-              <div className="mb-1 flex items-center gap-2 text-slate-500">
-                <Wallet className="h-5 w-5 text-amber-600" />
-                <span className="text-sm">Total de despesas</span>
-              </div>
-              <p className="text-2xl font-bold text-amber-700">{formatarMoeda(totalDespesas)}</p>
-            </article>
+            <KpiCard
+              label="Total de despesas"
+              valor={totalDespesas}
+              icon={Wallet}
+              tone="amber"
+            />
             {modo === "frota" && (
-              <article className={cn(mebCard, "border-orange-200/80 p-4")}>
-                <div className="mb-1 flex items-center gap-2 text-slate-500">
-                  <HandCoins className="h-5 w-5 text-orange-600" />
-                  <span className="text-sm">Total de adiantamentos</span>
-                </div>
-                <p className="text-2xl font-bold text-orange-700">
-                  {formatarMoeda(totalAdiantamentos)}
-                </p>
-              </article>
+              <KpiCard
+                label="Total de adiantamentos"
+                valor={totalAdiantamentos}
+                icon={HandCoins}
+                tone="orange"
+              />
             )}
-            <article
-              className={cn(
-                mebCard,
-                "p-4",
-                modo === "frota" ? "border-emerald-200/80" : "border-cyan-200/80"
-              )}
-            >
-              <div className="mb-1 flex items-center gap-2 text-slate-500">
-                <Coins
-                  className={cn(
-                    "h-5 w-5",
-                    modo === "frota" ? "text-emerald-600" : "text-cyan-600"
-                  )}
-                />
-                <span className="text-sm">
-                  {modo === "frota" ? "Total comissão líquida" : "Total repasse terceiro"}
-                </span>
-              </div>
-              <p
-                className={cn(
-                  "text-2xl font-bold",
-                  modo === "frota" ? "text-emerald-700" : "text-cyan-700"
-                )}
-              >
-                {formatarMoeda(totalComissao)}
-              </p>
-            </article>
+            <KpiCard
+              label={
+                modo === "frota" ? "Total comissão líquida" : "Total repasse terceiro"
+              }
+              valor={totalComissao}
+              icon={Coins}
+              tone={modo === "frota" ? "emerald" : "sky"}
+            />
           </div>
 
           <EvolucaoMensalChart
@@ -261,64 +394,92 @@ export default function FechamentoViagensPage() {
           />
 
           {filtrados.length === 0 ? (
-            <p className="text-slate-500">
-              Nenhum fechamento de {modo === "frota" ? "frota" : "terceiro"} neste período para
-              este motorista.
-            </p>
+            <div className={cn(mebCard, "border-dashed p-10 text-center")}>
+              <p className="text-sm font-medium text-slate-700">
+                Nenhum fechamento neste período
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Não há viagens de {modo === "frota" ? "frota" : "terceiro"} para este
+                motorista em {periodoLabel.toLowerCase()}.
+              </p>
+            </div>
           ) : (
-            <div className="grid gap-4 xl:grid-cols-1">
-              {filtrados.map((f) => {
-                const elegivel = statusElegivelComissao(f.viagem_status ?? "FINALIZADO");
-                const checked = selectedIds.has(f.id);
-                const statusLabel =
-                  VIAGEM_STATUS_LABEL[f.viagem_status ?? ""] ?? f.viagem_status ?? "—";
-                return (
-                  <div
-                    key={f.id}
-                    className={cn(
-                      "rounded-xl transition",
-                      checked && "ring-2 ring-cyan-200"
-                    )}
-                  >
-                    {elegivel && (
-                      <label className="mb-2 flex cursor-pointer items-center gap-2 px-1 text-sm text-slate-700">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleSelect(f.id)}
-                          className="rounded border-slate-300"
-                        />
-                        <span>
-                          {modo === "frota" ? "Incluir no recibo de comissão" : "Incluir no recibo"}
-                        </span>
-                        <span
+            <section className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-800">
+                    Viagens do período
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    {filtrados.length} registro(s)
+                    {selectedIds.size > 0 && ` · ${selectedIds.size} selecionada(s)`}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {filtrados.map((f) => {
+                  const elegivel = statusElegivelComissao(f.viagem_status ?? "FINALIZADO");
+                  const checked = selectedIds.has(f.id);
+                  const statusLabel =
+                    VIAGEM_STATUS_LABEL[f.viagem_status ?? ""] ?? f.viagem_status ?? "—";
+                  return (
+                    <div
+                      key={f.id}
+                      className={cn(
+                        "overflow-hidden rounded-xl transition",
+                        checked && "ring-2 ring-sky-300 ring-offset-1"
+                      )}
+                    >
+                      {elegivel && (
+                        <label
                           className={cn(
-                            "rounded border px-2 py-0.5 text-[10px] font-semibold uppercase",
-                            f.viagem_status === "PAGAMENTO PENDENTE"
-                              ? "border-amber-200 bg-amber-50 text-amber-800"
-                              : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                            "flex cursor-pointer items-center gap-3 border px-4 py-2.5 text-sm transition",
+                            checked
+                              ? "border-sky-200 bg-sky-50 text-sky-900"
+                              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                           )}
                         >
-                          {statusLabel}
-                        </span>
-                      </label>
-                    )}
-                    <FechamentoViagemCard
-                      f={f}
-                      onUpdated={(atualizado) =>
-                        setFechamentos((prev) =>
-                          prev.map((item) =>
-                            item.id === atualizado.id
-                              ? { ...atualizado, viagem_status: f.viagem_status }
-                              : item
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleSelect(f.id)}
+                            className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                          />
+                          <span className="font-medium">
+                            {modo === "frota"
+                              ? "Incluir no recibo de comissão"
+                              : "Incluir no recibo"}
+                          </span>
+                          <span
+                            className={cn(
+                              "ml-auto rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase",
+                              f.viagem_status === "PAGAMENTO PENDENTE"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-emerald-100 text-emerald-800"
+                            )}
+                          >
+                            {statusLabel}
+                          </span>
+                        </label>
+                      )}
+                      <FechamentoViagemCard
+                        f={f}
+                        onUpdated={(atualizado) =>
+                          setFechamentos((prev) =>
+                            prev.map((item) =>
+                              item.id === atualizado.id
+                                ? { ...atualizado, viagem_status: f.viagem_status }
+                                : item
+                            )
                           )
-                        )
-                      }
-                    />
-                  </div>
-                );
-              })}
-            </div>
+                        }
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
           )}
         </>
       )}

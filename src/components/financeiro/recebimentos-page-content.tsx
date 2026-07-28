@@ -1,7 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Banknote, ChevronDown, FileBarChart, RefreshCw, Search, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import {
+  AlertTriangle,
+  Banknote,
+  CalendarOff,
+  CheckCircle2,
+  ChevronDown,
+  Clock,
+  FileBarChart,
+  Filter,
+  RefreshCw,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -165,7 +180,44 @@ export function RecebimentosPageContent() {
   const [showRelatorio, setShowRelatorio] = useState(false);
   const [showRelatorioViagens, setShowRelatorioViagens] = useState(false);
   const [modoRelatorio, setModoRelatorio] = useState<"recebimentos" | "encargos">("recebimentos");
+  const [menuRelatorioAberto, setMenuRelatorioAberto] = useState(false);
+  const [menuRelatorioPos, setMenuRelatorioPos] = useState({ top: 0, left: 0 });
+  const menuRelatorioRef = useRef<HTMLDivElement>(null);
+  const botaoRelatorioRef = useRef<HTMLButtonElement>(null);
   const [buscaCte, setBuscaCte] = useState("");
+
+  function abrirMenuRelatorio() {
+    const rect = botaoRelatorioRef.current?.getBoundingClientRect();
+    if (rect) {
+      setMenuRelatorioPos({ top: rect.bottom + 8, left: rect.left });
+    }
+    setMenuRelatorioAberto((v) => !v);
+  }
+
+  useEffect(() => {
+    if (!menuRelatorioAberto) return;
+    function onPointerDown(e: MouseEvent) {
+      const alvo = e.target as Node;
+      if (
+        menuRelatorioRef.current?.contains(alvo) ||
+        botaoRelatorioRef.current?.contains(alvo)
+      ) {
+        return;
+      }
+      setMenuRelatorioAberto(false);
+    }
+    function fechar() {
+      setMenuRelatorioAberto(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    window.addEventListener("scroll", fechar, true);
+    window.addEventListener("resize", fechar);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      window.removeEventListener("scroll", fechar, true);
+      window.removeEventListener("resize", fechar);
+    };
+  }, [menuRelatorioAberto]);
 
   const load = useCallback(async (opts?: { refresh?: boolean }) => {
     setLoading(true);
@@ -232,6 +284,14 @@ export function RecebimentosPageContent() {
 
   const vinculoLabel = VINCULO_FILTROS.find((v) => v.value === filtroVinculo)?.label ?? "Todos";
 
+  const totalListado = useMemo(
+    () => filtrados.reduce((s, i) => s + calcularTotalAReceber(i), 0),
+    [filtrados]
+  );
+
+  const temFiltroEncargos =
+    filtroEncargoTipo !== "todos" || filtroEncargoStatus !== "todos";
+
   const temFiltrosAtivos = filtrosRecebimentosAtivos({
     filtroVinculo,
     filtroStatus,
@@ -241,6 +301,27 @@ export function RecebimentosPageContent() {
     periodoSaida,
     buscaCte,
   });
+
+  const chipsFiltro: string[] = [];
+  if (filtroVinculo !== "todos") chipsFiltro.push(vinculoLabel);
+  if (filtroStatus !== "todos") {
+    chipsFiltro.push(
+      filtroStatus === "sem_data"
+        ? "Sem data"
+        : RECEBIMENTO_STATUS_LABEL[filtroStatus as RecebimentoStatus]
+    );
+  }
+  if (filtroEncargoTipo !== "todos") {
+    chipsFiltro.push(`Encargo: ${RECEBIMENTO_ENCARGO_LABEL[filtroEncargoTipo]}`);
+  }
+  if (filtroEncargoStatus !== "todos") {
+    chipsFiltro.push(RECEBIMENTO_ENCARGO_STATUS_LABEL[filtroEncargoStatus]);
+  }
+  if (buscaCte.trim()) chipsFiltro.push(`CT-e: ${buscaCte.trim()}`);
+  if (periodo.preset !== "todos") chipsFiltro.push(labelPeriodoConfig(periodo));
+  if (periodoSaida.preset !== "todos") {
+    chipsFiltro.push(`Saída: ${labelPeriodoConfig(periodoSaida)}`);
+  }
 
   function limparFiltros() {
     setFiltroVinculo("todos");
@@ -282,39 +363,89 @@ export function RecebimentosPageContent() {
             empresa contratante.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => setShowRelatorioViagens(true)}
-          >
-            <FileBarChart className="mr-2 h-4 w-4" />
-            Relatório por saída
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => {
-              setModoRelatorio("recebimentos");
-              setShowRelatorio(true);
-            }}
-          >
-            <FileBarChart className="mr-2 h-4 w-4" />
-            Gerar relatório
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => {
-              setModoRelatorio("encargos");
-              setShowRelatorio(true);
-            }}
-          >
-            <FileBarChart className="mr-2 h-4 w-4" />
-            Relatório de encargos
-          </Button>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <div className="relative">
+            <Button
+              ref={botaoRelatorioRef}
+              type="button"
+              variant="secondary"
+              onClick={abrirMenuRelatorio}
+              aria-expanded={menuRelatorioAberto}
+              aria-haspopup="menu"
+            >
+              <FileBarChart className="h-4 w-4" />
+              Gerar relatório
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 transition",
+                  menuRelatorioAberto && "rotate-180"
+                )}
+              />
+            </Button>
+            {menuRelatorioAberto &&
+              createPortal(
+                <div
+                  ref={menuRelatorioRef}
+                  role="menu"
+                  className="fixed z-[80] w-72 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-xl"
+                  style={{ top: menuRelatorioPos.top, left: menuRelatorioPos.left }}
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full flex-col items-start gap-0.5 px-4 py-2.5 text-left transition hover:bg-slate-50"
+                    onClick={() => {
+                      setMenuRelatorioAberto(false);
+                      setShowRelatorioViagens(true);
+                    }}
+                  >
+                    <span className="text-sm font-semibold text-slate-900">
+                      Relatório por saída
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      Viagens filtradas pela data de saída
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full flex-col items-start gap-0.5 px-4 py-2.5 text-left transition hover:bg-slate-50"
+                    onClick={() => {
+                      setMenuRelatorioAberto(false);
+                      setModoRelatorio("recebimentos");
+                      setShowRelatorio(true);
+                    }}
+                  >
+                    <span className="text-sm font-semibold text-slate-900">
+                      Relatório de recebimentos
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      Frete, encargos e status de pagamento
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full flex-col items-start gap-0.5 px-4 py-2.5 text-left transition hover:bg-slate-50"
+                    onClick={() => {
+                      setMenuRelatorioAberto(false);
+                      setModoRelatorio("encargos");
+                      setShowRelatorio(true);
+                    }}
+                  >
+                    <span className="text-sm font-semibold text-slate-900">
+                      Relatório de encargos
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      Descargas e diárias lançadas
+                    </span>
+                  </button>
+                </div>,
+                document.body
+              )}
+          </div>
           <Button type="button" variant="secondary" onClick={() => load({ refresh: true })} disabled={loading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
         </div>
@@ -324,41 +455,55 @@ export function RecebimentosPageContent() {
         <ResumoCard
           label="Pendente"
           valor={resumo.pendente}
-          cor="text-amber-700"
+          icon={Clock}
+          tone="amber"
           ativo={filtroStatus === "pendente"}
           onClick={() => setFiltroStatus((s) => (s === "pendente" ? "todos" : "pendente"))}
         />
         <ResumoCard
           label="Vencido"
           valor={resumo.vencido}
-          cor="text-red-600"
+          icon={AlertTriangle}
+          tone="rose"
           ativo={filtroStatus === "vencido"}
           onClick={() => setFiltroStatus((s) => (s === "vencido" ? "todos" : "vencido"))}
         />
         <ResumoCard
           label="Pago"
           valor={resumo.pago}
-          cor="text-emerald-700"
+          icon={CheckCircle2}
+          tone="emerald"
           ativo={filtroStatus === "pago"}
           onClick={() => setFiltroStatus((s) => (s === "pago" ? "todos" : "pago"))}
         />
         <ResumoCard
-          label="Sem Datas"
+          label="Sem datas"
           valor={resumo.semData}
-          cor="text-slate-700"
+          icon={CalendarOff}
+          tone="slate"
           ativo={filtroStatus === "sem_data"}
           onClick={() => setFiltroStatus((s) => (s === "sem_data" ? "todos" : "sem_data"))}
         />
       </div>
 
       <div className={cn(mebFormSection, "space-y-4")}>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm font-medium text-slate-700">Filtros</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+              <Filter className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-slate-800">Filtros</p>
+              <p className="text-xs text-slate-500">
+                Refine a lista por período, vínculo e status
+              </p>
+            </div>
+          </div>
           {temFiltrosAtivos && (
             <button
               type="button"
               onClick={limparFiltros}
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800"
             >
               <X className="h-3.5 w-3.5" />
               Limpar filtros
@@ -395,10 +540,8 @@ export function RecebimentosPageContent() {
             onChange={(e) => setFiltroStatus(e.target.value as FiltroStatus)}
             options={STATUS_FILTROS.map((s) => ({ value: s.value, label: s.label }))}
           />
-          <div className="relative sm:col-span-2 lg:col-span-1 xl:col-span-1">
-            <label className="mb-1 block text-sm font-medium text-slate-600">
-              Buscar CT-e
-            </label>
+          <div className="flex flex-col gap-1 sm:col-span-2 lg:col-span-1 xl:col-span-1">
+            <label className="text-sm font-medium text-slate-600">Buscar CT-e</label>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
@@ -406,16 +549,16 @@ export function RecebimentosPageContent() {
                 value={buscaCte}
                 onChange={(e) => setBuscaCte(e.target.value)}
                 placeholder="Número do CT-e..."
-                className="w-full rounded-lg border border-slate-200 bg-white/80 py-2 pl-9 pr-3 text-sm text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                className="w-full rounded-lg border border-slate-200 bg-white/80 py-2 pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
               />
             </div>
           </div>
         </div>
 
         {(periodo.preset === "custom" || periodoSaida.preset === "custom") && (
-          <div className="space-y-3">
+          <div className="grid gap-3 rounded-lg border border-dashed border-slate-200 bg-slate-50/70 p-3 sm:grid-cols-2 lg:grid-cols-4">
             {periodo.preset === "custom" && (
-              <div className="grid max-w-md gap-3 sm:grid-cols-2">
+              <>
                 <Input
                   label="Período — De"
                   type="date"
@@ -430,10 +573,10 @@ export function RecebimentosPageContent() {
                   value={periodo.dataAte}
                   onChange={(e) => setPeriodo({ ...periodo, dataAte: e.target.value })}
                 />
-              </div>
+              </>
             )}
             {periodoSaida.preset === "custom" && (
-              <div className="grid max-w-md gap-3 sm:grid-cols-2">
+              <>
                 <Input
                   label="Saída — De"
                   type="date"
@@ -452,17 +595,41 @@ export function RecebimentosPageContent() {
                     setPeriodoSaida({ ...periodoSaida, dataAte: e.target.value })
                   }
                 />
-              </div>
+              </>
             )}
           </div>
         )}
 
-        <details className="group rounded-lg border border-slate-200 bg-slate-50/60 open:bg-white">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium text-slate-700 marker:content-none [&::-webkit-details-marker]:hidden">
-            <span>Filtros de encargos (opcional)</span>
+        <details
+          className={cn(
+            "group overflow-hidden rounded-xl border bg-white/80 shadow-sm transition",
+            temFiltroEncargos
+              ? "border-cyan-200 ring-1 ring-cyan-100"
+              : "border-slate-200/80"
+          )}
+        >
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 marker:content-none [&::-webkit-details-marker]:hidden">
+            <span className="flex min-w-0 items-center gap-2.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+                <SlidersHorizontal className="h-4 w-4" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-slate-800">
+                  Filtros de encargos
+                </span>
+                <span className="block text-xs text-slate-500">
+                  Opcional · descarga e diária
+                </span>
+              </span>
+              {temFiltroEncargos && (
+                <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[11px] font-medium text-cyan-800">
+                  Ativo
+                </span>
+              )}
+            </span>
             <ChevronDown className="h-4 w-4 shrink-0 text-slate-400 transition group-open:rotate-180" />
           </summary>
-          <div className="grid gap-3 border-t border-slate-200 px-4 py-3 sm:grid-cols-2">
+          <div className="grid gap-3 border-t border-slate-100 bg-slate-50/50 px-4 py-3 sm:grid-cols-2">
             <Select
               label="Tipo de encargo"
               tone="light"
@@ -480,33 +647,27 @@ export function RecebimentosPageContent() {
           </div>
         </details>
 
-        <p className="border-t border-slate-200/80 pt-3 text-sm text-slate-500">
-          {filtrados.length} registro(s)
-          {filtroVinculo !== "todos" && <> · {vinculoLabel}</>}
-          {filtroStatus !== "todos" && (
-            <>
-              {" "}
-              ·{" "}
-              {filtroStatus === "sem_data"
-                ? "Sem data"
-                : RECEBIMENTO_STATUS_LABEL[filtroStatus as RecebimentoStatus]}
-            </>
-          )}
-          {filtroEncargoTipo !== "todos" && (
-            <> · Encargo: {RECEBIMENTO_ENCARGO_LABEL[filtroEncargoTipo]}</>
-          )}
-          {filtroEncargoStatus !== "todos" && (
-            <> · Encargo {RECEBIMENTO_ENCARGO_STATUS_LABEL[filtroEncargoStatus]}</>
-          )}
-          {buscaCte.trim() && <> · CT-e: {buscaCte.trim()}</>}
-          {periodo.preset !== "todos" && <> · {labelPeriodoConfig(periodo)}</>}
-          {periodoSaida.preset !== "todos" && (
-            <> · Saída: {labelPeriodoConfig(periodoSaida)}</>
-          )}
-          {" · "}
-          total listado{" "}
-          {formatarMoeda(filtrados.reduce((s, i) => s + calcularTotalAReceber(i), 0))}
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/80 pt-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-slate-700">
+              {filtrados.length} registro{filtrados.length === 1 ? "" : "s"}
+            </span>
+            {chipsFiltro.map((chip) => (
+              <span
+                key={chip}
+                className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-medium text-slate-600"
+              >
+                {chip}
+              </span>
+            ))}
+          </div>
+          <p className="text-sm text-slate-500">
+            Total listado{" "}
+            <span className="font-semibold tabular-nums text-slate-800">
+              {formatarMoeda(totalListado)}
+            </span>
+          </p>
+        </div>
       </div>
 
       {loading ? (
@@ -544,34 +705,99 @@ export function RecebimentosPageContent() {
   );
 }
 
+const RESUMO_TONES = {
+  amber: {
+    accent: "border-l-amber-500",
+    iconWrap: "bg-amber-100",
+    icon: "text-amber-600",
+    value: "text-amber-800",
+    active: "border-amber-300 bg-amber-50/70 ring-1 ring-amber-200",
+    hover: "hover:border-amber-200 hover:shadow-md hover:shadow-amber-100/50",
+  },
+  rose: {
+    accent: "border-l-rose-500",
+    iconWrap: "bg-rose-100",
+    icon: "text-rose-600",
+    value: "text-rose-700",
+    active: "border-rose-300 bg-rose-50/70 ring-1 ring-rose-200",
+    hover: "hover:border-rose-200 hover:shadow-md hover:shadow-rose-100/50",
+  },
+  emerald: {
+    accent: "border-l-emerald-500",
+    iconWrap: "bg-emerald-100",
+    icon: "text-emerald-600",
+    value: "text-emerald-700",
+    active: "border-emerald-300 bg-emerald-50/70 ring-1 ring-emerald-200",
+    hover: "hover:border-emerald-200 hover:shadow-md hover:shadow-emerald-100/50",
+  },
+  slate: {
+    accent: "border-l-slate-400",
+    iconWrap: "bg-slate-100",
+    icon: "text-slate-600",
+    value: "text-slate-800",
+    active: "border-slate-300 bg-slate-50 ring-1 ring-slate-200",
+    hover: "hover:border-slate-300 hover:shadow-md hover:shadow-slate-100/50",
+  },
+} as const;
+
 function ResumoCard({
   label,
   valor,
-  cor,
+  icon: Icon,
+  tone,
   ativo,
   onClick,
 }: {
   label: string;
   valor: number;
-  cor: string;
+  icon: LucideIcon;
+  tone: keyof typeof RESUMO_TONES;
   ativo?: boolean;
   onClick?: () => void;
 }) {
+  const style = RESUMO_TONES[tone];
   const Tag = onClick ? "button" : "div";
   return (
     <Tag
       type={onClick ? "button" : undefined}
       onClick={onClick}
+      title={onClick ? (ativo ? "Clique para limpar o filtro" : "Clique para filtrar") : undefined}
       className={cn(
         mebCard,
-        "px-4 py-3 text-left transition",
-        ativo && "border-cyan-300 bg-cyan-50/80 ring-1 ring-cyan-200",
-        onClick && "cursor-pointer hover:bg-white/80"
+        "border-l-4 bg-white/90 p-4 text-left shadow-sm transition",
+        style.accent,
+        onClick && cn("cursor-pointer hover:-translate-y-0.5", style.hover),
+        ativo && style.active
       )}
     >
-      <p className="text-xs text-slate-500">{label}</p>
-      <p className={cn("text-lg font-bold", cor)}>{formatarMoeda(valor)}</p>
-      {onClick && <p className="mt-1 text-[10px] text-slate-400">Clique para filtrar</p>}
+      <div className="flex items-start gap-3">
+        <div
+          className={cn(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+            style.iconWrap
+          )}
+        >
+          <Icon className={cn("h-5 w-5", style.icon)} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            {label}
+          </p>
+          <p
+            className={cn(
+              "mt-0.5 truncate text-xl font-bold tracking-tight tabular-nums",
+              style.value
+            )}
+          >
+            {formatarMoeda(valor)}
+          </p>
+          {onClick && (
+            <p className="mt-1 text-[11px] text-slate-400">
+              {ativo ? "Filtro ativo · clique para limpar" : "Clique para filtrar"}
+            </p>
+          )}
+        </div>
+      </div>
     </Tag>
   );
 }
