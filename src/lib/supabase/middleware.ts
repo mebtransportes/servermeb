@@ -17,10 +17,16 @@ function redirectToLogin(request: NextRequest, error?: "config") {
 export async function updateSession(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const isLogin = request.nextUrl.pathname === "/login";
+  const pathname = request.nextUrl.pathname;
+  const isLogin = pathname === "/login";
+  const isPublicAsset =
+    pathname === "/robots.txt" ||
+    pathname === "/sitemap.xml" ||
+    pathname === "/icon" ||
+    pathname.startsWith("/icon?");
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    if (isLogin) return withSecurity(NextResponse.next({ request }));
+    if (isLogin || isPublicAsset) return withSecurity(NextResponse.next({ request }));
     return redirectToLogin(request, "config");
   }
 
@@ -48,7 +54,7 @@ export async function updateSession(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user && !isLogin) {
+    if (!user && !isLogin && !isPublicAsset) {
       return redirectToLogin(request);
     }
 
@@ -61,7 +67,7 @@ export async function updateSession(request: NextRequest) {
 
     return withSecurity(supabaseResponse);
   } catch {
-    if (isLogin) return withSecurity(NextResponse.next({ request }));
+    if (isLogin || isPublicAsset) return withSecurity(NextResponse.next({ request }));
     return redirectToLogin(request);
   }
 }
