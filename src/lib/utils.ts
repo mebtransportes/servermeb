@@ -70,17 +70,27 @@ export function buildEnderecoCompleto(parts: {
   return linhas.join("\n");
 }
 
+export function formatCep(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 5) return digits;
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+}
+
 export async function fetchCep(cep: string) {
   const digits = cep.replace(/\D/g, "");
   if (digits.length !== 8) return null;
-  const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
-  if (!res.ok) return null;
-  const data = await res.json();
-  if (data.erro) return null;
-  return {
-    logradouro: data.logradouro as string,
-    bairro: data.bairro as string,
-    cidade: data.localidade as string,
-    estado: data.uf as string,
-  };
+  try {
+    const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.erro) return null;
+    return {
+      logradouro: data.logradouro as string,
+      bairro: data.bairro as string,
+      cidade: data.localidade as string,
+      estado: data.uf as string,
+    };
+  } catch {
+    return null;
+  }
 }

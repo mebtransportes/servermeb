@@ -1,9 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { cn, fetchCep, buildMapsLink, buildEnderecoCompleto, mebFormSubsection } from "@/lib/utils";
+import {
+  cn,
+  fetchCep,
+  formatCep,
+  buildMapsLink,
+  buildEnderecoCompleto,
+  mebFormSubsection,
+} from "@/lib/utils";
 import { Copy, MapPin } from "lucide-react";
 
 export type AddressValues = {
@@ -23,6 +30,7 @@ export type AddressValues = {
 type AddressFieldsProps = {
   values: AddressValues;
   onChange: (field: keyof AddressValues, value: string) => void;
+  onPatch?: (patch: Partial<AddressValues>) => void;
   nome?: string;
   telefone?: string;
 };
@@ -30,20 +38,66 @@ type AddressFieldsProps = {
 export function AddressFields({
   values,
   onChange,
+  onPatch,
   nome,
   telefone,
 }: AddressFieldsProps) {
   const [loadingCep, setLoadingCep] = useState(false);
+  const [cepError, setCepError] = useState("");
+  const lastFetchedCep = useRef("");
 
-  async function handleCepBlur() {
+  function applyAddress(data: {
+    logradouro: string;
+    bairro: string;
+    cidade: string;
+    estado: string;
+  }) {
+    const patch = {
+      logradouro: data.logradouro || "",
+      bairro: data.bairro || "",
+      cidade: data.cidade || "",
+      estado: data.estado || "",
+    };
+    if (onPatch) {
+      onPatch(patch);
+      return;
+    }
+    onChange("logradouro", patch.logradouro);
+    onChange("bairro", patch.bairro);
+    onChange("cidade", patch.cidade);
+    onChange("estado", patch.estado);
+  }
+
+  async function lookupCep(cepValue: string) {
+    const digits = cepValue.replace(/\D/g, "");
+    if (digits.length !== 8) return;
+    if (digits === lastFetchedCep.current) return;
+
     setLoadingCep(true);
-    const data = await fetchCep(values.cep);
+    setCepError("");
+    const data = await fetchCep(digits);
     setLoadingCep(false);
-    if (data) {
-      onChange("logradouro", data.logradouro || "");
-      onChange("bairro", data.bairro || "");
-      onChange("cidade", data.cidade || "");
-      onChange("estado", data.estado || "");
+
+    if (!data) {
+      setCepError("CEP não encontrado. Confira o número.");
+      return;
+    }
+
+    lastFetchedCep.current = digits;
+    applyAddress(data);
+  }
+
+  function handleCepChange(raw: string) {
+    const formatted = formatCep(raw);
+    onChange("cep", formatted);
+    setCepError("");
+
+    const digits = formatted.replace(/\D/g, "");
+    if (digits.length < 8) {
+      lastFetchedCep.current = "";
+    }
+    if (digits.length === 8) {
+      void lookupCep(formatted);
     }
   }
 
@@ -84,9 +138,12 @@ export function AddressFields({
           label={`CEP ${loadingCep ? "(buscando...)" : ""}`}
           name="cep"
           value={values.cep}
-          onChange={(e) => onChange("cep", e.target.value)}
-          onBlur={handleCepBlur}
+          onChange={(e) => handleCepChange(e.target.value)}
+          onBlur={() => void lookupCep(values.cep)}
           placeholder="00000-000"
+          inputMode="numeric"
+          autoComplete="postal-code"
+          error={cepError || undefined}
         />
         <Input
           label="Cidade"

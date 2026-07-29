@@ -66,6 +66,10 @@ export function LocalEntityForm({
     setAddress((prev) => ({ ...prev, [field]: value }));
   }
 
+  function patchAddr(patch: Partial<AddressValues>) {
+    setAddress((prev) => ({ ...prev, ...patch }));
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (salvandoRef.current) return;
@@ -169,6 +173,7 @@ export function LocalEntityForm({
       <AddressFields
         values={address}
         onChange={setAddr}
+        onPatch={patchAddr}
         nome={nome}
         telefone={telefone}
       />
