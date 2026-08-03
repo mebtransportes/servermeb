@@ -53,6 +53,7 @@ export type ViagemListItem = {
   valor_frete?: number | null;
   motorista_nome: string;
   veiculo_label: string;
+  veiculos: { nome: string; placa: string }[];
 };
 
 export type ViagemParaEdicao = Viagem & {
@@ -140,6 +141,7 @@ export async function fetchViagensLista(): Promise<ViagemListItem[]> {
       valor_frete: row.valor_frete,
       motorista_nome: motorista?.nome_completo ?? "—",
       veiculo_label: formatarVeiculosLabel(listaVeiculos),
+      veiculos: listaVeiculos,
     };
   });
 }

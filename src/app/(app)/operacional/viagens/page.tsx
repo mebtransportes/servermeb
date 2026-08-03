@@ -24,6 +24,83 @@ import { VIAGEM_STATUS_CORES, VIAGEM_STATUS_LABEL } from "@/lib/viagem-status";
 import { VIAGEM_STATUS_FILTRO_ACOMPANHAMENTO } from "@/lib/viagem-validation";
 import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 
+function splitCteValues(value: string | null | undefined): string[] {
+  if (!value?.trim()) return [];
+  const parts = value
+    .split(/[,;/|]+|\s{2,}/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return parts.length > 0 ? parts : [value.trim()];
+}
+
+function CteCell({ value }: { value?: string | null }) {
+  const parts = useMemo(() => splitCteValues(value), [value]);
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    setIndex(0);
+  }, [value]);
+
+  useEffect(() => {
+    if (parts.length <= 1) return;
+    const id = window.setInterval(() => {
+      setIndex((i) => (i + 1) % parts.length);
+    }, 2500);
+    return () => window.clearInterval(id);
+  }, [parts]);
+
+  if (parts.length === 0) {
+    return <span className="text-slate-400">—</span>;
+  }
+
+  const atual = parts[index] ?? parts[0];
+  return (
+    <span className="block min-w-0" title={parts.join(" · ")}>
+      <span className="block break-all font-medium tabular-nums leading-snug">
+        {atual}
+      </span>
+      {parts.length > 1 && (
+        <span className="mt-0.5 block text-[10px] leading-none text-slate-400">
+          {index + 1}/{parts.length}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function VeiculoCell({
+  veiculos,
+  fallbackLabel,
+}: {
+  veiculos: { nome: string; placa: string }[];
+  fallbackLabel: string;
+}) {
+  if (veiculos.length === 0) {
+    return (
+      <span className="break-words text-slate-500" title={fallbackLabel}>
+        {fallbackLabel || "—"}
+      </span>
+    );
+  }
+
+  const titulo = veiculos.map((v) => `${v.nome} — ${v.placa}`).join(" · ");
+
+  return (
+    <div className="min-w-0 space-y-1" title={titulo}>
+      {veiculos.map((v, i) => (
+        <div key={`${v.placa}-${i}`} className="min-w-0 leading-snug">
+          <span className="font-semibold tracking-wide text-slate-800">
+            {v.placa}
+          </span>
+          {v.nome ? (
+            <span className="break-words text-slate-500"> · {v.nome}</span>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function CadastroViagensPage() {
   const [lista, setLista] = useState<ViagemListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -232,17 +309,17 @@ export default function CadastroViagensPage() {
               {buscaCte.trim() && <> · CT-e: {buscaCte.trim()}</>}
             </p>
           )}
-        <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200/80 bg-white/60">
-          <table className="w-full table-fixed text-left text-sm">
+        <div className="min-w-0 overflow-x-auto rounded-xl border border-slate-200/80 bg-white/60">
+          <table className="w-full min-w-[980px] table-fixed text-left text-sm">
             <colgroup>
-              <col className="w-[12%]" />
-              <col className="w-[14%]" />
-              <col className="w-[15%]" />
-              <col className="w-[20%]" />
-              <col className="w-[8%]" />
               <col className="w-[10%]" />
-              <col className="w-[13%]" />
-              <col className="w-[8%]" />
+              <col className="w-[12%]" />
+              <col className="w-[22%]" />
+              <col className="w-[16%]" />
+              <col className="w-[11%]" />
+              <col className="w-[11%]" />
+              <col className="w-[12%]" />
+              <col className="w-[6%]" />
             </colgroup>
             <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
               <tr>
@@ -270,8 +347,11 @@ export default function CadastroViagensPage() {
                   <td className="px-2 py-3 sm:px-3" title={v.motorista_nome}>
                     <span className="line-clamp-2 break-words">{v.motorista_nome}</span>
                   </td>
-                  <td className="px-2 py-3 sm:px-3" title={v.veiculo_label}>
-                    <span className="line-clamp-2 break-words">{v.veiculo_label}</span>
+                  <td className="px-2 py-3 sm:px-3">
+                    <VeiculoCell
+                      veiculos={v.veiculos ?? []}
+                      fallbackLabel={v.veiculo_label}
+                    />
                   </td>
                   <td
                     className="px-2 py-3 sm:px-3"
@@ -279,16 +359,16 @@ export default function CadastroViagensPage() {
                   >
                     <span className="line-clamp-2 break-words">{v.origem_destino_label}</span>
                   </td>
-                  <td className="truncate px-2 py-3 sm:px-3" title={v.numero_cte ?? undefined}>
-                    {v.numero_cte ?? "—"}
+                  <td className="min-w-0 px-2 py-3 sm:px-3">
+                    <CteCell value={v.numero_cte} />
                   </td>
-                  <td className="truncate px-2 py-3 sm:px-3">
+                  <td className="px-2 py-3 whitespace-nowrap sm:px-3">
                     {v.valor_frete != null ? formatarMoeda(Number(v.valor_frete)) : "—"}
                   </td>
                   <td className="px-2 py-3 sm:px-3">
                     <span
                       className={cn(
-                        "meb-status-badge inline-block max-w-full truncate rounded-full px-2 py-0.5 text-xs font-medium",
+                        "meb-status-badge inline-block max-w-full whitespace-normal rounded-full px-2 py-0.5 text-xs font-medium leading-snug",
                         VIAGEM_STATUS_CORES[v.status] ?? "bg-slate-100 text-slate-600"
                       )}
                       title={VIAGEM_STATUS_LABEL[v.status] ?? v.status}
