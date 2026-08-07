@@ -11,6 +11,7 @@ import {
   emptyAddress,
   type AddressValues,
 } from "@/components/forms/address-fields";
+import { normalizarDocumento } from "@/lib/cadastro-busca";
 import { buildMapsLink } from "@/lib/utils";
 import type { EnderecoEntidade, TipoPessoa } from "@/types";
 
@@ -28,6 +29,29 @@ type LocalEntityFormProps = {
   onSaved: () => void;
   onCancel: () => void;
 };
+
+async function documentoJaCadastrado(
+  table: "clientes" | "fornecedores",
+  documento: string,
+  excludeId?: string
+): Promise<{ nome: string } | null> {
+  const digits = normalizarDocumento(documento);
+  if (!digits) return null;
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from(table)
+    .select("id, nome, documento");
+
+  if (error || !data) return null;
+
+  const existente = data.find((row) => {
+    if (excludeId && row.id === excludeId) return false;
+    return normalizarDocumento(row.documento ?? "") === digits;
+  });
+
+  return existente ? { nome: existente.nome } : null;
+}
 
 export function LocalEntityForm({
   table,
@@ -61,6 +85,7 @@ export function LocalEntityForm({
   const [saving, setSaving] = useState(false);
   const salvandoRef = useRef(false);
   const [error, setError] = useState("");
+  const [documentoError, setDocumentoError] = useState("");
 
   function setAddr(field: keyof AddressValues, value: string) {
     setAddress((prev) => ({ ...prev, [field]: value }));
@@ -76,12 +101,46 @@ export function LocalEntityForm({
     salvandoRef.current = true;
     setSaving(true);
     setError("");
+    setDocumentoError("");
 
     try {
       const supabase = createClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();
+
+      const requiresDoc = table === "clientes" || table === "fornecedores";
+      if (requiresDoc) {
+        const digits = normalizarDocumento(documento);
+        if (!digits) {
+          setDocumentoError("Informe o CPF ou CNPJ.");
+          return;
+        }
+        const esperado = tipoPessoa === "PF" ? 11 : 14;
+        if (digits.length !== esperado) {
+          setDocumentoError(
+            tipoPessoa === "PF"
+              ? "CPF deve ter 11 dígitos."
+              : "CNPJ deve ter 14 dígitos."
+          );
+          return;
+        }
+
+        const duplicado = await documentoJaCadastrado(
+          table,
+          documento,
+          entity?.id
+        );
+        if (duplicado) {
+          const tipoDoc = tipoPessoa === "PF" ? "CPF" : "CNPJ";
+          const rotulo = table === "clientes" ? "cliente" : "fornecedor";
+          setDocumentoError(
+            `Já existe um ${rotulo} com este ${tipoDoc}: ${duplicado.nome}`
+          );
+          setError(`Não foi possível salvar: ${tipoDoc} já cadastrado.`);
+          return;
+        }
+      }
 
       const lat = address.latitude ? parseFloat(address.latitude) : null;
       const lng = address.longitude ? parseFloat(address.longitude) : null;
@@ -153,8 +212,15 @@ export function LocalEntityForm({
         <Input
           label={documentLabel}
           value={documento}
-          onChange={(e) => setDocumento(e.target.value)}
+          onChange={(e) => {
+            setDocumento(e.target.value);
+            setDocumentoError("");
+          }}
           required={requiresDoc}
+          error={documentoError || undefined}
+          placeholder={
+            tipoPessoa === "PF" ? "000.000.000-00" : "00.000.000/0000-00"
+          }
         />
         <Input
           label="Nome / Razão social"
