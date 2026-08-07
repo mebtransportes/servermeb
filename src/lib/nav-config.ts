@@ -15,6 +15,7 @@ import {
   FileText,
   Settings,
   Banknote,
+  Shield,
   type LucideIcon,
 } from "lucide-react";
 import { isNavHrefAllowed, type UserRole } from "@/lib/roles";
@@ -79,6 +80,11 @@ const mainNavAll: NavItem[] = [
     prefix: "/configuracoes",
     children: [
       { href: "/configuracoes/usuarios", label: "Usuários", icon: Users },
+      {
+        href: "/configuracoes/gerenciamento",
+        label: "Gerenciamento",
+        icon: Shield,
+      },
     ],
   },
 ];

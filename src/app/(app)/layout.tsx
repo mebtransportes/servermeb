@@ -18,8 +18,24 @@ export default async function AppLayout({
   const profile = await getAppProfile(user.id);
   if (!profile) redirect("/login");
 
+  let dominioExpiraEm: string | null = null;
+  if (profile.role === "admin") {
+    const { data, error } = await supabase
+      .from("app_settings")
+      .select("dominio_expira_em")
+      .eq("id", 1)
+      .maybeSingle();
+    if (!error) {
+      dominioExpiraEm = data?.dominio_expira_em ?? null;
+    }
+  }
+
   return (
-    <AppShell username={profile.username} role={profile.role}>
+    <AppShell
+      username={profile.username}
+      role={profile.role}
+      dominioExpiraEm={dominioExpiraEm}
+    >
       {children}
     </AppShell>
   );
