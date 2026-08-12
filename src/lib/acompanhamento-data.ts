@@ -56,6 +56,11 @@ export async function fetchFornecedoresAcompanhamento(): Promise<ParceiroSugesta
   return parceiros.filter((p) => p.tipo === "fornecedor");
 }
 
+export async function fetchClientesAcompanhamento(): Promise<ParceiroSugestao[]> {
+  const parceiros = await carregarParceiros();
+  return parceiros.filter((p) => p.tipo === "cliente");
+}
+
 export async function fetchViagensAcompanhamento(): Promise<AcompanhamentoViagemItem[]> {
   const supabase = createClient();
   const { data, error } = await supabase
@@ -203,6 +208,18 @@ export function viagemMatchFornecedorLocais(
       : [(localSaida ?? "").trim()].filter(Boolean);
   if (textos.length === 0) return false;
   return textoMatchParceiro(textos, fornecedor);
+}
+
+/** Viagem que inclui o cliente em algum destino/entrega. */
+export function viagemMatchClienteLocais(
+  locaisEntrega: (string | null | undefined)[],
+  cliente: Pick<ParceiroSugestao, "nome" | "textoCompleto">
+): boolean {
+  const textos = locaisEntrega
+    .map((l) => (l ?? "").trim())
+    .filter(Boolean);
+  if (textos.length === 0) return false;
+  return textoMatchParceiro(textos, cliente);
 }
 
 /** Viagem que inclui o fornecedor em alguma origem. */

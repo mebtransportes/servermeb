@@ -10,6 +10,7 @@ export type ViagemFechamento = {
   data_contratacao?: string | null;
   duracao_base_saida?: boolean;
   chegada_em?: string | null;
+  fim_viagem_em?: string | null;
   local_embarque: string;
   veiculo_label: string;
   numero_cte?: string | null;

@@ -91,6 +91,7 @@ export interface Viagem {
   saida_em: string | null;
   chegada_prevista_em: string | null;
   data_contratacao?: string | null;
+  fim_viagem_em?: string | null;
   duracao_base_saida?: boolean;
   local_saida: string | null;
   tipo_trajeto: ViagemTipoTrajeto;

@@ -15,7 +15,9 @@ import {
   type ViagemParaEdicao,
 } from "@/lib/viagem-crud";
 import {
+  fetchClientesAcompanhamento,
   fetchFornecedoresAcompanhamento,
+  viagemMatchClienteLocais,
   viagemMatchFornecedorLocais,
 } from "@/lib/acompanhamento-data";
 import { formatarMoeda, formatarDataHoraBr } from "@/lib/frota-filters";
@@ -109,9 +111,13 @@ export default function CadastroViagensPage() {
   const [msgSucesso, setMsgSucesso] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("");
   const [filtroFornecedorId, setFiltroFornecedorId] = useState("");
+  const [filtroClienteId, setFiltroClienteId] = useState("");
   const [buscaCte, setBuscaCte] = useState("");
   const [fornecedores, setFornecedores] = useState<
     Awaited<ReturnType<typeof fetchFornecedoresAcompanhamento>>
+  >([]);
+  const [clientes, setClientes] = useState<
+    Awaited<ReturnType<typeof fetchClientesAcompanhamento>>
   >([]);
 
   const load = useCallback(async () => {
@@ -126,11 +132,17 @@ export default function CadastroViagensPage() {
 
   useEffect(() => {
     fetchFornecedoresAcompanhamento().then(setFornecedores);
+    fetchClientesAcompanhamento().then(setClientes);
   }, []);
 
   const fornecedorSelecionado = useMemo(
     () => fornecedores.find((f) => f.id === filtroFornecedorId),
     [fornecedores, filtroFornecedorId]
+  );
+
+  const clienteSelecionado = useMemo(
+    () => clientes.find((c) => c.id === filtroClienteId),
+    [clientes, filtroClienteId]
   );
 
   const filtradas = useMemo(() => {
@@ -147,12 +159,18 @@ export default function CadastroViagensPage() {
       ) {
         return false;
       }
+      if (
+        clienteSelecionado &&
+        !viagemMatchClienteLocais(v.entregas, clienteSelecionado)
+      ) {
+        return false;
+      }
       if (cteQ && !(v.numero_cte ?? "").toLowerCase().includes(cteQ)) {
         return false;
       }
       return true;
     });
-  }, [lista, filtroStatus, fornecedorSelecionado, buscaCte]);
+  }, [lista, filtroStatus, fornecedorSelecionado, clienteSelecionado, buscaCte]);
 
   function abrirNova() {
     setEditing(null);
@@ -263,7 +281,7 @@ export default function CadastroViagensPage() {
       )}
 
       {!loading && lista.length > 0 && (
-        <div className={`mb-4 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 ${mebCard}`}>
+        <div className={`mb-4 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4 ${mebCard}`}>
           <Select
             label="Status"
             value={filtroStatus}
@@ -284,6 +302,15 @@ export default function CadastroViagensPage() {
             opcional
             placeholder="Todos — digite o nome (mín. 2 letras)"
           />
+          <CadastroOpcaoAutocomplete
+            label="Cliente"
+            options={clientes.map((c) => ({ value: c.id, label: c.nome }))}
+            value={filtroClienteId}
+            onValueChange={setFiltroClienteId}
+            minChars={3}
+            opcional
+            placeholder="Todos — digite o nome (mín. 3 letras)"
+          />
           <Input
             label="CT-e"
             value={buscaCte}
@@ -301,11 +328,12 @@ export default function CadastroViagensPage() {
         <p className="text-slate-500">Nenhuma viagem encontrada com os filtros selecionados.</p>
       ) : (
         <>
-          {(filtroStatus || filtroFornecedorId || buscaCte.trim()) && (
+          {(filtroStatus || filtroFornecedorId || filtroClienteId || buscaCte.trim()) && (
             <p className="mb-3 text-sm text-slate-500">
               {filtradas.length} viagem(ns) encontrada(s)
               {filtroStatus && <> · {VIAGEM_STATUS_LABEL[filtroStatus] ?? filtroStatus}</>}
               {fornecedorSelecionado && <> · {fornecedorSelecionado.nome}</>}
+              {clienteSelecionado && <> · Cliente: {clienteSelecionado.nome}</>}
               {buscaCte.trim() && <> · CT-e: {buscaCte.trim()}</>}
             </p>
           )}

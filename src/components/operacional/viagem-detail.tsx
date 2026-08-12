@@ -324,6 +324,12 @@ export function ViagemDetail({
             {viagem.saida_em
               ? new Date(viagem.saida_em).toLocaleString("pt-BR")
               : "A definir (viagem agendada)"}
+            {viagem.fim_viagem_em && (
+              <>
+                {" · "}
+                Fim: {new Date(viagem.fim_viagem_em).toLocaleString("pt-BR")}
+              </>
+            )}
             {duracaoViagem && (
               <>
                 {" "}

@@ -109,6 +109,7 @@ export function ViagemForm({
   const [contratacaoEm, setContratacaoEm] = useState("");
   const [saidaEm, setSaidaEm] = useState("");
   const [chegadaEm, setChegadaEm] = useState("");
+  const [fimViagemEm, setFimViagemEm] = useState("");
   const [fornecedores, setFornecedores] = useState<string[]>([""]);
   const [entregas, setEntregas] = useState<string[]>([""]);
   const [tipoTrajeto, setTipoTrajeto] = useState("ida");
@@ -168,6 +169,9 @@ export function ViagemForm({
     setCadastroAgendado(viagem.status === "AGENDADA");
     setChegadaEm(
       viagem.chegada_prevista_em ? isoParaDatetimeLocal(viagem.chegada_prevista_em) : ""
+    );
+    setFimViagemEm(
+      viagem.fim_viagem_em ? isoParaDatetimeLocal(viagem.fim_viagem_em) : ""
     );
     setFornecedores(
       viagem.fornecedores.length
@@ -397,6 +401,7 @@ export function ViagemForm({
         data_contratacao: contratacaoEm ? new Date(contratacaoEm).toISOString() : null,
         saida_em: saidaEm ? new Date(saidaEm).toISOString() : null,
         chegada_prevista_em: chegadaEm ? new Date(chegadaEm).toISOString() : null,
+        fim_viagem_em: fimViagemEm ? new Date(fimViagemEm).toISOString() : null,
         local_saida: locaisFornecedor.length
           ? formatarLocaisParceiros(
               locaisFornecedor.map((texto, i) => ({ ordem: i + 1, texto }))
@@ -781,7 +786,7 @@ export function ViagemForm({
               </span>
             )}
           </h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Input
               label="Data e hora da contratação"
               type="datetime-local"
@@ -802,11 +807,18 @@ export function ViagemForm({
               value={chegadaEm}
               onChange={(e) => setChegadaEm(e.target.value)}
             />
+            <Input
+              label="Data e hora de fim da viagem"
+              type="datetime-local"
+              value={fimViagemEm}
+              onChange={(e) => setFimViagemEm(e.target.value)}
+            />
           </div>
           <p className="text-xs text-slate-500">
             A data de contratação é obrigatória em todas as viagens, inclusive agendadas. A
             duração nos relatórios é calculada da contratação até a chegada. A chegada também
-            pode ser ajustada no acompanhamento da viagem.
+            pode ser ajustada no acompanhamento da viagem. A data de fim registra quando a
+            viagem foi encerrada.
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <Select

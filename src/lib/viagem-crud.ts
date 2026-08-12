@@ -48,6 +48,7 @@ export type ViagemListItem = {
   saida_em: string | null;
   local_saida: string | null;
   fornecedores: string[];
+  entregas: string[];
   origem_destino_label: string;
   numero_cte?: string | null;
   valor_frete?: number | null;
@@ -136,6 +137,7 @@ export async function fetchViagensLista(): Promise<ViagemListItem[]> {
       saida_em: row.saida_em,
       local_saida: row.local_saida ?? null,
       fornecedores,
+      entregas,
       origem_destino_label: formatarOrigemDestinoCidadeEstado(origemTexto, destinoTexto),
       numero_cte: row.numero_cte,
       valor_frete: row.valor_frete,
