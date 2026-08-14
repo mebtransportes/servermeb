@@ -15,6 +15,7 @@ import {
   FileText,
   Settings,
   Banknote,
+  CircleDollarSign,
   Shield,
   type LucideIcon,
 } from "lucide-react";
@@ -47,6 +48,7 @@ const mainNavAll: NavItem[] = [
       { href: "/frota/manutencao", label: "Manutenção", icon: Wrench },
       { href: "/frota/documentacao", label: "Documentação", icon: FileText },
       { href: "/frota/abastecimentos", label: "Abastecimentos", icon: Fuel },
+      { href: "/frota/faturamento", label: "Faturamento", icon: CircleDollarSign },
     ],
   },
   {

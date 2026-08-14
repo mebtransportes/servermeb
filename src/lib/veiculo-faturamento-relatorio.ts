@@ -346,3 +346,25 @@ export async function montarRelatorioFaturamentoVeiculos(
     ate: intervalo?.ate ?? "",
   };
 }
+
+export function filtrarRelatorioPorVeiculos(
+  relatorio: VeiculoFaturamentoRelatorio,
+  veiculoIds: string[] | null
+): VeiculoFaturamentoRelatorio {
+  if (veiculoIds == null) return relatorio;
+  const ids = new Set(veiculoIds);
+  const secoes = relatorio.secoes.filter((s) => ids.has(s.veiculoId));
+  const viagensUnicas = new Map<string, number>();
+  for (const secao of secoes) {
+    for (const viagem of secao.viagens) {
+      viagensUnicas.set(viagem.viagemId, viagem.valorFrete);
+    }
+  }
+  return {
+    ...relatorio,
+    secoes,
+    totalGeralUnico: [...viagensUnicas.values()].reduce((s, n) => s + n, 0),
+    qtdViagensUnicas: viagensUnicas.size,
+    placasLabel: secoes.map((s) => s.placa).join(", ") || "—",
+  };
+}
