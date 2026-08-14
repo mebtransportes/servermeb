@@ -26,7 +26,7 @@ import {
   VIAGEM_STATUS_LABEL,
 } from "@/lib/viagem-status";
 import { formatarVeiculosLabel, isoParaDatetimeLocal } from "@/lib/viagem-crud";
-import { atualizarChegadaViagem } from "@/lib/viagem-chegada";
+import { atualizarChegadaViagem, atualizarFimViagem } from "@/lib/viagem-chegada";
 import { duracaoViagemAteChegada } from "@/lib/viagem-duracao";
 import { Input } from "@/components/ui/input";
 import { VEICULO_TIPO_OPCOES } from "@/lib/viagem-validation";
@@ -57,6 +57,8 @@ export function ViagemDetail({
   const [refreshKm, setRefreshKm] = useState(0);
   const [chegadaEm, setChegadaEm] = useState("");
   const [salvandoChegada, setSalvandoChegada] = useState(false);
+  const [fimViagemEm, setFimViagemEm] = useState("");
+  const [salvandoFimViagem, setSalvandoFimViagem] = useState(false);
   const [dataPagamento, setDataPagamento] = useState("");
   const [salvandoDataPagamento, setSalvandoDataPagamento] = useState(false);
 
@@ -84,6 +86,9 @@ export function ViagemDetail({
       );
       setChegadaEm(
         v.chegada_prevista_em ? isoParaDatetimeLocal(v.chegada_prevista_em) : ""
+      );
+      setFimViagemEm(
+        v.fim_viagem_em ? isoParaDatetimeLocal(v.fim_viagem_em) : ""
       );
       setDataPagamento(
         (() => {
@@ -240,6 +245,23 @@ export function ViagemDetail({
     if (err) {
       await mebAlert(err);
       return;
+    }
+    onUpdated();
+    load();
+  }
+
+  async function saveFimViagem() {
+    setSalvandoFimViagem(true);
+    const valor = fimViagemEm ? new Date(fimViagemEm).toISOString() : null;
+    const err = await atualizarFimViagem(viagemId, valor);
+    setSalvandoFimViagem(false);
+    if (err) {
+      await mebAlert(err);
+      return;
+    }
+    if (statusGeraFechamento(status)) {
+      const errFech = await syncFechamentoViagem(viagemId);
+      if (errFech) console.warn("Fechamento:", errFech);
     }
     onUpdated();
     load();
@@ -472,6 +494,45 @@ export function ViagemDetail({
                 <strong className="text-emerald-700">{duracaoViagem}</strong>
               </>
             )}
+          </p>
+        )}
+      </div>
+
+      <div className={cn(mebFormSubsection, "space-y-3")}>
+        <h3 className="font-semibold text-slate-800">Fim da viagem</h3>
+        <p className="text-xs text-slate-500">
+          Informe quando a viagem foi encerrada. Também pode ser cadastrada na edição da viagem.
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <Input
+            label="Data e hora de fim da viagem"
+            type="datetime-local"
+            tone="light"
+            value={fimViagemEm}
+            onChange={(e) => setFimViagemEm(e.target.value)}
+            className="min-w-[220px]"
+          />
+          <Button
+            type="button"
+            variant="success"
+            onClick={saveFimViagem}
+            disabled={
+              salvandoFimViagem ||
+              fimViagemEm ===
+                (viagem.fim_viagem_em
+                  ? isoParaDatetimeLocal(viagem.fim_viagem_em)
+                  : "")
+            }
+          >
+            {salvandoFimViagem ? "Salvando..." : "Salvar fim da viagem"}
+          </Button>
+        </div>
+        {viagem.fim_viagem_em && (
+          <p className="text-sm text-slate-600">
+            Fim registrado:{" "}
+            <strong className="text-slate-800">
+              {new Date(viagem.fim_viagem_em).toLocaleString("pt-BR")}
+            </strong>
           </p>
         )}
       </div>

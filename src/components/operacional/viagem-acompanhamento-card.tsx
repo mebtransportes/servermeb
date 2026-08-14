@@ -26,7 +26,7 @@ import {
   Timer,
 } from "lucide-react";
 import { duracaoViagemAteChegada } from "@/lib/viagem-duracao";
-import { atualizarChegadaViagem } from "@/lib/viagem-chegada";
+import { atualizarChegadaViagem, atualizarFimViagem } from "@/lib/viagem-chegada";
 import { isoParaDatetimeLocal } from "@/lib/viagem-crud";
 import { mebAlert } from "@/lib/meb-dialog";
 
@@ -66,6 +66,10 @@ export function ViagemAcompanhamentoCard({
     viagem.chegada_prevista_em ? isoParaDatetimeLocal(viagem.chegada_prevista_em) : ""
   );
   const [salvandoChegada, setSalvandoChegada] = useState(false);
+  const [fimViagemEm, setFimViagemEm] = useState(
+    viagem.fim_viagem_em ? isoParaDatetimeLocal(viagem.fim_viagem_em) : ""
+  );
+  const [salvandoFimViagem, setSalvandoFimViagem] = useState(false);
   const multiplosFornecedores = viagem.fornecedores.length > 1;
   const multiplasEntregas = viagem.entregas.length > 1;
   const statusLabel = VIAGEM_STATUS_LABEL[viagem.status] ?? viagem.status;
@@ -90,11 +94,29 @@ export function ViagemAcompanhamentoCard({
     onAtualizado?.();
   }
 
+  async function salvarFimViagem() {
+    setSalvandoFimViagem(true);
+    const valor = fimViagemEm ? new Date(fimViagemEm).toISOString() : null;
+    const err = await atualizarFimViagem(viagem.id, valor);
+    setSalvandoFimViagem(false);
+    if (err) {
+      await mebAlert(err);
+      return;
+    }
+    onAtualizado?.();
+  }
+
   useEffect(() => {
     setChegadaEm(
       viagem.chegada_prevista_em ? isoParaDatetimeLocal(viagem.chegada_prevista_em) : ""
     );
   }, [viagem.chegada_prevista_em]);
+
+  useEffect(() => {
+    setFimViagemEm(
+      viagem.fim_viagem_em ? isoParaDatetimeLocal(viagem.fim_viagem_em) : ""
+    );
+  }, [viagem.fim_viagem_em]);
 
   async function copiarWhatsApp(e: React.MouseEvent) {
     e.stopPropagation();
@@ -174,6 +196,16 @@ export function ViagemAcompanhamentoCard({
             <Clock className="h-3 w-3 shrink-0 text-slate-400" />
             Chegada:{" "}
             {new Date(viagem.chegada_prevista_em).toLocaleString("pt-BR", {
+              dateStyle: "short",
+              timeStyle: "short",
+            })}
+          </p>
+        )}
+        {viagem.fim_viagem_em && (
+          <p className="flex items-center gap-1.5">
+            <Timer className="h-3 w-3 shrink-0 text-slate-400" />
+            Fim:{" "}
+            {new Date(viagem.fim_viagem_em).toLocaleString("pt-BR", {
               dateStyle: "short",
               timeStyle: "short",
             })}
@@ -271,6 +303,36 @@ export function ViagemAcompanhamentoCard({
               onClick={salvarChegada}
             >
               {salvandoChegada ? "..." : "Salvar"}
+            </Button>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-end gap-2">
+          <Input
+            label="Data e hora de fim da viagem"
+            type="datetime-local"
+            value={fimViagemEm}
+            disabled={salvandoFimViagem}
+            onChange={(e) => setFimViagemEm(e.target.value)}
+            className="min-w-0 flex-1 py-2 text-xs"
+          />
+          <div className="flex flex-col gap-1">
+            <span className="invisible text-sm font-medium" aria-hidden>
+              .
+            </span>
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-10 shrink-0 text-xs"
+              disabled={
+                salvandoFimViagem ||
+                fimViagemEm ===
+                  (viagem.fim_viagem_em
+                    ? isoParaDatetimeLocal(viagem.fim_viagem_em)
+                    : "")
+              }
+              onClick={salvarFimViagem}
+            >
+              {salvandoFimViagem ? "..." : "Salvar"}
             </Button>
           </div>
         </div>

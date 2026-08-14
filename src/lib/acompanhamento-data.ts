@@ -33,6 +33,7 @@ export type AcompanhamentoViagemItem = {
   duracao_base_saida?: boolean;
   saida_em: string | null;
   chegada_prevista_em: string | null;
+  fim_viagem_em?: string | null;
   local_saida: string;
   numero_cte?: string | null;
   created_at: string;
@@ -67,7 +68,7 @@ export async function fetchViagensAcompanhamento(): Promise<AcompanhamentoViagem
     .from("viagens")
     .select(
       `
-      id, status, data_contratacao, duracao_base_saida, saida_em, chegada_prevista_em, local_saida, numero_cte,
+      id, status, data_contratacao, duracao_base_saida, saida_em, chegada_prevista_em, fim_viagem_em, local_saida, numero_cte,
       created_at, peso_kg, valor_frete,
       fornecedor_atual_ordem, entrega_atual_ordem,
       motoristas ( nome_completo, telefone, vinculo ),
@@ -159,6 +160,7 @@ export async function fetchViagensAcompanhamento(): Promise<AcompanhamentoViagem
       duracao_base_saida: Boolean(row.duracao_base_saida),
       saida_em: row.saida_em,
       chegada_prevista_em: row.chegada_prevista_em,
+      fim_viagem_em: row.fim_viagem_em as string | null | undefined,
       local_saida: localSaida,
       numero_cte: row.numero_cte,
       created_at: row.created_at as string,
@@ -343,6 +345,12 @@ export function formatarTextoWhatsAppAcompanhamento(
     if (duracao) {
       linhas.push(`⏱ *Duração:* ${duracao}`);
     }
+  }
+
+  if (viagem.fim_viagem_em) {
+    linhas.push(
+      `⏹ *Fim da viagem:* ${new Date(viagem.fim_viagem_em).toLocaleString("pt-BR")}`
+    );
   }
 
   if (viagem.numero_cte) {
