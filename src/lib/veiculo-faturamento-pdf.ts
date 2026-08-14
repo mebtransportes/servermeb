@@ -82,10 +82,10 @@ export function gerarPdfFaturamentoVeiculos(relatorio: VeiculoFaturamentoRelator
     `Vínculo: ${relatorio.vinculoLabel}`,
     `Veículos: ${relatorio.placasLabel}`,
     `Veículos no relatório: ${relatorio.secoes.length}`,
-    `Viagens (sem duplicar composição): ${relatorio.qtdViagensUnicas}`,
+    `Viagens: ${relatorio.qtdViagensUnicas}`,
     `Faturamento bruto geral: ${formatarMoeda(relatorio.totalGeralUnico)}`,
     "Valor usado: frete bruto da viagem (sem ICMS, comissão ou encargos).",
-    "Caminhão e carreta da mesma viagem: cada um mostra o frete; o total geral conta a viagem uma vez.",
+    "Apenas caminhões e cavalos. Carretas não entram no faturamento.",
   ];
   resumo.forEach((linha) => {
     doc.text(linha, 14, y);

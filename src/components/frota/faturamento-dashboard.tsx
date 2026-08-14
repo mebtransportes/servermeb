@@ -20,6 +20,7 @@ import { formatarDataBr, formatarMoeda } from "@/lib/frota-filters";
 import { gerarPdfFaturamentoVeiculos } from "@/lib/veiculo-faturamento-pdf";
 import {
   filtrarRelatorioPorVeiculos,
+  isVeiculoFaturavel,
   montarRelatorioFaturamentoVeiculos,
   validarFiltrosFaturamento,
   type VeiculoFaturamentoFiltros,
@@ -114,7 +115,7 @@ export function FaturamentoDashboard() {
   const loadVeiculos = useCallback(async () => {
     const supabase = createClient();
     const { data } = await supabase.from("veiculos").select("*").order("placa");
-    setVeiculos((data as Veiculo[]) ?? []);
+    setVeiculos(((data as Veiculo[]) ?? []).filter((v) => isVeiculoFaturavel(v.tipo)));
     setVeiculosProntos(true);
   }, []);
 
@@ -217,8 +218,8 @@ export function FaturamentoDashboard() {
             </div>
             <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Faturamento</h1>
             <p className="mt-1 max-w-xl text-sm text-slate-600">
-              Frete bruto por veículo no período, com detalhe por cliente e viagem. Filtre por mês,
-              frota própria, terceiro e placas.
+              Frete bruto por caminhão ou cavalo no período, com detalhe por cliente e viagem.
+              Carretas não entram, para não duplicar o valor da composição.
             </p>
           </div>
           <Button type="button" variant="secondary" onClick={handlePdf} disabled={gerando || loading}>
@@ -269,14 +270,14 @@ export function FaturamentoDashboard() {
           {
             label: "Viagens",
             value: loading || !relatorio ? "…" : relatorio.qtdViagensUnicas,
-            sub: "Sem duplicar composição",
+            sub: "Uma por caminhão/cavalo",
             icon: Route,
             tone: "cyan",
           },
           {
-            label: "Veículos",
+            label: "Caminhões / cavalos",
             value: loading || !relatorio ? "…" : secoesComFaturamento.length,
-            sub: `${relatorio?.secoes.length ?? 0} no filtro`,
+            sub: `${relatorio?.secoes.length ?? 0} no filtro · sem carretas`,
             icon: Truck,
             tone: "sky",
           },
@@ -297,7 +298,7 @@ export function FaturamentoDashboard() {
           </span>
           <div>
             <p className="text-sm font-semibold text-slate-800">Filtros</p>
-            <p className="text-xs text-slate-500">Período, vínculo da frota e placas</p>
+            <p className="text-xs text-slate-500">Período, vínculo e placas de caminhão ou cavalo</p>
           </div>
         </div>
 
@@ -448,10 +449,10 @@ export function FaturamentoDashboard() {
       ) : (
         <section className="space-y-3">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Por veículo</h2>
+            <h2 className="text-lg font-bold text-slate-900">Por caminhão ou cavalo</h2>
             <p className="text-sm text-slate-500">
-              Clique no card para ver clientes e viagens. O total geral não duplica caminhão e
-              carreta da mesma viagem.
+              Clique no card para ver clientes e viagens. Só caminhões e cavalos entram no
+              faturamento; carretas ficam de fora.
             </p>
           </div>
           <div className="grid gap-3 lg:grid-cols-2">

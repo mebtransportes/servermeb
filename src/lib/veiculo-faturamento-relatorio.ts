@@ -143,13 +143,18 @@ export function validarFiltrosFaturamento(filtros: VeiculoFaturamentoFiltros): s
   return null;
 }
 
+export function isVeiculoFaturavel(tipo?: VeiculoTipo | null): boolean {
+  return tipo === "caminhao" || tipo === "cavalo";
+}
+
 function veiculosSelecionados(
   veiculos: Veiculo[],
   filtros: VeiculoFaturamentoFiltros
 ): Veiculo[] {
+  const porTipo = veiculos.filter((v) => isVeiculoFaturavel(v.tipo));
   const porVinculo = filtros.vinculo
-    ? veiculos.filter((v) => (v.vinculo ?? "frota") === filtros.vinculo)
-    : veiculos;
+    ? porTipo.filter((v) => (v.vinculo ?? "frota") === filtros.vinculo)
+    : porTipo;
   if (filtros.veiculoIds == null) return porVinculo;
   const ids = new Set(filtros.veiculoIds);
   return porVinculo.filter((v) => ids.has(v.id));
@@ -292,7 +297,9 @@ export async function montarRelatorioFaturamentoVeiculos(
 
     let entrouNoRelatorio = false;
     for (const p of participantes) {
-      if (!porId.has(p.id)) continue;
+      const cadastro = porId.get(p.id);
+      if (!cadastro) continue;
+      if (!isVeiculoFaturavel(cadastro.tipo ?? p.tipo)) continue;
       viagensPorVeiculo.get(p.id)?.push(linha);
       entrouNoRelatorio = true;
     }
@@ -332,7 +339,7 @@ export async function montarRelatorioFaturamentoVeiculos(
 
   const placasLabel =
     filtros.veiculoIds == null
-      ? "Todas as placas do vínculo"
+      ? "Todas as placas de caminhão e cavalo"
       : selecionados.map((v) => v.placa).join(", ") || "—";
 
   return {
