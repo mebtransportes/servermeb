@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Car, Plus, Pencil, Trash2 } from "lucide-react";
+import { Car, FileDown, Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CadastroBuscaInput } from "@/components/cadastro/cadastro-busca-input";
 import { VeiculosForm } from "@/components/cadastro/veiculos-form";
+import { VeiculosFaturamentoRelatorioModal } from "@/components/cadastro/veiculos-faturamento-relatorio-modal";
 import { matchPlaca } from "@/lib/cadastro-busca";
 import { excluirVeiculo } from "@/lib/veiculo-crud";
 import type { Veiculo } from "@/types";
@@ -22,6 +23,7 @@ export default function VeiculosPage() {
   const [editing, setEditing] = useState<Veiculo | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [busca, setBusca] = useState("");
+  const [showRelatorio, setShowRelatorio] = useState(false);
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -111,11 +113,23 @@ export default function VeiculosPage() {
             <p className="text-slate-500">Cadastro da frota</p>
           </div>
         </div>
-        <Button variant="success" onClick={() => setShowForm(true)}>
-          <Plus className="h-4 w-4" />
-          Novo veículo
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="secondary" onClick={() => setShowRelatorio(true)}>
+            <FileDown className="h-4 w-4" />
+            Gerar relatório
+          </Button>
+          <Button variant="success" onClick={() => setShowForm(true)}>
+            <Plus className="h-4 w-4" />
+            Novo veículo
+          </Button>
+        </div>
       </header>
+
+      <VeiculosFaturamentoRelatorioModal
+        open={showRelatorio}
+        onClose={() => setShowRelatorio(false)}
+        veiculos={lista}
+      />
 
       {!loading && lista.length > 0 && (
         <div className="mb-4">
