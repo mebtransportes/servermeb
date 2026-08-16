@@ -71,6 +71,8 @@ type LinhaRelatorio = {
   diaria: string;
   peso_num: number;
   frete_num: number;
+  encargos_num: number;
+  descarga_num: number;
 };
 
 function formatarPesoKg(v?: number | null) {
@@ -245,6 +247,8 @@ export async function enriquecerLinhasRelatorioAcompanhamento(
       diaria: formatarMoedaOuTraco(diaria),
       peso_num: v.peso_kg != null && Number(v.peso_kg) > 0 ? Number(v.peso_kg) : 0,
       frete_num: frete > 0 ? frete : 0,
+      encargos_num: frete > 0 && freteLivre > 0 ? Math.max(0, frete - freteLivre) : 0,
+      descarga_num: descarga > 0 ? descarga : 0,
     };
   });
 }
@@ -345,7 +349,9 @@ function desenharResumoPlaca(
 function desenharResumoGeral(doc: DocComAutoTable, y: number, linhas: LinhaRelatorio[]) {
   const pesoTotal = linhas.reduce((s, l) => s + l.peso_num, 0);
   const faturamento = linhas.reduce((s, l) => s + l.frete_num, 0);
-  y = garantirEspaco(doc, y, 16);
+  const encargos = linhas.reduce((s, l) => s + l.encargos_num, 0);
+  const descargas = linhas.reduce((s, l) => s + l.descarga_num, 0);
+  y = garantirEspaco(doc, y, 22);
 
   autoTable(doc, {
     startY: y,
@@ -356,6 +362,11 @@ function desenharResumoGeral(doc: DocComAutoTable, y: number, linhas: LinhaRelat
         `Viagens: ${linhas.length}`,
         `Peso: ${formatarPesoKg(pesoTotal || null)}`,
         `Valor total do frete: ${formatarMoeda(faturamento)}`,
+      ],
+      [
+        `Valor de encargos: ${formatarMoeda(encargos)}`,
+        `Valor de descargas: ${formatarMoeda(descargas)}`,
+        "",
       ],
     ],
     styles: {
@@ -410,7 +421,9 @@ function cabecalhoRelatorio(
   qtdViagens: number,
   modoTodasPlacas: boolean,
   qtdPlacas: number,
-  valorTotalFrete: number
+  valorTotalFrete: number,
+  valorEncargos: number,
+  valorDescargas: number
 ) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
@@ -432,6 +445,8 @@ function cabecalhoRelatorio(
       ? `Placas (caminhão/cavalo): ${qtdPlacas} veículo(s) · ${qtdViagens} viagem(ns) no período`
       : `Placa: ${filtros.placa} · ${qtdViagens} viagem(ns)`,
     `Valor total do frete: ${formatarMoeda(valorTotalFrete)}`,
+    `Valor de encargos: ${formatarMoeda(valorEncargos)}`,
+    `Valor de descargas: ${formatarMoeda(valorDescargas)}`,
     `Gerado em: ${new Date().toLocaleString("pt-BR")}`,
   ];
   for (const linha of linhas) {
@@ -467,6 +482,8 @@ export async function gerarPdfAcompanhamentoRelatorio(
     : [{ placa: filtros.placa, viagens }];
 
   const valorTotalFrete = linhas.reduce((s, l) => s + l.frete_num, 0);
+  const valorEncargos = linhas.reduce((s, l) => s + l.encargos_num, 0);
+  const valorDescargas = linhas.reduce((s, l) => s + l.descarga_num, 0);
 
   let y = cabecalhoRelatorio(
     doc,
@@ -475,7 +492,9 @@ export async function gerarPdfAcompanhamentoRelatorio(
     viagens.length,
     modoTodasPlacas,
     grupos.length,
-    valorTotalFrete
+    valorTotalFrete,
+    valorEncargos,
+    valorDescargas
   );
 
   for (const grupo of grupos) {
