@@ -180,7 +180,7 @@ export async function enriquecerLinhasRelatorioAcompanhamento(
         .in("viagem_id", ids),
       supabase
         .from("viagem_recebimentos")
-        .select("viagem_id, valor_descargas_adicionais, valor_diarias")
+        .select("id, viagem_id, valor_descargas_adicionais, valor_diarias")
         .in("viagem_id", ids),
       supabase
         .from("viagem_recursos")
@@ -188,6 +188,16 @@ export async function enriquecerLinhasRelatorioAcompanhamento(
         .in("viagem_id", ids)
         .eq("tipo", "descarga"),
     ]);
+
+  const recIds = (recebimentos ?? [])
+    .map((r) => r.id as string)
+    .filter(Boolean);
+  const { data: encargosLancados } = recIds.length
+    ? await supabase
+        .from("viagem_recebimento_encargos")
+        .select("recebimento_id, valor")
+        .in("recebimento_id", recIds)
+    : { data: [] as { recebimento_id: string; valor: number }[] };
 
   const pagPorViagem = new Map(
     (pagamentos ?? []).map((p) => [
@@ -202,6 +212,17 @@ export async function enriquecerLinhasRelatorioAcompanhamento(
   const recPorViagem = new Map(
     (recebimentos ?? []).map((r) => [r.viagem_id as string, r])
   );
+  const recIdParaViagem = new Map(
+    (recebimentos ?? []).map((r) => [r.id as string, r.viagem_id as string])
+  );
+  const encargosPorViagem = new Map<string, number>();
+  for (const e of encargosLancados ?? []) {
+    const viagemId = recIdParaViagem.get(e.recebimento_id as string);
+    if (!viagemId) continue;
+    const valor = Number(e.valor) || 0;
+    if (valor <= 0) continue;
+    encargosPorViagem.set(viagemId, (encargosPorViagem.get(viagemId) ?? 0) + valor);
+  }
   const descargaGastoPorViagem = new Map<string, number>();
   for (const r of recursosDescarga ?? []) {
     const viagemId = r.viagem_id as string;
@@ -229,6 +250,11 @@ export async function enriquecerLinhasRelatorioAcompanhamento(
     const descargaGasto = descargaGastoPorViagem.get(v.id) ?? 0;
     const descarga = descargaRecebimento + descargaGasto;
     const diaria = Number(rec?.valor_diarias) || 0;
+    const encargosLancadosViagem = encargosPorViagem.get(v.id);
+    const encargos =
+      encargosLancadosViagem != null && encargosLancadosViagem > 0
+        ? encargosLancadosViagem
+        : diaria + descargaRecebimento;
     const dataPag = pagPorViagem.get(v.id) ?? null;
 
     return {
@@ -247,7 +273,7 @@ export async function enriquecerLinhasRelatorioAcompanhamento(
       diaria: formatarMoedaOuTraco(diaria),
       peso_num: v.peso_kg != null && Number(v.peso_kg) > 0 ? Number(v.peso_kg) : 0,
       frete_num: frete > 0 ? frete : 0,
-      encargos_num: frete > 0 && freteLivre > 0 ? Math.max(0, frete - freteLivre) : 0,
+      encargos_num: encargos > 0 ? encargos : 0,
       descarga_num: descarga > 0 ? descarga : 0,
     };
   });
