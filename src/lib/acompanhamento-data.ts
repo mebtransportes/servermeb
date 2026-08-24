@@ -236,6 +236,16 @@ export function viagemMatchFornecedor(
   );
 }
 
+export function viagemMatchCliente(
+  viagem: AcompanhamentoViagemItem,
+  cliente: Pick<ParceiroSugestao, "nome" | "textoCompleto">
+): boolean {
+  return viagemMatchClienteLocais(
+    viagem.entregas.map((e) => e.local_entrega),
+    cliente
+  );
+}
+
 function encurtarTexto(texto: string, max = 42): string {
   const t = texto.trim();
   if (t.length <= max) return t;

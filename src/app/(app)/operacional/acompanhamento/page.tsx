@@ -6,11 +6,14 @@ import { FileDown, Filter, MapPinned } from "lucide-react";
 import { ViagemAcompanhamentoCard } from "@/components/operacional/viagem-acompanhamento-card";
 import { AcompanhamentoRelatorioModal } from "@/components/operacional/acompanhamento-relatorio-modal";
 import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { CadastroOpcaoAutocomplete } from "@/components/ui/cadastro-opcao-autocomplete";
 import { Button } from "@/components/ui/button";
 import {
+  fetchClientesAcompanhamento,
   fetchFornecedoresAcompanhamento,
   fetchViagensAcompanhamento,
+  viagemMatchCliente,
   viagemMatchFornecedor,
   type AcompanhamentoViagemItem,
 } from "@/lib/acompanhamento-data";
@@ -44,10 +47,13 @@ function AcompanhamentoContent() {
 
   const [viagens, setViagens] = useState<AcompanhamentoViagemItem[]>([]);
   const [fornecedores, setFornecedores] = useState<ParceiroSugestao[]>([]);
+  const [clientes, setClientes] = useState<ParceiroSugestao[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroVinculo, setFiltroVinculo] = useState<"" | RecursoVinculo>("");
   const [filtroStatus, setFiltroStatus] = useState(statusUrl);
   const [filtroFornecedorId, setFiltroFornecedorId] = useState("");
+  const [filtroClienteId, setFiltroClienteId] = useState("");
+  const [buscaCte, setBuscaCte] = useState("");
   const [showRelatorio, setShowRelatorio] = useState(false);
 
   useEffect(() => {
@@ -57,11 +63,17 @@ function AcompanhamentoContent() {
 
   useEffect(() => {
     fetchFornecedoresAcompanhamento().then(setFornecedores);
+    fetchClientesAcompanhamento().then(setClientes);
   }, []);
 
   const fornecedorSelecionado = useMemo(
     () => fornecedores.find((f) => f.id === filtroFornecedorId),
     [fornecedores, filtroFornecedorId]
+  );
+
+  const clienteSelecionado = useMemo(
+    () => clientes.find((c) => c.id === filtroClienteId),
+    [clientes, filtroClienteId]
   );
 
   const load = useCallback(async () => {
@@ -75,6 +87,7 @@ function AcompanhamentoContent() {
   }, [load]);
 
   const filtradas = useMemo(() => {
+    const cteQ = buscaCte.trim().toLowerCase();
     return viagens.filter((v) => {
       if (filtroVinculo) {
         const frota = isFrota(v.motorista_vinculo);
@@ -89,19 +102,42 @@ function AcompanhamentoContent() {
       if (fornecedorSelecionado && !viagemMatchFornecedor(v, fornecedorSelecionado)) {
         return false;
       }
+      if (clienteSelecionado && !viagemMatchCliente(v, clienteSelecionado)) {
+        return false;
+      }
+      if (cteQ && !(v.numero_cte ?? "").toLowerCase().includes(cteQ)) {
+        return false;
+      }
       return true;
     });
-  }, [viagens, filtroVinculo, filtroStatus, fornecedorSelecionado]);
+  }, [
+    viagens,
+    filtroVinculo,
+    filtroStatus,
+    fornecedorSelecionado,
+    clienteSelecionado,
+    buscaCte,
+  ]);
 
   const excluirArquivadas =
-    filtroVinculo === "" && filtroStatus === "" && !filtroFornecedorId;
+    filtroVinculo === "" &&
+    filtroStatus === "" &&
+    !filtroFornecedorId &&
+    !filtroClienteId &&
+    !buscaCte.trim();
 
   const visiveis = useMemo(() => {
     if (!excluirArquivadas) return filtradas;
     return filtradas.filter((v) => v.status !== "ARQUIVADO");
   }, [filtradas, excluirArquivadas]);
 
-  const temFiltros = !!(filtroVinculo || filtroStatus || filtroFornecedorId);
+  const temFiltros = !!(
+    filtroVinculo ||
+    filtroStatus ||
+    filtroFornecedorId ||
+    filtroClienteId ||
+    buscaCte.trim()
+  );
 
   return (
     <div className="space-y-6">
@@ -133,11 +169,11 @@ function AcompanhamentoContent() {
           <div>
             <p className="text-sm font-semibold text-slate-800">Filtros</p>
             <p className="text-xs text-slate-500">
-              Refine por vínculo, status ou fornecedor
+              Refine por vínculo, status, fornecedor, cliente ou CT-e
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap items-end gap-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <Select
             label="Vínculo"
             value={filtroVinculo}
@@ -146,7 +182,7 @@ function AcompanhamentoContent() {
               { value: "", label: "Todos (frota e terceiro)" },
               ...VINCULO_OPCOES.map((o) => ({ value: o.value, label: o.label })),
             ]}
-            className="min-w-[220px] h-10"
+            className="h-10"
           />
           <Select
             label="Status"
@@ -159,7 +195,7 @@ function AcompanhamentoContent() {
                 label: VIAGEM_STATUS_LABEL[s] ?? s,
               })),
             ]}
-            className="min-w-[200px] h-10"
+            className="h-10"
           />
           <CadastroOpcaoAutocomplete
             label="Fornecedor"
@@ -167,17 +203,42 @@ function AcompanhamentoContent() {
             value={filtroFornecedorId}
             onValueChange={setFiltroFornecedorId}
             opcional
-            className="min-w-[240px] flex-1"
             placeholder="Todos — digite o nome (mín. 2 letras)"
+          />
+          <CadastroOpcaoAutocomplete
+            label="Cliente"
+            options={clientes.map((c) => ({ value: c.id, label: c.nome }))}
+            value={filtroClienteId}
+            onValueChange={setFiltroClienteId}
+            minChars={4}
+            opcional
+            placeholder="Todos — digite o nome (mín. 4 letras)"
+          />
+          <Input
+            label="CT-e"
+            value={buscaCte}
+            onChange={(e) => setBuscaCte(e.target.value)}
+            placeholder="Nº CT-e..."
           />
         </div>
       </div>
 
-      {fornecedorSelecionado && (
+      {(fornecedorSelecionado || clienteSelecionado) && (
         <p className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 print:border-gray-400 print:bg-gray-50 print:text-black">
-          Exibindo viagens que incluem <strong>{fornecedorSelecionado.nome}</strong> como
-          fornecedor (origem). Nos cards com vários fornecedores ou entregas, selecione qual
-          parada está ativa antes de copiar para o WhatsApp.
+          {fornecedorSelecionado && (
+            <>
+              Exibindo viagens que incluem <strong>{fornecedorSelecionado.nome}</strong> como
+              fornecedor (origem).
+            </>
+          )}
+          {fornecedorSelecionado && clienteSelecionado ? " " : null}
+          {clienteSelecionado && (
+            <>
+              Exibindo viagens com destino para <strong>{clienteSelecionado.nome}</strong>.
+            </>
+          )}{" "}
+          Nos cards com vários fornecedores ou entregas, selecione qual parada está ativa
+          antes de copiar para o WhatsApp.
         </p>
       )}
 
