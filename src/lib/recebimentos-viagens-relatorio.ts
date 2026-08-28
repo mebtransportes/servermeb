@@ -63,24 +63,14 @@ export async function montarLinhasRelatorioTodasViagens(
   const supabase = createClient();
   const ids = viagens.map((v) => v.id);
 
-  const [{ data: recebimentos }, { data: viagensPagamento }] = await Promise.all([
-    supabase
-      .from("viagem_recebimentos")
-      .select("id, viagem_id, valor_descargas_adicionais, valor_diarias, data_recebimento")
-      .in("viagem_id", ids),
-    supabase.from("viagens").select("id, data_pagamento").in("id", ids),
-  ]);
+  const { data: recebimentos } = await supabase
+    .from("viagem_recebimentos")
+    .select("id, viagem_id, valor_descargas_adicionais, valor_diarias, data_recebimento")
+    .in("viagem_id", ids);
 
   const recebimentoPorViagem = new Map(
     (recebimentos ?? []).map((r) => [r.viagem_id as string, r])
   );
-  const dataPagamentoPorViagem = new Map(
-    (viagensPagamento ?? []).map((v) => [
-      v.id as string,
-      (v.data_pagamento as string | null) ?? null,
-    ])
-  );
-
   const recebimentoIds = (recebimentos ?? []).map((r) => r.id);
   const encargosPorRecebimento = new Map<string, ViagemRecebimentoEncargo[]>();
 
@@ -115,10 +105,7 @@ export async function montarLinhasRelatorioTodasViagens(
       diarias = Number(rec.valor_diarias) || 0;
     }
 
-    const dataReceb =
-      rec?.data_recebimento?.split("T")[0] ??
-      dataPagamentoPorViagem.get(v.id)?.split("T")[0] ??
-      null;
+    const dataReceb = rec?.data_recebimento?.split("T")[0] ?? null;
 
     const statusRaw = v.status === "DESCARREGANDO" ? "DESCARGA EM ANDAMENTO" : v.status;
 

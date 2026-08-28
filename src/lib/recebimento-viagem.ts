@@ -4,7 +4,6 @@ import { isFrota } from "@/lib/viagem-validation";
 import { calcularFreteLiquido, ICMS_FRETE_PERCENT } from "@/types/fechamento";
 import {
   normalizarDataPagamento,
-  resolverDataPagamentoViagem,
 } from "@/lib/viagem-pagamento-terceiro";
 import {
   resolverStatusRecebimento,
@@ -90,11 +89,6 @@ export async function syncRecebimentoViagem(viagemId: string): Promise<string | 
     valor_frete_total: valorFrete,
     valor_frete_liquido: Math.round(freteLiquido * 100) / 100,
   };
-
-  const dataPagamento = resolverDataPagamentoViagem(viagem);
-  if (dataPagamento) {
-    payload.data_recebimento = dataPagamento;
-  }
 
   const { data: existente } = await supabase
     .from("viagem_recebimentos")
@@ -195,44 +189,6 @@ export async function syncStatusVencidosRecebimentos(): Promise<void> {
     .in("id", idsVencidos);
 
   if (upErr) console.warn("syncStatusVencidosRecebimentos update:", upErr.message);
-}
-
-/** Preenche data de recebimento vazia a partir da viagem arquivada. */
-export async function syncDatasPagamentoRecebimentos(): Promise<void> {
-  const supabase = createClient();
-
-  const { data: viagens } = await supabase
-    .from("viagens")
-    .select("id, data_pagamento, data_pagamento_terceiro")
-    .eq("status", "ARQUIVADO");
-
-  const ids = (viagens ?? []).map((v) => v.id);
-  if (!ids.length) return;
-
-  const { data: recebimentos } = await supabase
-    .from("viagem_recebimentos")
-    .select("id, viagem_id, data_recebimento")
-    .in("viagem_id", ids);
-
-  const recPorViagem = new Map(
-    (recebimentos ?? []).map((r) => [r.viagem_id, r])
-  );
-
-  for (const viagem of viagens ?? []) {
-    const dataPagamento = resolverDataPagamentoViagem(viagem);
-    if (!dataPagamento) continue;
-
-    const rec = recPorViagem.get(viagem.id);
-    if (!rec) continue;
-
-    const atual = normalizarDataPagamento(rec.data_recebimento as string | null);
-    if (atual) continue;
-
-    await supabase
-      .from("viagem_recebimentos")
-      .update({ data_recebimento: dataPagamento })
-      .eq("id", rec.id);
-  }
 }
 
 /** @deprecated Use syncRecebimentosFaltantes */
@@ -360,28 +316,6 @@ export async function excluirEncargoRecebimento(
   return sincronizarTotaisEncargos(recebimentoId);
 }
 
-/** Atualiza data de recebimento quando a viagem já está arquivada. */
-export async function aplicarDataPagamentoViagemNoRecebimento(
-  viagemId: string,
-  dataPagamento: string | null
-): Promise<string | null> {
-  const supabase = createClient();
-  const { data: rec } = await supabase
-    .from("viagem_recebimentos")
-    .select("id")
-    .eq("viagem_id", viagemId)
-    .maybeSingle();
-
-  if (!rec) return null;
-
-  const { error } = await supabase
-    .from("viagem_recebimentos")
-    .update({ data_recebimento: normalizarDataPagamento(dataPagamento) })
-    .eq("id", rec.id);
-
-  return error?.message ?? null;
-}
-
 export async function atualizarRecebimento(
   id: string,
   patch: Partial<{
@@ -432,7 +366,6 @@ export type RecebimentoComCanhotos = ViagemRecebimento & {
 export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
   const supabase = createClient();
 
-  await syncDatasPagamentoRecebimentos();
   await syncStatusVencidosRecebimentos();
 
   const { data: viagensArquivadas } = await supabase
@@ -466,7 +399,7 @@ export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
     (viagensArquivadas ?? []).map((v) => [v.id, Number(v.valor_frete) || 0])
   );
 
-  let { data: recebimentos, error } = await supabase
+  const { data: recebimentos, error } = await supabase
     .from("viagem_recebimentos")
     .select("*")
     .in("viagem_id", ids)

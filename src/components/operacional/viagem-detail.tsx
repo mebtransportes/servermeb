@@ -17,7 +17,7 @@ import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
 import { resolverDataPagamentoTerceiro, normalizarDataPagamento } from "@/lib/viagem-pagamento-terceiro";
 import { syncKmInicialAoAbrirViagem } from "@/lib/veiculo-km";
-import { syncRecebimentoViagem, aplicarDataPagamentoViagemNoRecebimento } from "@/lib/recebimento-viagem";
+import { syncRecebimentoViagem } from "@/lib/recebimento-viagem";
 import { ViagemCanhotos } from "@/components/operacional/viagem-canhotos";
 import { ViagemComprovantesDescarga } from "@/components/operacional/viagem-comprovantes-descarga";
 import {
@@ -218,16 +218,8 @@ export function ViagemDetail({
       if (err) console.warn("Fechamento:", err);
     }
     if (status === "ARQUIVADO") {
-      const dataRec =
-        valorPagamento !== (pagamentoSalvo || null)
-          ? valorPagamento
-          : pagamentoSalvo || null;
       const errRec = await syncRecebimentoViagem(viagemId);
       if (errRec) console.warn("Recebimento:", errRec);
-      else if (dataRec) {
-        const errData = await aplicarDataPagamentoViagemNoRecebimento(viagemId, dataRec);
-        if (errData) console.warn("Data recebimento:", errData);
-      }
     }
     setSaving(false);
     onUpdated();
@@ -296,15 +288,6 @@ export function ViagemDetail({
       if (errFech) {
         setSalvandoDataPagamento(false);
         await mebAlert(errFech);
-        return;
-      }
-    }
-
-    if (status === "ARQUIVADO") {
-      const errRec = await aplicarDataPagamentoViagemNoRecebimento(viagemId, valor);
-      if (errRec) {
-        setSalvandoDataPagamento(false);
-        await mebAlert(errRec);
         return;
       }
     }
