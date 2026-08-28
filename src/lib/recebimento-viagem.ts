@@ -399,7 +399,7 @@ export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
     (viagensArquivadas ?? []).map((v) => [v.id, Number(v.valor_frete) || 0])
   );
 
-  const { data: recebimentos, error } = await supabase
+  let { data: recebimentos, error } = await supabase
     .from("viagem_recebimentos")
     .select("*")
     .in("viagem_id", ids)
