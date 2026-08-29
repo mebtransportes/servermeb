@@ -18,9 +18,12 @@ import { Button } from "@/components/ui/button";
 import { PeriodoFilter } from "@/components/frota/periodo-filter";
 import { gerarPdfCustosOperacionais } from "@/lib/custos-operacionais-pdf";
 import { CustosOperacionaisDetalheModal } from "@/components/financeiro/custos-operacionais-detalhe-modal";
+import { CustosPostosModal } from "@/components/financeiro/custos-postos-modal";
 import {
   fetchCustosOperacionais,
+  fetchCustosPostos,
   type CustoOperacionalCategoria,
+  type CustosPostosResumo,
   type CustosOperacionaisResumo,
 } from "@/lib/custos-operacionais";
 import {
@@ -183,15 +186,28 @@ export default function CustosOperacionaisPage() {
   const [loading, setLoading] = useState(true);
   const [detalheCategoria, setDetalheCategoria] =
     useState<CustoOperacionalCategoria | null>(null);
+  const [custosPostos, setCustosPostos] = useState<CustosPostosResumo | null>(null);
+  const [loadingPostos, setLoadingPostos] = useState(true);
+  const [mostrarCustosPostos, setMostrarCustosPostos] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    setResumo(await fetchCustosOperacionais(periodo));
+    setLoadingPostos(true);
+    const [custos, postos] = await Promise.all([
+      fetchCustosOperacionais(periodo),
+      fetchCustosPostos(periodo),
+    ]);
+    setResumo(custos);
+    setCustosPostos(postos);
     setLoading(false);
+    setLoadingPostos(false);
   }, [periodo]);
 
   useEffect(() => {
-    load();
+    const timer = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [load]);
 
   const periodoLabel = labelPeriodoConfig(periodo);
@@ -307,6 +323,30 @@ export default function CustosOperacionaisPage() {
           </Secao>
 
           <Secao
+            titulo="Detalhamento do combustível"
+            descricao="Consulte os gastos agrupados por posto, sem duplicar o total operacional"
+          >
+            <CardCusto
+              label="Custos de Postos"
+              valor={custosPostos?.total ?? 0}
+              icon={Fuel}
+              tone="cyan"
+              qtd={custosPostos?.postos.length ?? 0}
+              sub={
+                loadingPostos
+                  ? "Carregando postos..."
+                  : `${custosPostos?.litros.toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                    })} L · ${custosPostos?.postos.length ?? 0} posto(s)`
+              }
+              onClick={() => {
+                setDetalheCategoria(null);
+                setMostrarCustosPostos(true);
+              }}
+            />
+          </Secao>
+
+          <Secao
             titulo="Controle de combustível"
             descricao="Entram no total, mas ficam fora do consumo KM/L"
           >
@@ -370,6 +410,14 @@ export default function CustosOperacionaisPage() {
           categoria={detalheCategoria}
           linhas={resumo.linhas[detalheCategoria]}
           onClose={() => setDetalheCategoria(null)}
+        />
+      )}
+      {mostrarCustosPostos && custosPostos && (
+        <CustosPostosModal
+          resumo={custosPostos}
+          periodoLabel={periodoLabel}
+          loading={loadingPostos}
+          onClose={() => setMostrarCustosPostos(false)}
         />
       )}
     </div>

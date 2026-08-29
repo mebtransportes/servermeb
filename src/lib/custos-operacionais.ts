@@ -439,3 +439,169 @@ export const CUSTO_CATEGORIA_LABEL: Record<CustoOperacionalCategoria, string> = 
   outros: "Outras despesas / Estacionamento / Seguro / Monitoramento",
   icms: "ICMS (imposto sobre frete)",
 };
+
+export type CustoPostoAbastecimento = {
+  id: string;
+  data: string;
+  posto: string;
+  valor: number;
+  litros: number;
+  veiculo: string;
+  placa: string;
+  cte: string;
+  origem: "Frota" | "Viagem";
+  combustivel: string;
+};
+
+export type CustoPostoGrupo = {
+  posto: string;
+  total: number;
+  litros: number;
+  abastecimentos: CustoPostoAbastecimento[];
+};
+
+export type CustosPostosResumo = {
+  total: number;
+  litros: number;
+  abastecimentos: CustoPostoAbastecimento[];
+  postos: CustoPostoGrupo[];
+};
+
+type PostoRef = { nome?: string | null };
+type VeiculoPostoRef = { nome?: string | null; placa?: string | null; tipo?: string | null };
+
+function veiculoPrincipalPosto(
+  viagem: {
+    veiculos?: VeiculoPostoRef | VeiculoPostoRef[] | null;
+    viagem_veiculos?: {
+      ordem: number;
+      veiculos?: VeiculoPostoRef | VeiculoPostoRef[] | null;
+    }[] | null;
+  } | null
+): VeiculoPostoRef | null {
+  const composicao = [...(viagem?.viagem_veiculos ?? [])]
+    .sort((a, b) => a.ordem - b.ordem)
+    .map((item) => relOne(item.veiculos))
+    .filter((v): v is VeiculoPostoRef => !!v)
+    .filter((v) => v.tipo === "caminhao" || v.tipo === "cavalo");
+  if (composicao[0]) return composicao[0];
+  return relOne(viagem?.veiculos);
+}
+
+function nomePosto(posto: PostoRef | PostoRef[] | null | undefined) {
+  return relOne(posto)?.nome?.trim() || "Posto não informado";
+}
+
+function normalizarLitros(valor: unknown) {
+  const litros = Number(valor) || 0;
+  return litros > 0 ? litros : 0;
+}
+
+function montarResumoPostos(abastecimentos: CustoPostoAbastecimento[]): CustosPostosResumo {
+  const porPosto = new Map<string, CustoPostoGrupo>();
+  for (const abastecimento of abastecimentos) {
+    const grupo = porPosto.get(abastecimento.posto) ?? {
+      posto: abastecimento.posto,
+      total: 0,
+      litros: 0,
+      abastecimentos: [],
+    };
+    grupo.total += abastecimento.valor;
+    grupo.litros += abastecimento.litros;
+    grupo.abastecimentos.push(abastecimento);
+    porPosto.set(abastecimento.posto, grupo);
+  }
+
+  const postos = [...porPosto.values()]
+    .map((grupo) => ({
+      ...grupo,
+      abastecimentos: grupo.abastecimentos.sort(
+        (a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()
+      ),
+    }))
+    .sort((a, b) => b.total - a.total || a.posto.localeCompare(b.posto, "pt-BR"));
+
+  return {
+    total: abastecimentos.reduce((s, a) => s + a.valor, 0),
+    litros: abastecimentos.reduce((s, a) => s + a.litros, 0),
+    abastecimentos,
+    postos,
+  };
+}
+
+export async function fetchCustosPostos(
+  periodo: PeriodoFiltroState
+): Promise<CustosPostosResumo> {
+  const supabase = createClient();
+  const [{ data: frota }, { data: viagens }] = await Promise.all([
+    supabase
+      .from("frota_abastecimentos")
+      .select("id, valor, data_hora, litros, combustivel_tipo, postos(nome), veiculos(nome, placa)")
+      .order("data_hora", { ascending: false }),
+    supabase
+      .from("viagem_recursos")
+      .select(
+        "id, valor, realizado_em, litros, combustivel_tipo, valor_desconto_combustivel, postos(nome), viagens(numero_cte, veiculos(nome, placa, tipo), viagem_veiculos(ordem, veiculos(nome, placa, tipo)))"
+      )
+      .eq("tipo", "abastecimento")
+      .order("realizado_em", { ascending: false }),
+  ]);
+
+  const abastecimentos: CustoPostoAbastecimento[] = [];
+
+  for (const item of frota ?? []) {
+    if (!dataNoPeriodoConfig(item.data_hora, periodo)) continue;
+    const veiculo = relOne(
+      item.veiculos as VeiculoPostoRef | VeiculoPostoRef[] | null
+    );
+    abastecimentos.push({
+      id: `frota-${item.id}`,
+      data: item.data_hora,
+      posto: nomePosto(item.postos as PostoRef | PostoRef[] | null),
+      valor: Number(item.valor) || 0,
+      litros: normalizarLitros(item.litros),
+      veiculo: veiculo?.nome?.trim() || "—",
+      placa: veiculo?.placa?.trim() || "—",
+      cte: "—",
+      origem: "Frota",
+      combustivel: item.combustivel_tipo?.trim() || "—",
+    });
+  }
+
+  for (const item of viagens ?? []) {
+    if (!dataNoPeriodoConfig(item.realizado_em, periodo)) continue;
+    const viagem = relOne(
+      item.viagens as
+        | {
+            numero_cte?: string | null;
+            veiculos?: VeiculoPostoRef | VeiculoPostoRef[] | null;
+            viagem_veiculos?: {
+              ordem: number;
+              veiculos?: VeiculoPostoRef | VeiculoPostoRef[] | null;
+            }[] | null;
+          }
+        | null
+    );
+    const veiculo = veiculoPrincipalPosto(viagem);
+    const bruto = Number(item.valor) || 0;
+    const desconto = Number(item.valor_desconto_combustivel) || 0;
+    abastecimentos.push({
+      id: `viagem-${item.id}`,
+      data: item.realizado_em,
+      posto: nomePosto(item.postos as PostoRef | PostoRef[] | null),
+      valor: abastecimentoValorLiquidoFromBruto(bruto, desconto),
+      litros: normalizarLitros(item.litros),
+      veiculo: veiculo?.nome?.trim() || "—",
+      placa: veiculo?.placa?.trim() || "—",
+      cte: viagem?.numero_cte?.trim() || "—",
+      origem: "Viagem",
+      combustivel: item.combustivel_tipo?.trim() || "—",
+    });
+  }
+
+  return montarResumoPostos(
+    abastecimentos.sort(
+      (a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()
+    )
+  );
+}
