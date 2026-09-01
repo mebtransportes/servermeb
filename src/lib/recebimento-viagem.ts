@@ -4,6 +4,7 @@ import { isFrota } from "@/lib/viagem-validation";
 import { calcularFreteLiquido, ICMS_FRETE_PERCENT } from "@/types/fechamento";
 import {
   normalizarDataPagamento,
+  resolverDataPagamentoViagem,
 } from "@/lib/viagem-pagamento-terceiro";
 import {
   resolverStatusRecebimento,
@@ -81,6 +82,8 @@ export async function syncRecebimentoViagem(viagemId: string): Promise<string | 
   const valorFrete = Number(viagem.valor_frete) || 0;
   const freteLiquido = calcularFreteLiquido(valorFrete, ICMS_FRETE_PERCENT);
 
+  const dataPagamento = resolverDataPagamentoViagem(viagem);
+
   const payload: Record<string, unknown> = {
     viagem_id: viagemId,
     motorista_nome: motoristaNome ?? "—",
@@ -97,6 +100,13 @@ export async function syncRecebimentoViagem(viagemId: string): Promise<string | 
     .maybeSingle();
 
   if (existente) {
+    if (dataPagamento && !existente.data_recebimento) {
+      payload.data_recebimento = dataPagamento;
+      payload.status = resolverStatusRecebimento(
+        (existente.status as RecebimentoStatus) ?? "pendente",
+        dataPagamento
+      );
+    }
     const { error } = await supabase
       .from("viagem_recebimentos")
       .update(payload)
@@ -104,7 +114,54 @@ export async function syncRecebimentoViagem(viagemId: string): Promise<string | 
     return error?.message ?? null;
   }
 
+  if (dataPagamento) {
+    payload.data_recebimento = dataPagamento;
+    payload.status = resolverStatusRecebimento("pendente", dataPagamento);
+  }
+
   const { error } = await supabase.from("viagem_recebimentos").insert(payload);
+  return error?.message ?? null;
+}
+
+/** Espelha a data de pagamento da viagem em Financeiro → Recebimentos. */
+export async function aplicarDataPagamentoViagemNoRecebimento(
+  viagemId: string,
+  dataPagamento: string | null
+): Promise<string | null> {
+  const supabase = createClient();
+  const dataNorm = normalizarDataPagamento(dataPagamento);
+
+  const { data: rec, error: errRec } = await supabase
+    .from("viagem_recebimentos")
+    .select("id, status")
+    .eq("viagem_id", viagemId)
+    .maybeSingle();
+
+  if (errRec) return errRec.message;
+
+  if (!rec) {
+    const { data: viagem } = await supabase
+      .from("viagens")
+      .select("status")
+      .eq("id", viagemId)
+      .maybeSingle();
+    if (viagem?.status === "ARQUIVADO") {
+      const errSync = await syncRecebimentoViagem(viagemId);
+      if (errSync) return errSync;
+      return aplicarDataPagamentoViagemNoRecebimento(viagemId, dataPagamento);
+    }
+    return null;
+  }
+
+  const status = resolverStatusRecebimento(rec.status as RecebimentoStatus, dataNorm);
+  const { error } = await supabase
+    .from("viagem_recebimentos")
+    .update({
+      data_recebimento: dataNorm,
+      status,
+    })
+    .eq("id", rec.id);
+
   return error?.message ?? null;
 }
 
@@ -399,7 +456,7 @@ export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
     (viagensArquivadas ?? []).map((v) => [v.id, Number(v.valor_frete) || 0])
   );
 
-  let { data: recebimentos, error } = await supabase
+  const { data: recebimentosInicial, error } = await supabase
     .from("viagem_recebimentos")
     .select("*")
     .in("viagem_id", ids)
@@ -409,6 +466,8 @@ export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
     console.error(error);
     return [];
   }
+
+  let recebimentos = recebimentosInicial;
 
   const recebimentoPorViagem = new Set((recebimentos ?? []).map((r) => r.viagem_id));
   const faltantes = ids.filter((id) => !recebimentoPorViagem.has(id));

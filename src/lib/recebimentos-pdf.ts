@@ -190,13 +190,17 @@ export function filtrarRecebimentosRelatorio(
   de: string,
   ate: string,
   status: RecebimentoStatus | "todos",
-  fornecedor?: string
+  fornecedor?: string,
+  incluirSemData = false
 ): RecebimentoComCanhotos[] {
   return itens.filter((item) => {
     if (status !== "todos" && item.status !== status) return false;
     if (fornecedor && item.empresa !== fornecedor) return false;
-    const dataRef = item.data_recebimento ?? item.created_at ?? "";
-    if (!dataRef) return false;
+
+    const semData = !item.data_recebimento?.trim();
+    if (semData) return incluirSemData;
+
+    const dataRef = item.data_recebimento!;
     const ref = dataRef.includes("T") ? dataRef : `${dataRef}T12:00:00`;
     return dataNoIntervalo(ref, de, ate);
   });

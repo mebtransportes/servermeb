@@ -55,6 +55,7 @@ export function RecebimentosRelatorioModal({
   const [ate, setAte] = useState(padraoDatas().ate);
   const [status, setStatus] = useState<RecebimentoStatus | "todos">("todos");
   const [fornecedor, setFornecedor] = useState("");
+  const [incluirSemData, setIncluirSemData] = useState(false);
   const [erro, setErro] = useState("");
   const [gerando, setGerando] = useState(false);
 
@@ -105,7 +106,8 @@ export function RecebimentosRelatorioModal({
           de,
           ate,
           status,
-          fornecedor || undefined
+          fornecedor || undefined,
+          incluirSemData
         );
         if (!filtrados.length) {
           setErro("Nenhum recebimento encontrado para o período e filtros selecionados.");
@@ -166,6 +168,25 @@ export function RecebimentosRelatorioModal({
             onChange={(e) => setStatus(e.target.value as RecebimentoStatus | "todos")}
             options={STATUS_OPCOES.map((s) => ({ value: s.value, label: s.label }))}
           />
+
+          {modo === "recebimentos" && (
+            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={incluirSemData}
+                onChange={(e) => setIncluirSemData(e.target.checked)}
+                className="mt-0.5 rounded border-slate-400"
+              />
+              <span>
+                Incluir recebimentos <strong>sem data de recebimento</strong> no relatório
+                <span className="mt-0.5 block text-xs text-slate-500">
+                  Desmarcado: só entram registros com data de recebimento dentro do período.
+                  Marcado: também inclui os pendentes (ou do status escolhido) que ainda não têm
+                  data.
+                </span>
+              </span>
+            </label>
+          )}
 
           <CadastroOpcaoAutocomplete
             label="Fornecedor"
