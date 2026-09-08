@@ -133,7 +133,7 @@ export function gerarPdfRecebimentos(
 
   const body = itens.map((item) => {
     const total = calcularTotalAReceber(item);
-    const dataRef = item.data_recebimento ?? item.created_at ?? "";
+    const dataRef = item.data_recebimento ?? "";
     return [
       item.motorista_nome,
       item.numero_cte?.trim() || "—",
@@ -312,7 +312,7 @@ export function gerarPdfEncargosRecebimentos(
   );
 
   const body = linhas.map(({ encargo, recebimento }) => {
-    const dataRef = encargo.data_recebimento ?? encargo.created_at ?? "";
+    const dataRef = encargo.data_recebimento ?? "";
     return [
       recebimento.motorista_nome,
       recebimento.numero_cte?.trim() || "—",
