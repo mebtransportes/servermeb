@@ -27,11 +27,12 @@ import {
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { AnexoArquivoRow } from "@/components/shared/anexo-arquivo-row";
 import { FrotaAnexosLinks } from "@/components/frota/frota-anexos-links";
-import { excluirAnexoFrotaInline, excluirAnexoTabela } from "@/lib/anexos-crud";
-import type { CampoAnexoFrota } from "@/lib/anexos-crud";
+import { excluirAnexoFrotaInline, excluirAnexoTabela, listarAnexosFrota, excluirAnexoFrotaMultiplo } from "@/lib/anexos-crud";
+import type { CampoAnexoFrota, FrotaAnexo } from "@/lib/anexos-crud";
 import { FileUploadMultiple } from "@/components/ui/file-upload";
 import { AnexosFrotaCampos } from "@/components/frota/anexos-campos";
 import { salvarAnexosFrota } from "@/lib/frota-anexos";
+import { salvarAnexosFrotaMultiplos } from "@/lib/anexos-crud";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
 import { syncQuilometragemViagem } from "@/lib/veiculo-km";
 import { atualizarOutroDespesaDescontaMotorista } from "@/lib/fechamento-outros-despesas";
@@ -94,8 +95,8 @@ export function ViagemRecursos({
   const [kmVeiculo, setKmVeiculo] = useState("");
   const [litros, setLitros] = useState("");
   const [combustivelTipo, setCombustivelTipo] = useState("");
-  const [notaFiscal, setNotaFiscal] = useState<File | null>(null);
-  const [comprovante, setComprovante] = useState<File | null>(null);
+  const [notaFiscal, setNotaFiscal] = useState<File[]>([]);
+  const [comprovante, setComprovante] = useState<File[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
@@ -192,8 +193,8 @@ export function ViagemRecursos({
     setKmVeiculo("");
     setLitros("");
     setCombustivelTipo("");
-    setNotaFiscal(null);
-    setComprovante(null);
+    setNotaFiscal([]);
+    setComprovante([]);
     setFiles([]);
     setMotoristaAdiantou(false);
     setDescontaMotoristaComissao(false);
@@ -219,8 +220,8 @@ export function ViagemRecursos({
     setKmVeiculo(km != null ? kmToBrInput(km) : "");
     setLitros(r.litros != null ? numberToBrInput(Number(r.litros), 2) : "");
     setCombustivelTipo(r.combustivel_tipo ?? "");
-    setNotaFiscal(null);
-    setComprovante(null);
+    setNotaFiscal([]);
+    setComprovante([]);
     setFiles([]);
     setMotoristaAdiantou(false);
     setDescontaMotoristaComissao(r.tipo === "outro" && r.desconta_motorista === true);
@@ -397,13 +398,47 @@ export function ViagemRecursos({
       return;
     }
 
-    if (notaFiscal || comprovante) {
+    const nfPrimeiro = notaFiscal[0] ?? null;
+    const compPrimeiro = comprovante[0] ?? null;
+    if (nfPrimeiro || compPrimeiro) {
       const anexos = await salvarAnexosFrota(
         `viagens/${viagemId}/recursos/${recursoId}`,
-        notaFiscal,
-        comprovante
+        nfPrimeiro,
+        compPrimeiro
       );
       await supabase.from("viagem_recursos").update(anexos).eq("id", recursoId);
+    }
+
+    if (recursoId && (notaFiscal.length > 1 || comprovante.length > 0)) {
+      const folder = `viagens/${viagemId}/recursos/${recursoId}`;
+      if (notaFiscal.length > 0) {
+        const errNf = await salvarAnexosFrotaMultiplos(
+          "viagem_recursos",
+          recursoId,
+          "nota_fiscal",
+          notaFiscal.slice(nfPrimeiro ? 1 : 0),
+          folder
+        );
+        if (errNf) {
+          setSaving(false);
+          await mebAlert(errNf);
+          return;
+        }
+      }
+      if (comprovante.length > 0) {
+        const errComp = await salvarAnexosFrotaMultiplos(
+          "viagem_recursos",
+          recursoId,
+          "comprovante",
+          comprovante.slice(compPrimeiro ? 1 : 0),
+          folder
+        );
+        if (errComp) {
+          setSaving(false);
+          await mebAlert(errComp);
+          return;
+        }
+      }
     }
 
     for (const file of files) {
@@ -979,7 +1014,9 @@ function RecursoItem({
     comprovante_path: recurso.comprovante_path,
     comprovante_nome: recurso.comprovante_nome,
   });
+  const [listaAnexosMultiplos, setListaAnexosMultiplos] = useState<FrotaAnexo[]>([]);
   const [excluindoCampo, setExcluindoCampo] = useState<CampoAnexoFrota | null>(null);
+  const [excluindoAnexoId, setExcluindoAnexoId] = useState<string | null>(null);
 
   useEffect(() => {
     setAnexosInline({
@@ -997,6 +1034,9 @@ function RecursoItem({
       .select("id, nome, file_name, storage_path")
       .eq("recurso_id", recurso.id)
       .then(({ data }) => setAnexos(data ?? []));
+    listarAnexosFrota("viagem_recursos", recurso.id).then((res) => {
+      if (Array.isArray(res)) setListaAnexosMultiplos(res);
+    });
   }, [recurso.id]);
 
   async function excluirAnexoInline(campo: CampoAnexoFrota, path: string) {
@@ -1023,6 +1063,33 @@ function RecursoItem({
     await syncQuilometragemViagem(viagemId);
     await syncFechamentoViagem(viagemId);
     setExcluindoCampo(null);
+    onAnexoAlterado();
+  }
+
+  async function excluirAnexoMultiplo(anexo: FrotaAnexo) {
+    if (
+      !(await mebConfirm("Excluir este anexo?", {
+        variant: "danger",
+        confirmLabel: "Excluir",
+      }))
+    ) {
+      return;
+    }
+    setExcluindoAnexoId(anexo.id);
+    const err = await excluirAnexoFrotaMultiplo(
+      "viagem_recursos",
+      anexo.id,
+      anexo.storage_path
+    );
+    if (err) {
+      await mebAlert(err);
+      setExcluindoAnexoId(null);
+      return;
+    }
+    setListaAnexosMultiplos((prev) => prev.filter((a) => a.id !== anexo.id));
+    await syncQuilometragemViagem(viagemId);
+    await syncFechamentoViagem(viagemId);
+    setExcluindoAnexoId(null);
     onAnexoAlterado();
   }
 
@@ -1167,12 +1234,15 @@ function RecursoItem({
           <span className="font-medium text-violet-800">{despesaVinculada.descricao ?? "Outros"}</span>
         </p>
       )}
-      {(anexosInline.nota_fiscal_path || anexosInline.comprovante_path) && (
+      {(anexosInline.nota_fiscal_path || anexosInline.comprovante_path || listaAnexosMultiplos.length > 0) && (
         <div className="mt-2">
           <FrotaAnexosLinks
             anexos={anexosInline}
+            listaAnexos={listaAnexosMultiplos}
             onExcluir={excluirAnexoInline}
+            onExcluirMultiplo={excluirAnexoMultiplo}
             excluindoCampo={excluindoCampo}
+            excluindoId={excluindoAnexoId}
           />
         </div>
       )}

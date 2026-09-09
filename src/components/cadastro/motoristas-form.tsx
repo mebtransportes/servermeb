@@ -11,7 +11,7 @@ import { calcularIdade, cn, mebFormSubsection } from "@/lib/utils";
 import type { Motorista, RecursoVinculo } from "@/types";
 import { VinculoSelector } from "@/components/cadastro/vinculo-selector";
 import { isFrota } from "@/lib/viagem-validation";
-import { FileUploadField } from "@/components/ui/file-upload";
+import { FileUploadMultiple } from "@/components/ui/file-upload";
 import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 
 type Anexo = { id?: string; nome: string; storage_path: string; file_name: string };
@@ -40,8 +40,8 @@ export function MotoristasForm({
   const [toxData, setToxData] = useState(motorista?.toxicologico_data ?? "");
   const [toxVenc, setToxVenc] = useState(motorista?.toxicologico_vencimento ?? "");
   const [anexos, setAnexos] = useState<Anexo[]>(motorista?.anexos ?? []);
-  const [pdfNome, setPdfNome] = useState("CNH");
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfNome, setPdfNome] = useState("Documento");
+  const [pdfFiles, setPdfFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -96,15 +96,17 @@ export function MotoristasForm({
       id = data.id;
     }
 
-    if (pdfFile && id) {
-      const uploaded = await uploadPdf(pdfFile, `motoristas/${id}`);
-      if (uploaded) {
-        await supabase.from("motorista_anexos").insert({
-          motorista_id: id,
-          nome: pdfNome,
-          storage_path: uploaded.path,
-          file_name: uploaded.fileName,
-        });
+    if (pdfFiles.length && id) {
+      for (const file of pdfFiles) {
+        const uploaded = await uploadPdf(file, `motoristas/${id}`);
+        if (uploaded) {
+          await supabase.from("motorista_anexos").insert({
+            motorista_id: id,
+            nome: pdfNome || file.name,
+            storage_path: uploaded.path,
+            file_name: uploaded.fileName,
+          });
+        }
       }
     }
 
@@ -168,13 +170,13 @@ export function MotoristasForm({
           />
         ))}
         <div className="grid gap-4 sm:grid-cols-2">
-          <Input label="Nome do documento" value={pdfNome} onChange={(e) => setPdfNome(e.target.value)} />
-          <FileUploadField
-            label="Arquivo PDF"
+          <Input label="Nome padrão dos documentos" value={pdfNome} onChange={(e) => setPdfNome(e.target.value)} />
+          <FileUploadMultiple
+            label="Arquivos PDF"
             accept="application/pdf"
-            hint="Somente PDF"
-            file={pdfFile}
-            onChange={setPdfFile}
+            hint="Somente PDF — selecione vários"
+            files={pdfFiles}
+            onChange={setPdfFiles}
           />
         </div>
       </div>

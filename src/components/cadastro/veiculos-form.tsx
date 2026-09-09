@@ -14,7 +14,7 @@ import type { RecursoVinculo, Veiculo, VeiculoCampoCustom, VeiculoTipo } from "@
 import { VinculoSelector } from "@/components/cadastro/vinculo-selector";
 import { isFrota, VEICULO_TIPO_OPCOES } from "@/lib/viagem-validation";
 import { Plus, Trash2 } from "lucide-react";
-import { FileUploadField } from "@/components/ui/file-upload";
+import { FileUploadMultiple } from "@/components/ui/file-upload";
 import { mebAlert, mebConfirm } from "@/lib/meb-dialog";
 import { cn, mebFormSubsection } from "@/lib/utils";
 
@@ -52,8 +52,8 @@ export function VeiculosForm({
     veiculo?.campos ?? []
   );
   const [anexos, setAnexos] = useState<Anexo[]>(veiculo?.anexos ?? []);
-  const [pdfNome, setPdfNome] = useState("CRLV");
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfNome, setPdfNome] = useState("Documento");
+  const [pdfFiles, setPdfFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -134,15 +134,17 @@ export function VeiculosForm({
       );
     }
 
-    if (pdfFile && veiculoId) {
-      const uploaded = await uploadPdf(pdfFile, `veiculos/${veiculoId}`);
-      if (uploaded) {
-        await supabase.from("veiculo_anexos").insert({
-          veiculo_id: veiculoId,
-          nome: pdfNome,
-          storage_path: uploaded.path,
-          file_name: uploaded.fileName,
-        });
+    if (pdfFiles.length && veiculoId) {
+      for (const file of pdfFiles) {
+        const uploaded = await uploadPdf(file, `veiculos/${veiculoId}`);
+        if (uploaded) {
+          await supabase.from("veiculo_anexos").insert({
+            veiculo_id: veiculoId,
+            nome: pdfNome || file.name,
+            storage_path: uploaded.path,
+            file_name: uploaded.fileName,
+          });
+        }
       }
     }
 
@@ -281,13 +283,13 @@ export function VeiculosForm({
           />
         ))}
         <div className="grid gap-4 sm:grid-cols-2">
-          <Input label="Nome do documento" value={pdfNome} onChange={(e) => setPdfNome(e.target.value)} />
-          <FileUploadField
-            label="Arquivo PDF"
+          <Input label="Nome padrão dos documentos" value={pdfNome} onChange={(e) => setPdfNome(e.target.value)} />
+          <FileUploadMultiple
+            label="Arquivos PDF"
             accept="application/pdf"
-            hint="Somente PDF"
-            file={pdfFile}
-            onChange={setPdfFile}
+            hint="Somente PDF — selecione vários"
+            files={pdfFiles}
+            onChange={setPdfFiles}
           />
         </div>
       </div>

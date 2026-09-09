@@ -12,6 +12,7 @@ import { VeiculoAutocomplete } from "@/components/ui/veiculo-autocomplete";
 import { CadastroOpcaoAutocomplete } from "@/components/ui/cadastro-opcao-autocomplete";
 import { AnexosFrotaCampos } from "@/components/frota/anexos-campos";
 import { salvarAnexosFrota } from "@/lib/frota-anexos";
+import { salvarAnexosFrotaMultiplos } from "@/lib/anexos-crud";
 import { carregarAbastecimentoEdicao } from "@/lib/frota-crud";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
 import { syncKmInicialViagensAgendadas, syncQuilometragemViagem } from "@/lib/veiculo-km";
@@ -38,8 +39,8 @@ export function AbastecimentoForm({
   const [valor, setValor] = useState("");
   const [descricao, setDescricao] = useState("");
   const [dataHora, setDataHora] = useState("");
-  const [notaFiscal, setNotaFiscal] = useState<File | null>(null);
-  const [comprovante, setComprovante] = useState<File | null>(null);
+  const [notaFiscal, setNotaFiscal] = useState<File[]>([]);
+  const [comprovante, setComprovante] = useState<File[]>([]);
   const [anexosExistentes, setAnexosExistentes] = useState<{
     nota_fiscal_path?: string | null;
     comprovante_path?: string | null;
@@ -109,16 +110,18 @@ export function AbastecimentoForm({
     setError("");
     const supabase = createClient();
 
+    const nfPrimeiro = notaFiscal[0] ?? null;
+    const compPrimeiro = comprovante[0] ?? null;
     const anexosNovos =
-      notaFiscal || comprovante
+      nfPrimeiro || compPrimeiro
         ? await salvarAnexosFrota(
             frotaId
               ? `frota/abastecimentos/${frotaId}`
               : viagemRecursoId
                 ? `viagens/recursos/${viagemRecursoId}`
                 : "frota/temp",
-            notaFiscal,
-            comprovante
+            nfPrimeiro,
+            compPrimeiro
           )
         : null;
 
@@ -150,6 +153,38 @@ export function AbastecimentoForm({
         setError(err.message);
         return;
       }
+      if (frotaId && (notaFiscal.length > 1 || comprovante.length > 0)) {
+        const folder = `frota/abastecimentos/${frotaId}`;
+        if (notaFiscal.length > 0) {
+          const errNf = await salvarAnexosFrotaMultiplos(
+            "frota_abastecimentos",
+            frotaId,
+            "nota_fiscal",
+            notaFiscal.slice(nfPrimeiro ? 1 : 0),
+            folder
+          );
+          if (errNf) {
+            setSaving(false);
+            setError(errNf);
+            return;
+          }
+        }
+        if (comprovante.length > 0) {
+          const errComp = await salvarAnexosFrotaMultiplos(
+            "frota_abastecimentos",
+            frotaId,
+            "comprovante",
+            comprovante.slice(compPrimeiro ? 1 : 0),
+            folder
+          );
+          if (errComp) {
+            setSaving(false);
+            setError(errComp);
+            return;
+          }
+        }
+      }
+
       if (veiculoId) {
         const kmErr = await syncKmInicialViagensAgendadas(veiculoId);
         if (kmErr) {
@@ -198,6 +233,38 @@ export function AbastecimentoForm({
         setError(err.message);
         return;
       }
+      if (viagemRecursoId && (notaFiscal.length > 1 || comprovante.length > 0)) {
+        const folder = `viagens/recursos/${viagemRecursoId}`;
+        if (notaFiscal.length > 0) {
+          const errNf = await salvarAnexosFrotaMultiplos(
+            "viagem_recursos",
+            viagemRecursoId,
+            "nota_fiscal",
+            notaFiscal.slice(nfPrimeiro ? 1 : 0),
+            folder
+          );
+          if (errNf) {
+            setSaving(false);
+            setError(errNf);
+            return;
+          }
+        }
+        if (comprovante.length > 0) {
+          const errComp = await salvarAnexosFrotaMultiplos(
+            "viagem_recursos",
+            viagemRecursoId,
+            "comprovante",
+            comprovante.slice(compPrimeiro ? 1 : 0),
+            folder
+          );
+          if (errComp) {
+            setSaving(false);
+            setError(errComp);
+            return;
+          }
+        }
+      }
+
       if (viagemId) {
         await syncQuilometragemViagem(viagemId);
         await syncFechamentoViagem(viagemId);
@@ -234,13 +301,45 @@ export function AbastecimentoForm({
       return;
     }
 
-    if (notaFiscal || comprovante) {
+    if (nfPrimeiro || compPrimeiro) {
       const anexos = await salvarAnexosFrota(
         `frota/abastecimentos/${row.id}`,
-        notaFiscal,
-        comprovante
+        nfPrimeiro,
+        compPrimeiro
       );
       await supabase.from("frota_abastecimentos").update(anexos).eq("id", row.id);
+    }
+
+    if ((notaFiscal.length > 1 || comprovante.length > 0)) {
+      const folder = `frota/abastecimentos/${row.id}`;
+      if (notaFiscal.length > 0) {
+        const errNf = await salvarAnexosFrotaMultiplos(
+          "frota_abastecimentos",
+          row.id,
+          "nota_fiscal",
+          notaFiscal.slice(nfPrimeiro ? 1 : 0),
+          folder
+        );
+        if (errNf) {
+          setSaving(false);
+          setError(errNf);
+          return;
+        }
+      }
+      if (comprovante.length > 0) {
+        const errComp = await salvarAnexosFrotaMultiplos(
+          "frota_abastecimentos",
+          row.id,
+          "comprovante",
+          comprovante.slice(compPrimeiro ? 1 : 0),
+          folder
+        );
+        if (errComp) {
+          setSaving(false);
+          setError(errComp);
+          return;
+        }
+      }
     }
 
     if (veiculoId) {

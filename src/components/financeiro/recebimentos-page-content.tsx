@@ -358,9 +358,8 @@ export function RecebimentosPageContent() {
             Recebimentos
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Viagens <strong className="text-slate-700">arquivadas</strong> no acompanhamento entram
-            aqui automaticamente. Filtre por frota ou terceiros e controle valores a receber da
-            empresa contratante.
+            Todas as viagens aparecem aqui automaticamente. Filtre por frota ou terceiros e controle
+            valores a receber da empresa contratante.
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
@@ -676,8 +675,7 @@ export function RecebimentosPageContent() {
         <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-8 text-center">
           <p className="text-slate-500">
             Nenhum recebimento encontrado
-            {filtroVinculo !== "todos" && <> para {vinculoLabel.toLowerCase()}</>}. Arquive viagens
-            no Acompanhamento para que apareçam aqui.
+            {filtroVinculo !== "todos" && <> para {vinculoLabel.toLowerCase()}</>}.
           </p>
         </div>
       ) : (

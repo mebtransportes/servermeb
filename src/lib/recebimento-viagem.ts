@@ -53,7 +53,7 @@ export function viagemEhFrota(viagem: ViagemVeiculosRef): boolean {
   return veiculos.every((v) => isFrota(v.vinculo));
 }
 
-/** Cria ou atualiza registro de recebimento quando a viagem é arquivada. */
+/** Cria ou atualiza registro de recebimento para qualquer viagem. */
 export async function syncRecebimentoViagem(viagemId: string): Promise<string | null> {
   const supabase = createClient();
 
@@ -71,7 +71,6 @@ export async function syncRecebimentoViagem(viagemId: string): Promise<string | 
     .single();
 
   if (errV || !viagem) return errV?.message ?? "Viagem não encontrada";
-  if (viagem.status !== "ARQUIVADO") return null;
 
   const motorista = viagem.motoristas as { nome_completo: string } | { nome_completo: string }[] | null;
   const motoristaNome = Array.isArray(motorista)
@@ -140,17 +139,9 @@ export async function aplicarDataPagamentoViagemNoRecebimento(
   if (errRec) return errRec.message;
 
   if (!rec) {
-    const { data: viagem } = await supabase
-      .from("viagens")
-      .select("status")
-      .eq("id", viagemId)
-      .maybeSingle();
-    if (viagem?.status === "ARQUIVADO") {
-      const errSync = await syncRecebimentoViagem(viagemId);
-      if (errSync) return errSync;
-      return aplicarDataPagamentoViagemNoRecebimento(viagemId, dataPagamento);
-    }
-    return null;
+    const errSync = await syncRecebimentoViagem(viagemId);
+    if (errSync) return errSync;
+    return aplicarDataPagamentoViagemNoRecebimento(viagemId, dataPagamento);
   }
 
   const status = resolverStatusRecebimento(rec.status as RecebimentoStatus, dataNorm);
@@ -165,7 +156,7 @@ export async function aplicarDataPagamentoViagemNoRecebimento(
   return error?.message ?? null;
 }
 
-/** Sincroniza apenas viagens arquivadas sem registro de recebimento. */
+/** Sincroniza todas as viagens sem registro de recebimento. */
 export async function syncRecebimentosFaltantes(viagemIds?: string[]): Promise<void> {
   const supabase = createClient();
 
@@ -173,8 +164,7 @@ export async function syncRecebimentosFaltantes(viagemIds?: string[]): Promise<v
   if (!ids) {
     const { data: viagens } = await supabase
       .from("viagens")
-      .select("id")
-      .eq("status", "ARQUIVADO");
+      .select("id");
     ids = (viagens ?? []).map((v) => v.id);
   }
   if (!ids.length) return;
@@ -202,8 +192,7 @@ export async function refreshTodosRecebimentosArquivados(): Promise<void> {
   const supabase = createClient();
   const { data: viagens } = await supabase
     .from("viagens")
-    .select("id")
-    .eq("status", "ARQUIVADO");
+    .select("id");
 
   const ids = (viagens ?? []).map((v) => v.id);
   const lote = 8;
@@ -433,8 +422,7 @@ export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
       veiculos ( vinculo ),
       viagem_veiculos ( ordem, veiculos ( vinculo ) )
     `
-    )
-    .eq("status", "ARQUIVADO");
+    );
 
   const frotaPorViagem = new Map(
     (viagensArquivadas ?? []).map((v) => [

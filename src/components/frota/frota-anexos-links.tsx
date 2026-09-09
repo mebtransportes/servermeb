@@ -1,7 +1,7 @@
 "use client";
 
 import { AnexoArquivoRow } from "@/components/shared/anexo-arquivo-row";
-import type { CampoAnexoFrota } from "@/lib/anexos-crud";
+import type { CampoAnexoFrota, FrotaAnexo } from "@/lib/anexos-crud";
 
 export type AnexosInfo = {
   nota_fiscal_path?: string | null;
@@ -12,41 +12,88 @@ export type AnexosInfo = {
 
 export function FrotaAnexosLinks({
   anexos,
+  listaAnexos,
   onExcluir,
   excluindoCampo,
+  excluindoId,
 }: {
-  anexos: AnexosInfo;
+  anexos?: AnexosInfo;
+  listaAnexos?: FrotaAnexo[];
   onExcluir?: (campo: CampoAnexoFrota, path: string) => void | Promise<void>;
+  onExcluirMultiplo?: (anexo: FrotaAnexo) => void | Promise<void>;
   excluindoCampo?: CampoAnexoFrota | null;
+  excluindoId?: string | null;
 }) {
-  if (!anexos.nota_fiscal_path && !anexos.comprovante_path) return null;
+  const temLista = listaAnexos && listaAnexos.length > 0;
+  const temLegado =
+    anexos && (anexos.nota_fiscal_path || anexos.comprovante_path);
+
+  if (!temLista && !temLegado) return null;
+
+  const idsExibidos = new Set<string>();
+  const todos: { id: string; label: string; path: string; tipo: CampoAnexoFrota; legado: boolean }[] = [];
+
+  if (listaAnexos) {
+    for (const a of listaAnexos) {
+      if (idsExibidos.has(a.id)) continue;
+      idsExibidos.add(a.id);
+      todos.push({
+        id: a.id,
+        label: a.tipo === "nota_fiscal" ? `Nota fiscal · ${a.file_name}` : `Comprovante · ${a.file_name}`,
+        path: a.storage_path,
+        tipo: a.tipo,
+        legado: a.id.startsWith("legado-"),
+      });
+    }
+  }
+
+  if (anexos) {
+    if (anexos.nota_fiscal_path) {
+      const idLegado = "legado-nf-virtual";
+      if (!idsExibidos.has(idLegado)) {
+        idsExibidos.add(idLegado);
+        todos.push({
+          id: idLegado,
+          label: anexos.nota_fiscal_nome ?? "Nota fiscal",
+          path: anexos.nota_fiscal_path,
+          tipo: "nota_fiscal",
+          legado: true,
+        });
+      }
+    }
+    if (anexos.comprovante_path) {
+      const idLegado = "legado-comp-virtual";
+      if (!idsExibidos.has(idLegado)) {
+        idsExibidos.add(idLegado);
+        todos.push({
+          id: idLegado,
+          label: anexos.comprovante_nome ?? "Comprovante",
+          path: anexos.comprovante_path,
+          tipo: "comprovante",
+          legado: true,
+        });
+      }
+    }
+  }
 
   return (
     <div className="space-y-2">
-      {anexos.nota_fiscal_path && (
+      {todos.map((a) => (
         <AnexoArquivoRow
-          label={anexos.nota_fiscal_nome ?? "Nota fiscal"}
-          storagePath={anexos.nota_fiscal_path}
+          key={a.id}
+          label={a.label}
+          storagePath={a.path}
           onExcluir={
             onExcluir
-              ? () => onExcluir("nota_fiscal", anexos.nota_fiscal_path!)
+              ? () => onExcluir(a.tipo, a.path)
               : undefined
           }
-          excluindo={excluindoCampo === "nota_fiscal"}
-        />
-      )}
-      {anexos.comprovante_path && (
-        <AnexoArquivoRow
-          label={anexos.comprovante_nome ?? "Comprovante"}
-          storagePath={anexos.comprovante_path}
-          onExcluir={
-            onExcluir
-              ? () => onExcluir("comprovante", anexos.comprovante_path!)
-              : undefined
+          excluindo={
+            (a.legado && excluindoCampo === a.tipo) ||
+            (!a.legado && excluindoId === a.id)
           }
-          excluindo={excluindoCampo === "comprovante"}
         />
-      )}
+      ))}
     </div>
   );
 }
