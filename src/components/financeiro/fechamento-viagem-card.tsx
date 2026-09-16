@@ -12,7 +12,7 @@ import {
 } from "@/components/financeiro/fechamento-viagem-detalhe";
 import { gerarPdfFechamentoViagem } from "@/lib/fechamento-relatorio-pdf";
 import { useEffect, useState } from "react";
-import { parseBrNumber } from "@/lib/number-format";
+import { numberToBrInput, parseBrNumber } from "@/lib/number-format";
 import { atualizarFechamentoConfig, atualizarDataPagamentoTerceiro, fetchFechamentoPorId } from "@/lib/fechamento-data";
 import { syncFechamentoViagem } from "@/lib/fechamento-viagem";
 import { cn, mebCard, mebFormSubsection } from "@/lib/utils";
@@ -27,11 +27,13 @@ export function FechamentoViagemCard({
   f: ViagemFechamento;
   onUpdated: (atualizado: ViagemFechamento) => void;
 }) {
-  const [icmsPercent, setIcmsPercent] = useState(String(getIcmsPercent(f)));
+  const [icmsPercent, setIcmsPercent] = useState(numberToBrInput(getIcmsPercent(f), 2));
   const [comissaoTipo, setComissaoTipo] = useState<"PERCENTUAL" | "LIQUIDO_TOTAL">(
     (f.comissao_tipo ?? "PERCENTUAL") as "PERCENTUAL" | "LIQUIDO_TOTAL"
   );
-  const [comissaoPercent, setComissaoPercent] = useState(String(getComissaoPercent(f)));
+  const [comissaoPercent, setComissaoPercent] = useState(
+    numberToBrInput(getComissaoPercent(f), 2)
+  );
   const [dataPagamento, setDataPagamento] = useState(f.data_pagamento?.split("T")[0] ?? "");
   const [saving, setSaving] = useState(false);
   const [salvoMsg, setSalvoMsg] = useState(false);
@@ -39,9 +41,9 @@ export function FechamentoViagemCard({
   const isTerceiro = !!f.motorista_terceiro;
 
   useEffect(() => {
-    setIcmsPercent(String(getIcmsPercent(f)));
+    setIcmsPercent(numberToBrInput(getIcmsPercent(f), 2));
     setComissaoTipo((f.comissao_tipo ?? "PERCENTUAL") as "PERCENTUAL" | "LIQUIDO_TOTAL");
-    setComissaoPercent(String(getComissaoPercent(f)));
+    setComissaoPercent(numberToBrInput(getComissaoPercent(f), 2));
     setDataPagamento(f.data_pagamento?.split("T")[0] ?? "");
   }, [f]);
 

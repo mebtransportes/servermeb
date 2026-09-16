@@ -39,7 +39,7 @@ export function FechamentoTerceiroDetalhe({
   onOutrosAlterados?: () => void | Promise<void>;
 }) {
   const placa = extrairPlacaVeiculo(f.veiculo_label);
-  const icmsPct = getIcmsPercent(f);
+  const icmsPct = v.icms ?? getIcmsPercent(f);
 
   const categoriasExtras = despesasCategoriasTerceiro(f)
     .filter((c) => c.rotulo !== "Abastecimento")

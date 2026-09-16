@@ -45,7 +45,7 @@ export function FechamentoFrotaDetalhe({
   onOutrosAlterados?: () => void | Promise<void>;
 }) {
   const placa = extrairPlacaVeiculo(f.veiculo_label);
-  const icmsPct = getIcmsPercent(f);
+  const icmsPct = v.icms ?? getIcmsPercent(f);
   const comPct = getComissaoPercent(f);
 
   return (
