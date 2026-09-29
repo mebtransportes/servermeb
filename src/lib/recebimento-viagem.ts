@@ -407,6 +407,8 @@ export type RecebimentoComCanhotos = ViagemRecebimento & {
   encargos: ViagemRecebimentoEncargo[];
   eh_frota: boolean;
   saida_em: string | null;
+  local_saida: string | null;
+  fornecedores_locais: string[];
 };
 
 export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
@@ -418,9 +420,10 @@ export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
     .from("viagens")
     .select(
       `
-      id, numero_cte, valor_frete, saida_em,
+      id, numero_cte, valor_frete, saida_em, local_saida,
       veiculos ( vinculo ),
-      viagem_veiculos ( ordem, veiculos ( vinculo ) )
+      viagem_veiculos ( ordem, veiculos ( vinculo ) ),
+      viagem_fornecedores ( ordem, local_fornecedor )
     `
     );
 
@@ -442,6 +445,26 @@ export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
   );
   const freteBrutoPorViagem = new Map(
     (viagensArquivadas ?? []).map((v) => [v.id, Number(v.valor_frete) || 0])
+  );
+  const localSaidaPorViagem = new Map(
+    (viagensArquivadas ?? []).map((v) => [
+      v.id,
+      (v.local_saida as string | null) ?? null,
+    ])
+  );
+  const fornecedoresPorViagem = new Map(
+    (viagensArquivadas ?? []).map((v) => {
+      const lista = (
+        (v.viagem_fornecedores as
+          | { ordem: number; local_fornecedor: string | null }[]
+          | null) ?? []
+      )
+        .slice()
+        .sort((a, b) => a.ordem - b.ordem)
+        .map((f) => (f.local_fornecedor ?? "").trim())
+        .filter(Boolean);
+      return [v.id, lista];
+    })
   );
 
   const { data: recebimentosInicial, error } = await supabase
@@ -520,6 +543,8 @@ export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
       valor_diarias: Number(row.valor_diarias) || 0,
       numero_cte: ctePorViagem.get(r.viagem_id) ?? null,
       saida_em: saidaPorViagem.get(r.viagem_id) ?? null,
+      local_saida: localSaidaPorViagem.get(r.viagem_id) ?? null,
+      fornecedores_locais: fornecedoresPorViagem.get(r.viagem_id) ?? [],
       eh_frota: frotaPorViagem.get(r.viagem_id) ?? true,
       canhotos: canhotosPorViagem.get(r.viagem_id) ?? [],
       encargos: encargosPorRecebimento.get(r.id) ?? [],

@@ -20,6 +20,12 @@ import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { CadastroOpcaoAutocomplete } from "@/components/ui/cadastro-opcao-autocomplete";
+import {
+  fetchFornecedoresAcompanhamento,
+  viagemMatchFornecedorLocais,
+} from "@/lib/acompanhamento-data";
+import type { ParceiroSugestao } from "@/lib/parceiros";
 import { RecebimentoLinha } from "@/components/financeiro/recebimento-linha";
 import { RecebimentosRelatorioModal } from "@/components/financeiro/recebimentos-relatorio-modal";
 import { RecebimentosViagensRelatorioModal } from "@/components/financeiro/recebimentos-viagens-relatorio-modal";
@@ -43,10 +49,8 @@ import {
   type RecebimentoStatus,
 } from "@/types/recebimento";
 import { cn, mebCard, mebFormSection } from "@/lib/utils";
-import type { RecursoVinculo } from "@/types";
 
 type FiltroStatus = RecebimentoStatus | "sem_data" | "todos";
-type FiltroVinculo = "todos" | RecursoVinculo;
 type FiltroEncargoTipo = RecebimentoEncargoTipo | "todos";
 type FiltroEncargoStatus = RecebimentoEncargoStatus | "todos";
 
@@ -71,12 +75,6 @@ const STATUS_FILTROS: { value: FiltroStatus; label: string }[] = [
   { value: "vencido", label: "Vencidos" },
 ];
 
-const VINCULO_FILTROS: { value: FiltroVinculo; label: string }[] = [
-  { value: "todos", label: "Todos" },
-  { value: "frota", label: "Frota" },
-  { value: "terceiro", label: "Terceiros" },
-];
-
 const PERIODO_OPCOES: { value: PeriodoPreset; label: string }[] = [
   ...PERIODOS,
   { value: "custom", label: "Datas específicas" },
@@ -89,7 +87,7 @@ const PERIODO_SAIDA_INICIAL: PeriodoFiltroState = {
 };
 
 function filtrosRecebimentosAtivos(opts: {
-  filtroVinculo: FiltroVinculo;
+  filtroFornecedorId: string;
   filtroStatus: FiltroStatus;
   filtroEncargoTipo: FiltroEncargoTipo;
   filtroEncargoStatus: FiltroEncargoStatus;
@@ -98,7 +96,7 @@ function filtrosRecebimentosAtivos(opts: {
   buscaCte: string;
 }) {
   return (
-    opts.filtroVinculo !== "todos" ||
+    opts.filtroFornecedorId !== "" ||
     opts.filtroStatus !== "todos" ||
     opts.filtroEncargoTipo !== "todos" ||
     opts.filtroEncargoStatus !== "todos" ||
@@ -137,10 +135,12 @@ function saidaNoPeriodo(
   return dataNoPeriodoConfig(dataRef, periodo);
 }
 
-function matchVinculo(item: RecebimentoComCanhotos, filtro: FiltroVinculo): boolean {
-  if (filtro === "todos") return true;
-  if (filtro === "frota") return item.eh_frota;
-  return !item.eh_frota;
+function matchFornecedor(
+  item: RecebimentoComCanhotos,
+  fornecedor: ParceiroSugestao | undefined
+): boolean {
+  if (!fornecedor) return true;
+  return viagemMatchFornecedorLocais(item.fornecedores_locais, item.local_saida, fornecedor);
 }
 
 function matchEncargoFiltros(
@@ -171,7 +171,8 @@ function recebimentoSemDataRecebimento(item: RecebimentoComCanhotos): boolean {
 export function RecebimentosPageContent() {
   const [itens, setItens] = useState<RecebimentoComCanhotos[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filtroVinculo, setFiltroVinculo] = useState<FiltroVinculo>("todos");
+  const [fornecedores, setFornecedores] = useState<ParceiroSugestao[]>([]);
+  const [filtroFornecedorId, setFiltroFornecedorId] = useState("");
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("todos");
   const [filtroEncargoTipo, setFiltroEncargoTipo] = useState<FiltroEncargoTipo>("todos");
   const [filtroEncargoStatus, setFiltroEncargoStatus] = useState<FiltroEncargoStatus>("todos");
@@ -233,17 +234,26 @@ export function RecebimentosPageContent() {
     load();
   }, [load]);
 
-  const porVinculo = useMemo(
-    () => itens.filter((i) => matchVinculo(i, filtroVinculo)),
-    [itens, filtroVinculo]
+  useEffect(() => {
+    fetchFornecedoresAcompanhamento().then(setFornecedores);
+  }, []);
+
+  const fornecedorSelecionado = useMemo(
+    () => fornecedores.find((f) => f.id === filtroFornecedorId),
+    [fornecedores, filtroFornecedorId]
+  );
+
+  const porFornecedor = useMemo(
+    () => itens.filter((i) => matchFornecedor(i, fornecedorSelecionado)),
+    [itens, fornecedorSelecionado]
   );
 
   const noPeriodo = useMemo(
     () =>
-      porVinculo.filter(
+      porFornecedor.filter(
         (i) => recebimentoNoPeriodo(i, periodo) && saidaNoPeriodo(i, periodoSaida)
       ),
-    [porVinculo, periodo, periodoSaida]
+    [porFornecedor, periodo, periodoSaida]
   );
 
   const filtrados = useMemo(() => {
@@ -282,8 +292,6 @@ export function RecebimentosPageContent() {
     return { pendente, pago, vencido, semData, total: pendente + pago + vencido };
   }, [noPeriodo]);
 
-  const vinculoLabel = VINCULO_FILTROS.find((v) => v.value === filtroVinculo)?.label ?? "Todos";
-
   const totalListado = useMemo(
     () => filtrados.reduce((s, i) => s + calcularTotalAReceber(i), 0),
     [filtrados]
@@ -293,7 +301,7 @@ export function RecebimentosPageContent() {
     filtroEncargoTipo !== "todos" || filtroEncargoStatus !== "todos";
 
   const temFiltrosAtivos = filtrosRecebimentosAtivos({
-    filtroVinculo,
+    filtroFornecedorId,
     filtroStatus,
     filtroEncargoTipo,
     filtroEncargoStatus,
@@ -303,7 +311,7 @@ export function RecebimentosPageContent() {
   });
 
   const chipsFiltro: string[] = [];
-  if (filtroVinculo !== "todos") chipsFiltro.push(vinculoLabel);
+  if (fornecedorSelecionado) chipsFiltro.push(`Fornecedor: ${fornecedorSelecionado.nome}`);
   if (filtroStatus !== "todos") {
     chipsFiltro.push(
       filtroStatus === "sem_data"
@@ -324,7 +332,7 @@ export function RecebimentosPageContent() {
   }
 
   function limparFiltros() {
-    setFiltroVinculo("todos");
+    setFiltroFornecedorId("");
     setFiltroStatus("todos");
     setFiltroEncargoTipo("todos");
     setFiltroEncargoStatus("todos");
@@ -525,12 +533,14 @@ export function RecebimentosPageContent() {
             onChange={(e) => alterarPeriodoSaida(e.target.value as PeriodoPreset)}
             options={PERIODO_OPCOES.map((p) => ({ value: p.value, label: p.label }))}
           />
-          <Select
-            label="Vínculo"
-            tone="light"
-            value={filtroVinculo}
-            onChange={(e) => setFiltroVinculo(e.target.value as FiltroVinculo)}
-            options={VINCULO_FILTROS.map((v) => ({ value: v.value, label: v.label }))}
+          <CadastroOpcaoAutocomplete
+            label="Fornecedor"
+            options={fornecedores.map((f) => ({ value: f.id, label: f.nome }))}
+            value={filtroFornecedorId}
+            onValueChange={setFiltroFornecedorId}
+            minChars={2}
+            opcional
+            placeholder="Todos — digite o nome (mín. 2 letras)"
           />
           <Select
             label="Status do pagamento"
@@ -675,7 +685,7 @@ export function RecebimentosPageContent() {
         <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-8 text-center">
           <p className="text-slate-500">
             Nenhum recebimento encontrado
-            {filtroVinculo !== "todos" && <> para {vinculoLabel.toLowerCase()}</>}.
+            {fornecedorSelecionado && <> para {fornecedorSelecionado.nome}</>}.
           </p>
         </div>
       ) : (
@@ -687,7 +697,7 @@ export function RecebimentosPageContent() {
       )}
 
       <RecebimentosRelatorioModal
-        itens={porVinculo}
+        itens={porFornecedor}
         open={showRelatorio}
         onClose={() => setShowRelatorio(false)}
         modo={modoRelatorio}
