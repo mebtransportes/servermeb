@@ -27,6 +27,7 @@ export const ACOMPANHAMENTO_RELATORIO_COLUNAS = [
   { key: "origem", label: "Origem" },
   { key: "destino", label: "Destino" },
   { key: "cliente", label: "Cliente" },
+  { key: "tomador_servico", label: "Tomador de serviço" },
   { key: "valor_frete", label: "Valor do frete" },
   { key: "frete_livre_icms", label: "Frete livre de encargos (ICMS)" },
   { key: "data_pagamento", label: "Data de pagamento" },
@@ -63,6 +64,7 @@ type LinhaRelatorio = {
   origem: string;
   destino: string;
   cliente: string;
+  tomador_servico: string;
   valor_frete: string;
   frete_livre_icms: string;
   data_pagamento: string;
@@ -172,7 +174,7 @@ export async function enriquecerLinhasRelatorioAcompanhamento(
     await Promise.all([
       supabase
         .from("viagens")
-        .select("id, data_pagamento, data_pagamento_terceiro")
+        .select("id, data_pagamento, data_pagamento_terceiro, tomador_servico")
         .in("id", ids),
       supabase
         .from("viagem_fechamentos")
@@ -204,6 +206,12 @@ export async function enriquecerLinhasRelatorioAcompanhamento(
       p.id as string,
       normalizarDataPagamento(p.data_pagamento as string | null) ??
         normalizarDataPagamento(p.data_pagamento_terceiro as string | null),
+    ])
+  );
+  const tomadorPorViagem = new Map(
+    (pagamentos ?? []).map((p) => [
+      p.id as string,
+      (p.tomador_servico as string | null)?.trim() || null,
     ])
   );
   const fechPorViagem = new Map(
@@ -265,6 +273,7 @@ export async function enriquecerLinhasRelatorioAcompanhamento(
       origem: labelOrigem(v, fornecedoresCadastro),
       destino: labelDestino(v),
       cliente: labelCliente(v),
+      tomador_servico: tomadorPorViagem.get(v.id) ?? "—",
       valor_frete: formatarMoedaOuTraco(frete),
       frete_livre_icms: formatarMoedaOuTraco(freteLivre),
       data_pagamento: dataPag ? formatarDataBr(dataPag) : "—",

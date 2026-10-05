@@ -118,6 +118,8 @@ export function ViagemForm({
   const [valorFrete, setValorFrete] = useState("");
   const [dataPagamentoTerceiro, setDataPagamentoTerceiro] = useState("");
   const [numeroCte, setNumeroCte] = useState("");
+  const [possuiTomador, setPossuiTomador] = useState(false);
+  const [tomadorServico, setTomadorServico] = useState("");
   const [descMercadoria, setDescMercadoria] = useState("");
   const [tanqueVeiculo, setTanqueVeiculo] = useState<LitrosTanqueVeiculo | null>(null);
   const [ultimoKmVeiculo, setUltimoKmVeiculo] = useState<UltimoKmVeiculo | null>(null);
@@ -195,6 +197,8 @@ export function ViagemForm({
     setValorFrete(rawNumberStringToBrInput(viagem.valor_frete, 2));
     setDataPagamentoTerceiro(resolverDataPagamentoTerceiro(viagem) ?? "");
     setNumeroCte(viagem.numero_cte ?? "");
+    setPossuiTomador(!!viagem.tomador_servico?.trim());
+    setTomadorServico(viagem.tomador_servico ?? "");
     setDescMercadoria(viagem.descricao_mercadoria ?? "");
     setUploadsMultiplos(criarUploadsMultiplosVazios());
   }, [viagem]);
@@ -420,6 +424,7 @@ export function ViagemForm({
             ? dataPagamentoTerceiro.trim() || null
             : null,
         numero_cte: numeroCte.trim() || null,
+        tomador_servico: possuiTomador ? tomadorServico.trim() || null : null,
         descricao_mercadoria: descMercadoria || null,
         km_odometro_inicial: kmInicial,
         motorista_apto: true,
@@ -833,6 +838,27 @@ export function ViagemForm({
               onChange={(e) => setNumeroCte(e.target.value)}
               placeholder="Ex: 123456789"
             />
+          </div>
+
+          <div className="space-y-3">
+            <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
+              <input
+                type="checkbox"
+                checked={possuiTomador}
+                onChange={(e) => setPossuiTomador(e.target.checked)}
+                className="rounded border-slate-300"
+              />
+              Possui tomador?
+            </label>
+            {possuiTomador && (
+              <Input
+                label="Tomador de serviço"
+                value={tomadorServico}
+                onChange={(e) => setTomadorServico(e.target.value)}
+                placeholder="Nome do tomador de serviço"
+                required
+              />
+            )}
           </div>
 
           <div className="space-y-2">

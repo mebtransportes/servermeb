@@ -100,6 +100,7 @@ export interface Viagem {
   valor_frete?: number | null;
   data_pagamento_terceiro?: string | null;
   numero_cte?: string | null;
+  tomador_servico?: string | null;
   descricao_mercadoria?: string | null;
   km_total?: number | null;
   km_odometro_inicial?: number | null;
