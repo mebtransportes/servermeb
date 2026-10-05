@@ -262,7 +262,9 @@ export function RecebimentosPageContent() {
       lista =
         filtroStatus === "sem_data"
           ? lista.filter(recebimentoSemDataRecebimento)
-          : lista.filter((i) => i.status === filtroStatus);
+          : filtroStatus === "pendente"
+            ? lista.filter((i) => i.status === "pendente" && !recebimentoSemDataRecebimento(i))
+            : lista.filter((i) => i.status === filtroStatus);
     }
     if (filtroEncargoTipo !== "todos" || filtroEncargoStatus !== "todos") {
       lista = lista.filter((i) =>
@@ -282,12 +284,13 @@ export function RecebimentosPageContent() {
     let semData = 0;
     for (const i of noPeriodo) {
       const t = calcularTotalAReceber(i);
-      if (recebimentoSemDataRecebimento(i)) {
+      const semDataReceb = recebimentoSemDataRecebimento(i);
+      if (semDataReceb) {
         semData += Number(i.valor_frete_total) || 0;
       }
       if (i.status === "pago") pago += t;
       else if (i.status === "vencido") vencido += t;
-      else pendente += t;
+      else if (!semDataReceb) pendente += t;
     }
     return { pendente, pago, vencido, semData, total: pendente + pago + vencido };
   }, [noPeriodo]);
