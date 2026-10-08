@@ -324,6 +324,12 @@ export function RecebimentoLinha({
           <p className="truncate text-sm text-slate-600" title={item.empresa}>
             {item.empresa || "—"}
           </p>
+          {item.tomador_servico && (
+            <p className="truncate text-sm text-slate-600" title={item.tomador_servico}>
+              <span className="font-medium text-slate-700">Tomador:</span>{" "}
+              {item.tomador_servico}
+            </p>
+          )}
         </div>
       </div>
 

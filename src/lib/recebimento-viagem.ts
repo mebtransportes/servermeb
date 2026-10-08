@@ -409,6 +409,7 @@ export type RecebimentoComCanhotos = ViagemRecebimento & {
   saida_em: string | null;
   local_saida: string | null;
   fornecedores_locais: string[];
+  tomador_servico: string | null;
 };
 
 export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
@@ -420,7 +421,7 @@ export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
     .from("viagens")
     .select(
       `
-      id, numero_cte, valor_frete, saida_em, local_saida,
+      id, numero_cte, valor_frete, saida_em, local_saida, tomador_servico,
       veiculos ( vinculo ),
       viagem_veiculos ( ordem, veiculos ( vinculo ) ),
       viagem_fornecedores ( ordem, local_fornecedor )
@@ -450,6 +451,12 @@ export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
     (viagensArquivadas ?? []).map((v) => [
       v.id,
       (v.local_saida as string | null) ?? null,
+    ])
+  );
+  const tomadorPorViagem = new Map(
+    (viagensArquivadas ?? []).map((v) => [
+      v.id,
+      (v.tomador_servico as string | null)?.trim() || null,
     ])
   );
   const fornecedoresPorViagem = new Map(
@@ -545,6 +552,7 @@ export async function fetchRecebimentos(): Promise<RecebimentoComCanhotos[]> {
       saida_em: saidaPorViagem.get(r.viagem_id) ?? null,
       local_saida: localSaidaPorViagem.get(r.viagem_id) ?? null,
       fornecedores_locais: fornecedoresPorViagem.get(r.viagem_id) ?? [],
+      tomador_servico: tomadorPorViagem.get(r.viagem_id) ?? null,
       eh_frota: frotaPorViagem.get(r.viagem_id) ?? true,
       canhotos: canhotosPorViagem.get(r.viagem_id) ?? [],
       encargos: encargosPorRecebimento.get(r.id) ?? [],
